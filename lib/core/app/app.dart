@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'core/routing/app_router.dart';
-import 'core/theme/app_theme.dart';
-import 'core/theme/theme_controller.dart';
+import '../routing/app_router.dart';
+import '../theme/app_theme.dart';
+import '../theme/theme_controller.dart';
 
 class EleagueHubApp extends ConsumerWidget {
   const EleagueHubApp({super.key});
@@ -21,7 +21,6 @@ class EleagueHubApp extends ConsumerWidget {
       darkTheme: AppTheme.navyTheme(),
       routerConfig: router,
       builder: (context, child) {
-        // Respect system text scaling; also prevent extreme scale from breaking UI.
         final mq = MediaQuery.of(context);
         final clampedScale = mq.textScaler.clamp(
           minScaleFactor: 0.9,
