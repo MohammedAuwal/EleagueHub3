@@ -1,10 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../persistence/preferences_service.dart';
-
-final themeControllerProvider =
-    NotifierProvider<ThemeController, ThemeState>(ThemeController.new);
+import '../persistence/prefs_service.dart';
 
 class ThemeState {
   const ThemeState({required this.mode});
@@ -13,26 +9,34 @@ class ThemeState {
   ThemeState copyWith({ThemeMode? mode}) => ThemeState(mode: mode ?? this.mode);
 }
 
+// Fixed the provider definition to match the new Notifier syntax
+final themeControllerProvider = NotifierProvider<ThemeController, ThemeState>(ThemeController.new);
+
 class ThemeController extends Notifier<ThemeState> {
-  ThemeController({required PreferencesService prefs, required ThemeMode initial})
-      : _prefs = prefs,
-        _initial = initial;
-
-  final PreferencesService _prefs;
-  final ThemeMode _initial;
-
+  // REMOVED: Custom constructor. Notifiers use an empty constructor.
+  
   @override
   ThemeState build() {
-    return ThemeState(mode: _initial);
+    // Access dependencies directly via 'ref'
+    final prefs = ref.watch(prefsServiceProvider);
+    
+    // Initialize state synchronously using the saved value
+    final savedMode = prefs.getThemeMode();
+    final initialMode = switch (savedMode) {
+      'dark' => ThemeMode.dark,
+      'light' => ThemeMode.light,
+      _ => ThemeMode.system,
+    };
+
+    return ThemeState(mode: initialMode);
   }
 
-  Future<void> setMode(ThemeMode mode) async {
+  Future<void> setThemeMode(ThemeMode mode) async {
     state = state.copyWith(mode: mode);
-    await _prefs.saveThemeMode(mode);
+    await ref.read(prefsServiceProvider).setThemeMode(mode.name);
   }
 
   Future<void> toggleLightDark(BuildContext context) async {
-    // Toggle between light and dark, respecting current effective brightness
     final effectiveBrightness = switch (state.mode) {
       ThemeMode.system => MediaQuery.platformBrightnessOf(context),
       ThemeMode.light => Brightness.light,
@@ -42,6 +46,7 @@ class ThemeController extends Notifier<ThemeState> {
     final next = effectiveBrightness == Brightness.dark
         ? ThemeMode.light
         : ThemeMode.dark;
-    await setMode(next);
+    
+    await setThemeMode(next);
   }
 }
