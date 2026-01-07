@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/persistence/preferences_service.dart';
+import '../../../core/persistence/prefs_service.dart';
 import '../../../core/theme/theme_controller.dart';
 import '../../../core/widgets/glass.dart';
 import '../../../core/widgets/glass_scaffold.dart';
@@ -15,7 +15,6 @@ class SettingsScreen extends ConsumerStatefulWidget {
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _loading = true;
-
   bool _enabled = true;
   bool _marketing = false;
   bool _matchReminders = true;
@@ -27,7 +26,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _load() async {
-    final prefs = ref.read(preferencesServiceProvider);
+    final prefs = ref.read(prefsServiceProvider);
+    // Standardizing to the helper method we'll add to PrefsService
     final map = await prefs.loadNotificationPrefs();
     if (!mounted) return;
     setState(() {
@@ -39,7 +39,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _save() async {
-    final prefs = ref.read(preferencesServiceProvider);
+    final prefs = ref.read(prefsServiceProvider);
     await prefs.saveNotificationPrefs(
       enabled: _enabled,
       marketing: _marketing,
@@ -49,10 +49,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final themeMode = ref.watch(themeControllerProvider).mode;
+    final themeState = ref.watch(themeControllerProvider);
 
     return GlassScaffold(
-      appBar: AppBar(title: const Text('Settings')),
+      appBar: AppBar(title: const Text('Settings'), backgroundColor: Colors.transparent, elevation: 0),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
         children: [
@@ -74,11 +74,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ButtonSegment(value: ThemeMode.light, label: Text('Sky Blue')),
                     ButtonSegment(value: ThemeMode.dark, label: Text('Deep Navy')),
                   ],
-                  selected: {themeMode},
+                  selected: {themeState.mode},
                   onSelectionChanged: (s) async {
                     await ref
                         .read(themeControllerProvider.notifier)
-                        .setMode(s.first);
+                        .setThemeMode(s.first);
                   },
                 ),
                 const SizedBox(height: 10),

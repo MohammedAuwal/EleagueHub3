@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-final preferencesServiceProvider = Provider<PreferencesService>((ref) {
+final prefsServiceProvider = Provider<PreferencesService>((ref) {
   throw UnimplementedError('PreferencesService must be overridden in main().');
 });
 
@@ -11,7 +11,7 @@ class PreferencesService {
 
   final SharedPreferences _sp;
 
-  static const _kThemeMode = 'theme_mode'; // system | light | dark
+  static const _kThemeMode = 'theme_mode';
   static const _kNotificationsEnabled = 'notifications_enabled';
   static const _kMarketingEnabled = 'notifications_marketing';
   static const _kMatchRemindersEnabled = 'notifications_match_reminders';
@@ -21,26 +21,12 @@ class PreferencesService {
     return PreferencesService._(sp);
   }
 
-  Future<ThemeMode> loadThemeMode() async {
-    final raw = _sp.getString(_kThemeMode);
-    switch (raw) {
-      case 'light':
-        return ThemeMode.light;
-      case 'dark':
-        return ThemeMode.dark;
-      case 'system':
-      default:
-        return ThemeMode.system;
-    }
-  }
+  // Method renamed to getThemeMode for ThemeController compatibility
+  String? getThemeMode() => _sp.getString(_kThemeMode);
 
-  Future<void> saveThemeMode(ThemeMode mode) async {
-    final raw = switch (mode) {
-      ThemeMode.light => 'light',
-      ThemeMode.dark => 'dark',
-      ThemeMode.system => 'system',
-    };
-    await _sp.setString(_kThemeMode, raw);
+  // Method renamed to setThemeMode for ThemeController compatibility
+  Future<void> setThemeMode(String mode) async {
+    await _sp.setString(_kThemeMode, mode);
   }
 
   Future<Map<String, bool>> loadNotificationPrefs() async {

@@ -148,8 +148,8 @@ class _LeaguesListScreenState extends State<LeaguesListScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(999),
-        color: c.withValues(alpha: 0.12),
-        border: Border.all(color: c.withValues(alpha: 0.22)),
+        color: c.withOpacity(0.12),
+        border: Border.all(color: c.withOpacity(0.22)
       ),
       child: Text(
         text,
@@ -221,8 +221,8 @@ class _LeagueAvatar extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         gradient: LinearGradient(
           colors: [
-            c.withValues(alpha: 0.85),
-            c.withValues(alpha: 0.35),
+            c.withOpacity(0.85),
+            c.withOpacity(0.35),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
