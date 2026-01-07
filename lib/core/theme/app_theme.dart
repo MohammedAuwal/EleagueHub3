@@ -18,4 +18,17 @@ class AppTheme {
       scaffoldBackgroundColor: const Color(0xFF0A0E21),
     );
   }
+
+  // Added missing members
+  static Color statusColor(String status, Brightness brightness) {
+    if (status == 'live') return Colors.red;
+    if (status == 'finished') return Colors.grey;
+    return brightness == Brightness.light ? Colors.blue : Colors.blueAccent;
+  }
+
+  static List<Color> bubblePalette(Brightness brightness) {
+    return brightness == Brightness.light 
+      ? [Colors.blue.withOpacity(0.3), Colors.lightBlue.withOpacity(0.2)]
+      : [Colors.indigo.withOpacity(0.4), Colors.blueGrey.withOpacity(0.3)];
+  }
 }

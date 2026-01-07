@@ -14,10 +14,9 @@ final themeControllerProvider = NotifierProvider<ThemeController, ThemeState>(Th
 class ThemeController extends Notifier<ThemeState> {
   @override
   ThemeState build() {
-    // ref.watch now works because we imported prefs_service.dart
     final prefs = ref.watch(prefsServiceProvider);
-    
     final savedMode = prefs.getThemeMode();
+    
     final initialMode = switch (savedMode) {
       'dark' => ThemeMode.dark,
       'light' => ThemeMode.light,

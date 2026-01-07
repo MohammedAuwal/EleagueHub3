@@ -4,6 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/routing/app_router.dart';
 import '../../../core/widgets/glass.dart';
 
+// Mock provider if not already defined elsewhere
+final authStateProvider = StateProvider<bool>((ref) => true);
+
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
@@ -12,6 +15,7 @@ class ProfileScreen extends ConsumerWidget {
     final t = Theme.of(context).textTheme;
 
     return ListView(
+      padding: const EdgeInsets.all(16),
       children: [
         Glass(
           child: Row(
@@ -77,9 +81,10 @@ class _Stat extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
-        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.10),
+        // Changed withValues to withOpacity
+        color: Theme.of(context).colorScheme.primary.withOpacity(0.10),
         border: Border.all(
-          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.18),
+          color: Theme.of(context).colorScheme.primary.withOpacity(0.18),
         ),
       ),
       child: Column(

@@ -21,34 +21,19 @@ class _StandingsTableState extends State<StandingsTable> {
     int cmp(StandingRow a, StandingRow b) {
       int v;
       switch (_sortCol) {
-        case 0:
-          v = a.team.compareTo(b.team);
-          break;
-        case 1:
-          v = a.played.compareTo(b.played);
-          break;
-        case 2:
-          v = a.wins.compareTo(b.wins);
-          break;
-        case 3:
-          v = a.draws.compareTo(b.draws);
-          break;
-        case 4:
-          v = a.losses.compareTo(b.losses);
-          break;
-        case 5:
-          v = a.gd.compareTo(b.gd);
-          break;
-        case 6:
-          v = a.gf.compareTo(b.gf);
-          break;
+        case 0: v = a.team.compareTo(b.team); break;
+        case 1: v = a.played.compareTo(b.played); break;
+        case 2: v = a.wins.compareTo(b.wins); break;
+        case 3: v = a.draws.compareTo(b.draws); break;
+        case 4: v = a.losses.compareTo(b.losses); break;
+        case 5: v = a.gd.compareTo(b.gd); break;
+        case 6: v = a.gf.compareTo(b.gf); break;
         case 7:
         default:
           v = a.points.compareTo(b.points);
       }
       return _asc ? v : -v;
     }
-
     rows.sort(cmp);
     return rows;
   }
@@ -97,14 +82,16 @@ class _StandingsTableState extends State<StandingsTable> {
 
   DataRow _row(BuildContext context, int i, StandingRow r) {
     final primary = Theme.of(context).colorScheme.primary;
+    // Changed withValues to withOpacity
     final zoneColor = i < 2
-        ? Colors.green.withValues(alpha: 0.12)
+        ? Colors.green.withOpacity(0.12)
         : i < 4
-            ? primary.withValues(alpha: 0.10)
+            ? primary.withOpacity(0.10)
             : Colors.transparent;
 
     return DataRow(
-      color: WidgetStatePropertyAll(zoneColor),
+      // Changed WidgetStatePropertyAll to MaterialStatePropertyAll
+      color: MaterialStatePropertyAll(zoneColor),
       cells: [
         DataCell(Text(r.team, style: const TextStyle(fontWeight: FontWeight.w700))),
         DataCell(Text('${r.played}')),
