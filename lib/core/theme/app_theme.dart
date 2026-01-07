@@ -1,29 +1,66 @@
 import 'package:flutter/material.dart';
 
 class AppTheme {
-  static ThemeData skyTheme() => ThemeData(
-    useMaterial3: true,
-    brightness: Brightness.light,
-    colorSchemeSeed: Colors.blue,
-  );
+  // Deep Navy background base
+  static const Color navyBg = Color(0xFF0A1D37);
+  static const Color navyAccent = Color(0xFF00D4FF);
 
-  static ThemeData navyTheme() => ThemeData(
-    useMaterial3: true,
-    brightness: Brightness.dark,
-    colorSchemeSeed: Colors.indigo,
-  );
+  // Sky theme gradient
+  static const Color skyTop = Color(0xFF40C4FF);
+  static const Color skyBottom = Color(0xFF81D4FA);
 
-  static Color glassFill(Brightness b) => b == Brightness.light 
-      ? Colors.white.withOpacity(0.2) 
-      : Colors.black.withOpacity(0.2);
+  // Aliases for compatibility with your existing App widget
+  static ThemeData skyTheme() => light();
+  static ThemeData navyTheme() => dark();
 
-  static Color glassStroke(Brightness b) => b == Brightness.light 
-      ? Colors.white.withOpacity(0.3) 
-      : Colors.white.withOpacity(0.1);
+  static ThemeData light() {
+    return ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.light,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: skyTop,
+        brightness: Brightness.light,
+      ),
+      scaffoldBackgroundColor: Colors.white,
+    );
+  }
 
-  static Gradient backgroundGradient(Brightness b) => LinearGradient(
-    colors: b == Brightness.light 
-      ? [Colors.blue.shade50, Colors.white] 
-      : [Colors.black, Colors.indigo.shade900],
-  );
+  static ThemeData dark() {
+    return ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.dark,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: navyAccent,
+        brightness: Brightness.dark,
+      ),
+      scaffoldBackgroundColor: navyBg,
+    );
+  }
+
+  static Color glassFill(Brightness b) {
+    return (b == Brightness.dark)
+        ? const Color(0x1AFFFFFF) 
+        : const Color(0x26FFFFFF);
+  }
+
+  static Color glassStroke(Brightness b) {
+    return (b == Brightness.dark)
+        ? const Color(0x2EFFFFFF)
+        : const Color(0x33FFFFFF);
+  }
+
+  static Gradient backgroundGradient(Brightness b) {
+    if (b == Brightness.dark) {
+      return const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [navyBg, Color(0xFF07162A)],
+      );
+    }
+    return const LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [skyTop, skyBottom],
+    );
+  }
 }
