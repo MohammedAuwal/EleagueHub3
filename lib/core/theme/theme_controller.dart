@@ -9,18 +9,14 @@ class ThemeState {
   ThemeState copyWith({ThemeMode? mode}) => ThemeState(mode: mode ?? this.mode);
 }
 
-// Fixed the provider definition to match the new Notifier syntax
 final themeControllerProvider = NotifierProvider<ThemeController, ThemeState>(ThemeController.new);
 
 class ThemeController extends Notifier<ThemeState> {
-  // REMOVED: Custom constructor. Notifiers use an empty constructor.
-  
   @override
   ThemeState build() {
-    // Access dependencies directly via 'ref'
+    // ref.watch now works because we imported prefs_service.dart
     final prefs = ref.watch(prefsServiceProvider);
     
-    // Initialize state synchronously using the saved value
     final savedMode = prefs.getThemeMode();
     final initialMode = switch (savedMode) {
       'dark' => ThemeMode.dark,
