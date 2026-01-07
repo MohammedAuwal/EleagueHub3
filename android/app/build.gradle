@@ -1,0 +1,72 @@
+plugins {
+    id "com.android.application"
+    id "org.jetbrains.kotlin.android"
+}
+
+import java.util.Properties
+
+def localProps = new Properties()
+def localPropsFile = rootProject.file("local.properties")
+if (localPropsFile.exists()) {
+    localPropsFile.withReader("UTF-8") { reader -> localProps.load(reader) }
+}
+
+def flutterSdkPath = localProps.getProperty("flutter.sdk")
+if (flutterSdkPath == null) {
+    // In CI with flutter-action, local.properties may not exist.
+}
+
+android {
+    namespace "com.eleaguehub.app"
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "com.eleaguehub.app"
+        minSdk 23
+        targetSdk 35
+        versionCode 1
+        versionName "0.1.0"
+        multiDexEnabled true
+    }
+
+    signingConfigs {
+        release {
+            def keyPropsFile = rootProject.file("key.properties")
+            if (keyPropsFile.exists()) {
+                def keyProps = new Properties()
+                keyPropsFile.withInputStream { keyProps.load(it) }
+                storeFile file(keyProps["storeFile"])
+                storePassword keyProps["storePassword"]
+                keyAlias keyProps["keyAlias"]
+                keyPassword keyProps["keyPassword"]
+            }
+        }
+    }
+
+    buildTypes {
+        debug {
+            // debug uses default debug keystore
+        }
+        release {
+            def keyPropsFile = rootProject.file("key.properties")
+            if (keyPropsFile.exists()) {
+                signingConfig signingConfigs.release
+            }
+            minifyEnabled false
+            shrinkResources false
+            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+}
+
+dependencies {
+    implementation "org.jetbrains.kotlin:kotlin-stdlib:1.9.24"
+}

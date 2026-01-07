@@ -1,28 +1,42 @@
+import 'package:eleaguehub/core/app/app.dart';
+import 'package:eleaguehub/core/persistence/prefs_service.dart';
+import 'package:eleaguehub/core/theme/theme_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import 'app.dart';
-import 'core/persistence/preferences_service.dart';
-import 'core/theme/theme_controller.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  final prefs = await PreferencesService.create();
-  final initialThemeMode = await prefs.loadThemeMode();
-
+  final prefs = await PrefsService.create();
   runApp(
     ProviderScope(
       overrides: [
-        preferencesServiceProvider.overrideWithValue(prefs),
-        themeControllerProvider.overrideWith(
-          (ref) => ThemeController(
-            prefs: ref.read(preferencesServiceProvider),
-            initial: initialThemeMode,
-          ),
-        ),
+        prefsServiceProvider.overrideWithValue(prefs),
       ],
-      child: const EleagueHubApp(),
+      child: const EleagueHubAppBootstrap(),
     ),
   );
+}
+
+class EleagueHubAppBootstrap extends ConsumerStatefulWidget {
+  const EleagueHubAppBootstrap({super.key});
+
+  @override
+  ConsumerState<EleagueHubAppBootstrap> createState() =>
+      _EleagueHubAppBootstrapState();
+}
+
+class _EleagueHubAppBootstrapState
+    extends ConsumerState<EleagueHubAppBootstrap> {
+  @override
+  void initState() {
+    super.initState();
+    // Initialize theme from persisted value or system brightness.
+    Future.microtask(() => ref.read(themeControllerProvider.notifier).init());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return const EleagueHubApp();
+  }
 }
