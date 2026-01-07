@@ -94,7 +94,7 @@ class _LeagueDetailScreenState extends State<LeagueDetailScreen>
           ),
           const SizedBox(height: 12),
           SizedBox(
-            height: 760,
+            height: 760, // Fixed height for TabBarView inside ListView
             child: TabBarView(
               controller: _tabs,
               children: [
@@ -119,8 +119,9 @@ class _LeagueDetailScreenState extends State<LeagueDetailScreen>
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(999),
-        color: c.withValues(alpha: 0.12),
-        border: Border.all(color: c.withValues(alpha: 0.22)),
+        // CAUTION: Swapped withValues for withOpacity for 3.19 compatibility
+        color: c.withOpacity(0.12),
+        border: Border.all(color: c.withOpacity(0.22)),
       ),
       child: Text(
         text,
