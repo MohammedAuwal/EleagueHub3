@@ -5,31 +5,29 @@ import 'package:eleaguehub/core/app/app.dart';
 
 void main() {
   testWidgets('App starts at login and can navigate to leagues', (tester) async {
-    // 1. Load the app
     await tester.pumpWidget(const ProviderScope(child: EleagueHubApp()));
-
-    // 2. Wait for the Login screen to settle
+    
+    // Wait for GoRouter to load the initial route
     await tester.pumpAndSettle();
 
-    // 3. Verify we are at Login and tap 'Continue' to enter the app
-    expect(find.textContaining('Mock auth'), findsOneWidget);
-    await tester.tap(find.text('Continue'));
-
-    // 4. Settle the transition to Home
-    await tester.pumpAndSettle();
-
-    // 5. Verify we are on Home (HomeShell shows the title)
+    // Verify Login Screen by looking for the Title and the Button
     expect(find.text('EleagueHub'), findsWidgets);
-
-    // 6. Navigate to Leagues tab
-    final leaguesButton = find.text('Leagues');
-    expect(leaguesButton, findsWidgets);
-    await tester.tap(leaguesButton.first);
-
-    // 7. Settle the navigation to the Leagues screen
+    expect(find.text('Continue'), findsOneWidget);
+    
+    // Tap Continue
+    await tester.tap(find.text('Continue'));
+    
+    // Settle transition to Home
     await tester.pumpAndSettle();
 
-    // 8. Verify we are on the Leagues screen
+    // Verify Home reached (NavigationBar should be present)
+    expect(find.byType(NavigationBar), findsOneWidget);
+
+    // Navigate to Leagues
+    await tester.tap(find.text('Leagues'));
+    await tester.pumpAndSettle();
+
+    // Verify Leagues screen (Search for the trophy icon)
     expect(find.byIcon(Icons.emoji_events), findsWidgets);
   });
 }
