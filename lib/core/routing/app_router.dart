@@ -21,7 +21,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     initialLocation: '/login',
     refreshListenable: _RouterRefresh(ref),
     redirect: (context, state) {
-      // Using state.uri.path for Flutter 3.27+ compatibility
       final loggingIn = state.uri.path == '/login';
       
       if (!isAuthed) {

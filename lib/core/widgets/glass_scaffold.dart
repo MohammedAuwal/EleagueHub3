@@ -7,11 +7,13 @@ class GlassScaffold extends StatelessWidget {
     this.appBar,
     required this.body,
     this.floatingActionButton,
+    this.bottomNavigationBar, // Added parameter
   });
 
   final PreferredSizeWidget? appBar;
   final Widget body;
   final Widget? floatingActionButton;
+  final Widget? bottomNavigationBar; // Added field
 
   @override
   Widget build(BuildContext context) {
@@ -21,6 +23,7 @@ class GlassScaffold extends StatelessWidget {
       extendBodyBehindAppBar: true,
       appBar: appBar,
       floatingActionButton: floatingActionButton,
+      bottomNavigationBar: bottomNavigationBar, // Passed to internal Scaffold
       body: Container(
         width: double.infinity,
         height: double.infinity,

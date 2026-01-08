@@ -3,7 +3,12 @@ import '../../../core/widgets/glass.dart';
 import '../../../core/widgets/glass_scaffold.dart';
 
 class LeagueDetailScreen extends StatelessWidget {
-  const LeagueDetailScreen({super.key});
+  final String leagueId;
+
+  const LeagueDetailScreen({
+    super.key,
+    required this.leagueId,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -22,9 +27,9 @@ class LeagueDetailScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Weekend Pro League',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                Text(
+                  'Weekend Pro League ($leagueId)',
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -77,12 +82,12 @@ class LeagueDetailScreen extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(999),
-        color: c.withOpacity(0.12),
-        border: Border.all(color: c.withOpacity(0.22)),
+        color: c.withValues(alpha: 0.12),
+        border: Border.all(color: c.withValues(alpha: 0.22)),
       ),
       child: Text(
         text,
-        style: TextStyle(fontWeight: FontWeight.w800, color: c),
+        style: TextStyle(fontWeight: FontWeight.w800, color: c, fontSize: 12),
       ),
     );
   }
