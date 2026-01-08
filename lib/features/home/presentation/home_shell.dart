@@ -28,11 +28,15 @@ class _HomeShellState extends State<HomeShell> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return GlassScaffold(
       appBar: AppBar(
         title: Text(
           ['Home', 'Leagues', 'Live', 'Marketplace', 'Profile'][_index],
         ),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         actions: [
           IconButton(
             tooltip: 'Settings',
@@ -41,14 +45,6 @@ class _HomeShellState extends State<HomeShell> {
           ),
         ],
       ),
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 220),
-        child: Padding(
-          key: ValueKey(_index),
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
-          child: _tabs[_index],
-        ),
-      ),
       bottomNavigationBar: Padding(
         padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
         child: Glass(
@@ -56,6 +52,8 @@ class _HomeShellState extends State<HomeShell> {
           borderRadius: 22,
           child: NavigationBar(
             height: 64,
+            backgroundColor: Colors.transparent,
+            indicatorColor: colorScheme.primary.withValues(alpha: 0.2),
             selectedIndex: _index,
             onDestinationSelected: (i) => setState(() => _index = i),
             destinations: const [
@@ -86,6 +84,14 @@ class _HomeShellState extends State<HomeShell> {
               ),
             ],
           ),
+        ),
+      ),
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 220),
+        child: Padding(
+          key: ValueKey(_index),
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+          child: _tabs[_index],
         ),
       ),
     );
@@ -122,7 +128,7 @@ class _HomeTab extends StatelessWidget {
                   icon: Icons.add_circle_outline,
                   title: 'Create league',
                   subtitle: '3-step wizard',
-                  onTap: () => GoRouter.of(context).push('/leagues/create'),
+                  onTap: () => context.push('/leagues/create'),
                 ),
               ),
               const SizedBox(width: 12),
@@ -131,7 +137,7 @@ class _HomeTab extends StatelessWidget {
                   icon: Icons.confirmation_number_outlined,
                   title: 'Join live',
                   subtitle: 'Via match ID',
-                  onTap: () => GoRouter.of(context).push('/live/join'),
+                  onTap: () => context.push('/live/join'),
                 ),
               ),
             ],
@@ -157,7 +163,7 @@ class _QuickCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = Theme.of(context).textTheme;
+    final theme = Theme.of(context);
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
@@ -165,15 +171,15 @@ class _QuickCard extends StatelessWidget {
         padding: const EdgeInsets.all(12),
         child: Row(
           children: [
-            Icon(icon, size: 28, color: Theme.of(context).colorScheme.primary),
+            Icon(icon, size: 28, color: theme.colorScheme.primary),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: t.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+                  Text(title, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
                   const SizedBox(height: 2),
-                  Text(subtitle, style: t.bodySmall),
+                  Text(subtitle, style: theme.textTheme.bodySmall),
                 ],
               ),
             ),

@@ -21,7 +21,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     initialLocation: '/login',
     refreshListenable: _RouterRefresh(ref),
     redirect: (context, state) {
-      final loggingIn = state.matchedLocation == '/login';
+      // Using state.uri.path for Flutter 3.27+ compatibility
+      final loggingIn = state.uri.path == '/login';
+      
       if (!isAuthed) {
         return loggingIn ? null : '/login';
       }
@@ -43,8 +45,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: 'leagues/:leagueId',
-            builder: (context, state) =>
-                LeagueDetailScreen(leagueId: state.pathParameters['leagueId']!),
+            builder: (context, state) {
+              final id = state.pathParameters['leagueId'] ?? 'unknown';
+              return LeagueDetailScreen(leagueId: id);
+            },
           ),
           GoRoute(
             path: 'leagues/:leagueId/matches/:matchId',
