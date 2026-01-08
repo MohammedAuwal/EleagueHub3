@@ -10,8 +10,8 @@ class EleagueHubApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Keep watching the theme mode
     final mode = ref.watch(themeControllerProvider).mode;
-    final router = ref.watch(appRouterProvider);
 
     return MaterialApp.router(
       title: 'EleagueHub',
@@ -19,7 +19,8 @@ class EleagueHubApp extends ConsumerWidget {
       themeMode: mode,
       theme: AppTheme.skyTheme(),
       darkTheme: AppTheme.navyTheme(),
-      routerConfig: router,
+      // Point directly to the global variable from app_router.dart
+      routerConfig: appRouter, 
       builder: (context, child) {
         final mq = MediaQuery.of(context);
         final clampedScale = mq.textScaler.clamp(

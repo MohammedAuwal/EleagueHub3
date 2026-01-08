@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/routing/app_router.dart';
 import '../../../core/widgets/glass.dart';
@@ -43,7 +44,12 @@ class LoginScreen extends ConsumerWidget {
                     width: double.infinity,
                     child: FilledButton(
                       onPressed: () {
+                        // 1. Update the Riverpod auth state
                         ref.read(authStateProvider.notifier).state = true;
+                        
+                        // 2. Explicitly navigate to home since the global router 
+                        // is no longer watching the provider for redirects.
+                        context.go('/');
                       },
                       child: const Text('Continue'),
                     ),
