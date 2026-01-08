@@ -44,11 +44,9 @@ class LoginScreen extends ConsumerWidget {
                     width: double.infinity,
                     child: FilledButton(
                       onPressed: () {
-                        // 1. Update the Riverpod auth state
+                        // 1. Update the state
                         ref.read(authStateProvider.notifier).state = true;
-                        
-                        // 2. Explicitly navigate to home since the global router 
-                        // is no longer watching the provider for redirects.
+                        // 2. Navigate into the app shell
                         context.go('/');
                       },
                       child: const Text('Continue'),
