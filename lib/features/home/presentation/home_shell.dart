@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/widgets/glass.dart';
-import '../../../core/widgets/glass_scaffold.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../leagues/presentation/leagues_list_screen.dart';
 import '../../live/presentation/live_list_screen.dart';
 import '../../marketplace/presentation/marketplace_list_screen.dart';
@@ -28,70 +28,78 @@ class _HomeShellState extends State<HomeShell> {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
 
-    return GlassScaffold(
-      appBar: AppBar(
-        title: Text(
-          ['Home', 'Leagues', 'Live', 'Marketplace', 'Profile'][_index],
-        ),
+    return Container(
+      decoration: BoxDecoration(
+        gradient: AppTheme.backgroundGradient(theme.brightness),
+      ),
+      child: Scaffold(
         backgroundColor: Colors.transparent,
-        elevation: 0,
-        actions: [
-          IconButton(
-            tooltip: 'Settings',
-            onPressed: () => context.push('/settings'),
-            icon: const Icon(Icons.settings_outlined),
+        extendBody: true, // Allows body to flow behind the navigation bar
+        appBar: AppBar(
+          title: Text(
+            ['Home', 'Leagues', 'Live', 'Marketplace', 'Profile'][_index],
           ),
-        ],
-      ),
-      bottomNavigationBar: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-        child: Glass(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-          borderRadius: 22,
-          child: NavigationBar(
-            height: 64,
-            backgroundColor: Colors.transparent,
-            indicatorColor: colorScheme.primary.withValues(alpha: 0.2),
-            selectedIndex: _index,
-            onDestinationSelected: (i) => setState(() => _index = i),
-            destinations: const [
-              NavigationDestination(
-                icon: Icon(Icons.home_outlined),
-                selectedIcon: Icon(Icons.home),
-                label: 'Home',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.emoji_events_outlined),
-                selectedIcon: Icon(Icons.emoji_events),
-                label: 'Leagues',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.wifi_tethering_outlined),
-                selectedIcon: Icon(Icons.wifi_tethering),
-                label: 'Live',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.storefront_outlined),
-                selectedIcon: Icon(Icons.storefront),
-                label: 'Market',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.person_outline),
-                selectedIcon: Icon(Icons.person),
-                label: 'Profile',
-              ),
-            ],
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          actions: [
+            IconButton(
+              tooltip: 'Settings',
+              onPressed: () => context.push('/settings'),
+              icon: const Icon(Icons.settings_outlined),
+            ),
+          ],
+        ),
+        body: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 220),
+          child: Padding(
+            key: ValueKey(_index),
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+            child: _tabs[_index],
           ),
         ),
-      ),
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 220),
-        child: Padding(
-          key: ValueKey(_index),
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
-          child: _tabs[_index],
+        bottomNavigationBar: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+          child: Glass(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            borderRadius: 22,
+            child: NavigationBar(
+              height: 64,
+              backgroundColor: Colors.transparent,
+              indicatorColor: colorScheme.primary.withValues(alpha: 0.2),
+              selectedIndex: _index,
+              onDestinationSelected: (i) => setState(() => _index = i),
+              destinations: const [
+                NavigationDestination(
+                  icon: Icon(Icons.home_outlined),
+                  selectedIcon: Icon(Icons.home),
+                  label: 'Home',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.emoji_events_outlined),
+                  selectedIcon: Icon(Icons.emoji_events),
+                  label: 'Leagues',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.wifi_tethering_outlined),
+                  selectedIcon: Icon(Icons.wifi_tethering),
+                  label: 'Live',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.storefront_outlined),
+                  selectedIcon: Icon(Icons.storefront),
+                  label: 'Market',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.person_outline),
+                  selectedIcon: Icon(Icons.person),
+                  label: 'Profile',
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

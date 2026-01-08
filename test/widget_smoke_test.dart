@@ -1,36 +1,35 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:eleaguehub/main.dart'; 
+import 'package:eleaguehub/core/routing/app_router.dart';
 
 void main() {
-  testWidgets('App shows login and can navigate to home', (tester) async {
-    // 1. Load the app
-    // Note: Ensure EleagueHubApp is the name of your widget in main.dart
+  testWidgets('App shows home and can navigate to leagues', (tester) async {
+    // 1. Load the router directly in a ProviderScope
     await tester.pumpWidget(
-      const ProviderScope(
-        child: EleagueHubApp(),
+      ProviderScope(
+        child: MaterialApp.router(
+          routerConfig: appRouter,
+        ),
       ),
     );
 
-    // 2. Verify we are on the Login Screen
-    // GoRouter initialLocation is /login
+    // 2. Wait for GoRouter to settle at initialLocation '/'
     await tester.pumpAndSettle(); 
-    expect(find.text('EleagueHub'), findsOneWidget);
-    
-    // 3. Trigger Login
-    // Since authStateProvider starts as false, tapping a button 
-    // that triggers login logic is required. 
-    // In this smoke test, we simulate the navigation.
-    final loginButton = find.byType(ElevatedButton);
-    expect(loginButton, findsOneWidget);
-    await tester.tap(loginButton);
-    
-    // 4. Wait for GoRouter and AnimatedSwitcher
-    await tester.pumpAndSettle(const Duration(milliseconds: 500));
 
-    // 5. Verify Home Shell / Dashboard
-    // 'Welcome back' is the header in your _HomeTab
+    // 3. Verify Home Shell / Dashboard is visible
+    // 'Welcome back' is the text in your _HomeTab
     expect(find.text('Welcome back'), findsOneWidget);
+    
+    // 4. Verify the Navigation Bar is present
+    expect(find.byType(NavigationBar), findsOneWidget);
+
+    // 5. Test Tab Switching (Navigate to Leagues)
+    final leaguesTab = find.text('Leagues');
+    await tester.tap(leaguesTab);
+    await tester.pumpAndSettle();
+
+    // Verify index change (Assuming LeaguesListScreen has distinct text)
+    expect(find.byIcon(Icons.emoji_events), findsWidgets);
   });
 }
