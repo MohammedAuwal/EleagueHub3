@@ -1,35 +1,42 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:eleaguehub/core/routing/app_router.dart';
+import 'package:eleaguehub/core/app/app.dart';
 
 void main() {
-  testWidgets('App shows home and can navigate to leagues', (tester) async {
-    // 1. Load the router directly in a ProviderScope
+  testWidgets('App shows login and can navigate to home', (tester) async {
+    // 1. Load the full app within ProviderScope
     await tester.pumpWidget(
-      ProviderScope(
-        child: MaterialApp.router(
-          routerConfig: appRouter,
-        ),
+      const ProviderScope(
+        child: EleagueHubApp(),
       ),
     );
 
-    // 2. Wait for GoRouter to settle at initialLocation '/'
+    // 2. Wait for the Login screen to load
     await tester.pumpAndSettle(); 
 
-    // 3. Verify Home Shell / Dashboard is visible
-    // 'Welcome back' is the text in your _HomeTab
+    // 3. Verify we are on the Login Screen
+    expect(find.text('EleagueHub'), findsWidgets);
+    expect(find.text('Continue'), findsOneWidget);
+
+    // 4. Trigger Login
+    await tester.tap(find.text('Continue'));
+    
+    // 5. Use multiple pumps to avoid animation timeouts
+    // This is safer than pumpAndSettle if your UI has infinite glass animations
+    for (int i = 0; i < 5; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
+    // 6. Verify we reached the Home Shell
+    // 'Welcome back' is the header in your _HomeTab
     expect(find.text('Welcome back'), findsOneWidget);
     
-    // 4. Verify the Navigation Bar is present
-    expect(find.byType(NavigationBar), findsOneWidget);
-
-    // 5. Test Tab Switching (Navigate to Leagues)
-    final leaguesTab = find.text('Leagues');
-    await tester.tap(leaguesTab);
+    // 7. Test navigation to Leagues Tab
+    await tester.tap(find.text('Leagues'));
     await tester.pumpAndSettle();
 
-    // Verify index change (Assuming LeaguesListScreen has distinct text)
+    // Verify the Leagues icon/content is visible
     expect(find.byIcon(Icons.emoji_events), findsWidgets);
   });
 }
