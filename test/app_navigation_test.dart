@@ -8,15 +8,20 @@ void main() {
     // 1. Build the app
     await tester.pumpWidget(const ProviderScope(child: EleagueHubApp()));
     
-    // 2. Allow router to initialize
-    await tester.pump();
-    // Use a specific duration to bypass animation delays
-    await tester.pump(const Duration(seconds: 1));
+    // 2. Wait for the Login screen to actually exist
+    bool foundButton = false;
+    for (int i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 500));
+      if (find.byType(FilledButton).evaluate().isNotEmpty) {
+        foundButton = true;
+        break;
+      }
+    }
+    
+    expect(foundButton, isTrue, reason: 'Login button did not appear in time');
 
-    // 3. Find button by type instead of text (more reliable)
-    final loginButton = find.byType(FilledButton);
-    expect(loginButton, findsOneWidget);
-    await tester.tap(loginButton);
+    // 3. Tap the button
+    await tester.tap(find.byType(FilledButton));
     
     // 4. Settle the transition to Home
     await tester.pumpAndSettle();
