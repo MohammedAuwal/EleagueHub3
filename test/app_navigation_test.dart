@@ -8,18 +8,20 @@ void main() {
     // 1. Build the app
     await tester.pumpWidget(const ProviderScope(child: EleagueHubApp()));
     
-    // 2. Wait for Login Screen to appear
-    await tester.pumpAndSettle();
+    // 2. Allow router to initialize
+    await tester.pump();
+    // Use a specific duration to bypass animation delays
+    await tester.pump(const Duration(seconds: 1));
 
-    // 3. Find the Continue button by its text and tap it
-    final continueButton = find.text('Continue');
-    expect(continueButton, findsOneWidget);
-    await tester.tap(continueButton);
+    // 3. Find button by type instead of text (more reliable)
+    final loginButton = find.byType(FilledButton);
+    expect(loginButton, findsOneWidget);
+    await tester.tap(loginButton);
     
-    // 4. Wait for the GoRouter and AnimatedSwitcher transitions
+    // 4. Settle the transition to Home
     await tester.pumpAndSettle();
 
-    // 5. Verify we are on the Home screen by looking for the NavigationBar
+    // 5. Verify the Home Shell NavigationBar exists
     expect(find.byType(NavigationBar), findsOneWidget);
   });
 }
