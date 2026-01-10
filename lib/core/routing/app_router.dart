@@ -11,7 +11,7 @@ import '../../features/auth/presentation/login_screen.dart';
 final authStateProvider = StateProvider<bool>((ref) => false);
 
 final appRouter = GoRouter(
-  initialLocation: '/login', // Set to /login for the MVP start
+  initialLocation: '/', // Set to /login for the MVP start
   routes: [
     GoRoute(
       path: '/login',
@@ -19,7 +19,7 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/',
-      builder: (context, state) => const HomeShell(),
+      builder: (context, state) => const ProfileScreen(),
       routes: [
         GoRoute(
           path: 'leagues',
