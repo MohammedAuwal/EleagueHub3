@@ -1,10 +1,9 @@
-import '../../core/routing/league_mode_provider.dart';
-import '../../../widgets/league_switcher.dart';
-import '../../core/routing/league_mode_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/theme_controller.dart';
+import '../../../core/routing/league_mode_provider.dart';
+import '../../../widgets/league_switcher.dart';
 import '../../../core/widgets/glass.dart';
 
 final authStateProvider = StateProvider<bool>((ref) => true);
@@ -16,6 +15,7 @@ class ProfileScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = Theme.of(context).textTheme;
     final themeState = ref.watch(themeControllerProvider);
+    final currentLeague = ref.watch(leagueModeProvider);
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -45,7 +45,6 @@ class ProfileScreen extends ConsumerWidget {
                     ],
                   ),
                 ),
-                // Modern Theme Toggle
                 IconButton(
                   icon: Icon(
                     themeState.mode == ThemeMode.dark ? Icons.light_mode : Icons.dark_mode,
@@ -53,7 +52,6 @@ class ProfileScreen extends ConsumerWidget {
                   ),
                   onPressed: () => ref.read(themeControllerProvider.notifier).toggleLightDark(context),
                 ),
-                // Logout with Navigation
                 IconButton(
                   onPressed: () {
                     ref.read(authStateProvider.notifier).state = false;
@@ -64,6 +62,11 @@ class ProfileScreen extends ConsumerWidget {
               ],
             ),
           ),
+          
+          const SizedBox(height: 20),
+          // THE THREE LEAGUES SWITCHER (App Standard)
+          const LeagueSwitcher(),
+          
           const SizedBox(height: 12),
           // Stats Card
           Glass(
@@ -73,13 +76,19 @@ class ProfileScreen extends ConsumerWidget {
                 Text('League Overview', 
                   style: t.titleMedium?.copyWith(fontWeight: FontWeight.w800, color: Colors.white)),
                 const SizedBox(height: 16),
+                // Removed 'const' from Row children to allow dynamic ref.watch
                 Row(
-                  children: const [
-                    Expanded(child: _Stat(label: 'Active', value: '2')),
-                    SizedBox(width: 12),
-                    Expanded(child: _Stat(label: 'Teams', value: '16')),
-                    SizedBox(width: 12),
-                    Expanded(child: _Stat(label: 'League Mode', value: ref.watch(leagueModeProvider).name.toUpperCase())),
+                  children: [
+                    const Expanded(child: _Stat(label: 'Active', value: '2')),
+                    const SizedBox(width: 12),
+                    const Expanded(child: _Stat(label: 'Teams', value: '16')),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _Stat(
+                        label: 'Format', 
+                        value: currentLeague.name.toUpperCase().replaceAll('CLASSIC', 'CL').replaceAll('SWISS', 'SW'),
+                      ),
+                    ),
                   ],
                 ),
               ],
@@ -92,7 +101,7 @@ class ProfileScreen extends ConsumerWidget {
 }
 
 class _Stat extends StatelessWidget {
-  _Stat({required this.label, required this.value});
+  const _Stat({required this.label, required this.value, super.key});
   final String label;
   final String value;
 
@@ -108,10 +117,12 @@ class _Stat extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Text(value, 
-            style: t.titleLarge?.copyWith(fontWeight: FontWeight.w900, color: Colors.white)),
+          FittedBox(
+            child: Text(value, 
+              style: t.titleLarge?.copyWith(fontWeight: FontWeight.w900, color: Colors.white)),
+          ),
           const SizedBox(height: 4),
-          Text(label, style: t.bodySmall?.copyWith(color: Colors.white60)),
+          Text(label, style: t.bodySmall?.copyWith(color: Colors.white60), maxLines: 1),
         ],
       ),
     );
