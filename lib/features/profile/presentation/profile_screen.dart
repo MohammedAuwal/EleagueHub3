@@ -76,7 +76,7 @@ class ProfileScreen extends ConsumerWidget {
                     SizedBox(width: 12),
                     Expanded(child: _Stat(label: 'Teams', value: '16')),
                     SizedBox(width: 12),
-                    Expanded(child: _Stat(label: 'UCL Mode', value: 'ON')),
+                    Expanded(child: _Stat(label: 'League Mode', value: ref.watch(leagueModeProvider).name.toUpperCase())),
                   ],
                 ),
               ],
