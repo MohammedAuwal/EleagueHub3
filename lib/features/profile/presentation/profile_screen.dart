@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/theme/theme_controller.dart';
 import '../../../core/widgets/glass.dart';
 
-// 2026 Best Practice: Moving providers to a dedicated logic file later, 
-// but keeping it here for now as requested.
 final authStateProvider = StateProvider<bool>((ref) => true);
 
 class ProfileScreen extends ConsumerWidget {
@@ -12,13 +11,14 @@ class ProfileScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = Theme.of(context).textTheme;
+    final themeMode = ref.watch(themeControllerProvider).mode;
 
     return Scaffold(
       backgroundColor: Colors.black,
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          const SizedBox(height: 40), // SafeArea spacing
+          const SizedBox(height: 50),
           Glass(
             child: Row(
               children: [
@@ -34,12 +34,20 @@ class ProfileScreen extends ConsumerWidget {
                     children: [
                       Text('Admin_User', style: t.titleLarge?.copyWith(fontWeight: FontWeight.w900, color: Colors.white)),
                       const SizedBox(height: 4),
-                      Text('Rank: Tournament Director', style: t.bodySmall?.copyWith(color: Colors.white70)),
+                      Text('Tournament Director', style: t.bodySmall?.copyWith(color: Colors.white70)),
                     ],
                   ),
                 ),
+                // Merged Theme Toggle
                 IconButton(
-                  tooltip: 'Log out',
+                  icon: Icon(
+                    themeMode == ThemeMode.dark ? Icons.light_mode : Icons.dark_mode,
+                    color: Colors.cyanAccent,
+                  ),
+                  onPressed: () => ref.read(themeControllerProvider.notifier).toggleLightDark(context),
+                ),
+                // Logout Button
+                IconButton(
                   onPressed: () => ref.read(authStateProvider.notifier).state = false,
                   icon: const Icon(Icons.logout, color: Colors.white70),
                 ),
@@ -51,15 +59,15 @@ class ProfileScreen extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('League Overview', style: t.titleMedium?.copyWith(fontWeight: FontWeight.w800, color: Colors.white)),
-                const SizedBox(height: 10),
+                Text('League Stats', style: t.titleMedium?.copyWith(fontWeight: FontWeight.w800, color: Colors.white)),
+                const SizedBox(height: 12),
                 Row(
                   children: const [
                     Expanded(child: _Stat(label: 'Active', value: '2')),
                     SizedBox(width: 12),
                     Expanded(child: _Stat(label: 'Teams', value: '16')),
                     SizedBox(width: 12),
-                    Expanded(child: _Stat(label: 'Matches', value: '48')),
+                    Expanded(child: _Stat(label: 'UCL Mode', value: 'ON')),
                   ],
                 ),
               ],
@@ -83,14 +91,12 @@ class _Stat extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
-        color: Theme.of(context).colorScheme.primary.withOpacity(0.10),
-        border: Border.all(
-          color: Theme.of(context).colorScheme.primary.withOpacity(0.18),
-        ),
+        color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+        border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.2)),
       ),
       child: Column(
         children: [
-          Text(value, style: t.titleLarge?.copyWith(fontWeight: FontWeight.w900, color: Colors.cyanAccent)),
+          Text(value, style: t.titleLarge?.copyWith(fontWeight: FontWeight.w900, color: Colors.white)),
           const SizedBox(height: 4),
           Text(label, style: t.bodySmall?.copyWith(color: Colors.white60)),
         ],

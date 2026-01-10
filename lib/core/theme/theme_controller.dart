@@ -5,7 +5,6 @@ import '../persistence/prefs_service.dart';
 class ThemeState {
   const ThemeState({required this.mode});
   final ThemeMode mode;
-
   ThemeState copyWith({ThemeMode? mode}) => ThemeState(mode: mode ?? this.mode);
 }
 
@@ -22,7 +21,6 @@ class ThemeController extends Notifier<ThemeState> {
       'light' => ThemeMode.light,
       _ => ThemeMode.system,
     };
-
     return ThemeState(mode: initialMode);
   }
 
@@ -32,10 +30,11 @@ class ThemeController extends Notifier<ThemeState> {
   }
 
   Future<void> toggleLightDark(BuildContext context) async {
+    // FIX: Mandatory wildcard (_) for Dart 3.5+ exhaustiveness
     final effectiveBrightness = switch (state.mode) {
-      ThemeMode.system => MediaQuery.platformBrightnessOf(context),
       ThemeMode.light => Brightness.light,
       ThemeMode.dark => Brightness.dark,
+      _ => MediaQuery.platformBrightnessOf(context),
     };
 
     final next = effectiveBrightness == Brightness.dark

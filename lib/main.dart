@@ -1,63 +1,77 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-// Your existing imports
 import 'core/app/app.dart';
 import 'core/persistence/prefs_service.dart';
-
-// Import the ConnectivityService and OfflineBanner from their respective files
-// Make sure these files exist in your project:
-import 'core/services/connectivity_service.dart'; // Create this file
-import 'widgets/offline_banner.dart';           // Create this file
+import 'core/theme/theme_controller.dart';
+import 'core/services/connectivity_service.dart';
+import 'widgets/offline_banner.dart';
 
 Future<void> main() async {
-  // 1. Critical for Release Mode stability
+  // 1. Critical for stability and native plugin initialization
   WidgetsFlutterBinding.ensureInitialized();
 
   try {
-    // 2. Initialize SharedPreferences with a timeout/error catch
+    // 2. Load Services
     final prefs = await PreferencesService.create();
-
-    // Initialize ConnectivityService here, as it now has an important listener
-    ConnectivityService.instance.initialize(); 
+    ConnectivityService.instance.initialize();
 
     runApp(
       ProviderScope(
         overrides: [
           prefsServiceProvider.overrideWithValue(prefs),
         ],
-        child: MaterialApp( // Use MaterialApp here to provide global app structure, theme, etc.
-          debugShowCheckedModeBanner: false, // Good practice for release builds
-          home: ValueListenableBuilder<bool>(
-            valueListenable: ConnectivityService.instance.isConnected,
-            builder: (context, online, child) {
-              return Scaffold( // Scaffold provides the basic visual structure for the screen
-                body: Column(
-                  children: [
-                    // The glass banner, conditionally shown at the top
-                    if (!online) const OfflineBanner(),
-                    // The rest of your application, taking up the remaining space
-                    Expanded(
-                      child: const EleagueHubApp(), // Your main application content
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-        ),
+        child: const AppRoot(),
       ),
     );
   } catch (e) {
-    // 3. Prevent the "Blink" - show a simple error if the app fails to start
-    runApp(
-      MaterialApp(
-        home: Scaffold(
-          body: Center(
-            child: Text('Startup Error: $e', style: const TextStyle(color: Colors.red)),
-          ),
-        ),
+    runApp(MaterialApp(home: Scaffold(body: Center(child: Text('Fatal Start Error: $e')))));
+  }
+}
+
+class AppRoot extends ConsumerWidget {
+  const AppRoot({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // 3. Watch the theme state from our Riverpod controller
+    final themeMode = ref.watch(themeControllerProvider).mode;
+
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      title: 'EleagueHub 3',
+      
+      // Theme Configuration
+      themeMode: themeMode,
+      theme: ThemeData(
+        useMaterial3: true,
+        brightness: Brightness.light,
+        colorSchemeSeed: Colors.cyan,
       ),
+      darkTheme: ThemeData(
+        useMaterial3: true,
+        brightness: Brightness.dark,
+        colorSchemeSeed: Colors.cyan,
+        scaffoldBackgroundColor: Colors.black,
+      ),
+
+      // 4. Connectivity & Main App Wrapper
+      builder: (context, child) {
+        return Stack(
+          children: [
+            child!, // The main app content (EleagueHubApp)
+            
+            // Global Connectivity Overlay
+            ValueListenableBuilder<bool>(
+              valueListenable: ConnectivityService.instance.isConnected,
+              builder: (context, online, _) {
+                return online ? const SizedBox.shrink() : const OfflineBanner();
+              },
+            ),
+          ],
+        );
+      },
+      home: const EleagueHubApp(),
     );
   }
 }
