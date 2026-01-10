@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../widgets/admin_score_card.dart';
+import '../../../widgets/admin_score_card.dart';
 import '../../logic/admin_service.dart';
 
 class AdminScoreMgmtScreen extends StatelessWidget {
