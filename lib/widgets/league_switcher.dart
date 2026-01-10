@@ -26,7 +26,7 @@ class LeagueSwitcher extends ConsumerWidget {
               final isSelected = currentMode == type;
               return Expanded(
                 child: GestureDetector(
-                  onTap: () => ref.read(leagueModeProvider.notifier).state = type;
+                  onTap: () => ref.read(leagueModeProvider.notifier).state = type,
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 250),
                     padding: const EdgeInsets.symmetric(vertical: 10),
