@@ -20,26 +20,24 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: "3.27.0"
+          flutter-version: "3.24.5"
           cache: true
 
-      - name: Flutter version
-        run: flutter --version
+      - name: Decode keystore
+        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/upload-keystore.jks
 
-      - name: Pub get
-        run: flutter pub get
+      - run: flutter pub get
+      - run: flutter analyze --no-fatal-warnings --no-fatal-infos
+      - run: flutter test
 
-      - name: Analyze (do not fail on infos/warnings)
-        run: flutter analyze --no-fatal-warnings --no-fatal-infos
+      - name: Build release APK with signing
+        run: |
+          cd android
+          ./gradlew assembleRelease -PkeyStorePath=../android/app/upload-keystore.jks -PkeyAlias=${{ secrets.KEY_ALIAS }} -PkeyStorePassword=${{ secrets.KEYSTORE_PASSWORD }} -PkeyPassword=${{ secrets.KEY_PASSWORD }}
+        env:
+          KEYSTORE_PATH: android/app/upload-keystore.jks
 
-      - name: Tests
-        run: flutter test
-
-      - name: Build release APK
-        run: flutter build apk --release
-
-      - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: EleagueHub-release-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
+          path: android/app/build/outputs/apk/release/app-release.apk
