@@ -24,28 +24,18 @@ class _AdminScoreCardState extends State<AdminScoreCard> {
   Widget _scoreCounter(String label, int score, Function(int) onChanged) {
     return Column(
       children: [
-        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12, letterSpacing: 1.2)),
+        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12)),
         const SizedBox(height: 8),
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             IconButton(
-              icon: const Icon(Icons.remove_circle_outline, color: Colors.cyanAccent, size: 28),
+              icon: const Icon(Icons.remove_circle_outline, color: Colors.cyanAccent),
               onPressed: () => score > 0 ? onChanged(score - 1) : null,
             ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.05),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                "$score", 
-                style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w900)
-              ),
-            ),
+            Text("$score", style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
             IconButton(
-              icon: const Icon(Icons.add_circle_outline, color: Colors.cyanAccent, size: 28),
+              icon: const Icon(Icons.add_circle_outline, color: Colors.cyanAccent),
               onPressed: () => onChanged(score + 1),
             ),
           ],
@@ -57,42 +47,27 @@ class _AdminScoreCardState extends State<AdminScoreCard> {
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(24),
+      borderRadius: BorderRadius.circular(20),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
         child: Container(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.08),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Colors.white.withOpacity(0.15)),
+            color: Colors.white.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.white.withOpacity(0.2)),
           ),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
             children: [
               Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  Expanded(
-                    child: Text(
-                      widget.homeTeam, 
-                      textAlign: TextAlign.center, 
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 16)
-                    )
-                  ),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 12),
-                    child: Text("VS", style: TextStyle(color: Colors.cyanAccent, fontWeight: FontWeight.w900, fontSize: 14)),
-                  ),
-                  Expanded(
-                    child: Text(
-                      widget.awayTeam, 
-                      textAlign: TextAlign.center, 
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 16)
-                    )
-                  ),
+                  Expanded(child: Text(widget.homeTeam, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+                  const Text("VS", style: TextStyle(color: Colors.cyanAccent, fontWeight: FontWeight.w900)),
+                  Expanded(child: Text(widget.awayTeam, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
                 ],
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
@@ -100,26 +75,15 @@ class _AdminScoreCardState extends State<AdminScoreCard> {
                   _scoreCounter("AWAY", awayScore, (val) => setState(() => awayScore = val)),
                 ],
               ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: () => widget.onSave(homeScore, awayScore),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.cyanAccent.withOpacity(0.2),
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(15),
-                      side: const BorderSide(color: Colors.cyanAccent, width: 1),
-                    ),
-                  ),
-                  child: const Text(
-                    "UPDATE SCORE", 
-                    style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.5)
-                  ),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: () => widget.onSave(homeScore, awayScore),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.cyanAccent.withOpacity(0.3),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
+                child: const Text("UPDATE SCORE"),
               ),
             ],
           ),
