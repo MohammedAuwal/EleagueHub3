@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-// Defining the enum and provider here ensures they are always found
-enum LeagueType { classic, uclClassic, uclSwiss }
-
-final leagueModeProvider = StateProvider<LeagueType>((ref) => LeagueType.classic);
+// Link to the actual location of your provider and enum
+import '../routing/league_mode_provider.dart';
 
 class LeagueSwitcher extends ConsumerWidget {
   const LeagueSwitcher({super.key});
