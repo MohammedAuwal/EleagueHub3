@@ -82,8 +82,8 @@ class LeagueDetailScreen extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(999),
-        color: c.withValues(alpha: 0.12),
-        border: Border.all(color: c.withValues(alpha: 0.22)),
+        color: c.withOpacity(0.12),
+        border: Border.all(color: c.withOpacity(0.22)),
       ),
       child: Text(
         text,

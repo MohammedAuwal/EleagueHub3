@@ -68,7 +68,7 @@ class _HomeShellState extends State<HomeShell> {
             child: NavigationBar(
               height: 64,
               backgroundColor: Colors.transparent,
-              indicatorColor: colorScheme.primary.withValues(alpha: 0.2),
+              indicatorColor: colorScheme.primary.withOpacity(0.2),
               selectedIndex: _index,
               onDestinationSelected: (i) => setState(() => _index = i),
               destinations: const [
