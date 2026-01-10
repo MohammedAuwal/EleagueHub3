@@ -8,7 +8,7 @@ import 'core/services/connectivity_service.dart';
 import 'widgets/offline_banner.dart';
 
 Future<void> main() async {
-  // 1. Critical for stability and native plugin initialization
+  // 1. Initialize Flutter engine for release stability
   WidgetsFlutterBinding.ensureInitialized();
 
   try {
@@ -25,7 +25,11 @@ Future<void> main() async {
       ),
     );
   } catch (e) {
-    runApp(MaterialApp(home: Scaffold(body: Center(child: Text('Fatal Start Error: $e')))));
+    runApp(MaterialApp(
+      home: Scaffold(
+        body: Center(child: Text('Fatal Start Error: $e', style: const TextStyle(color: Colors.red))),
+      ),
+    ));
   }
 }
 
@@ -34,14 +38,13 @@ class AppRoot extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // 3. Watch the theme state from our Riverpod controller
+    // 3. Sync UI with the Riverpod Theme Notifier
     final themeMode = ref.watch(themeControllerProvider).mode;
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'EleagueHub 3',
       
-      // Theme Configuration
       themeMode: themeMode,
       theme: ThemeData(
         useMaterial3: true,
@@ -55,13 +58,13 @@ class AppRoot extends ConsumerWidget {
         scaffoldBackgroundColor: Colors.black,
       ),
 
-      // 4. Connectivity & Main App Wrapper
+      // 4. Global Wrapper for Connectivity Banner
       builder: (context, child) {
         return Stack(
           children: [
-            child!, // The main app content (EleagueHubApp)
+            if (child != null) child,
             
-            // Global Connectivity Overlay
+            // This sits above all screens when offline
             ValueListenableBuilder<bool>(
               valueListenable: ConnectivityService.instance.isConnected,
               builder: (context, online, _) {
