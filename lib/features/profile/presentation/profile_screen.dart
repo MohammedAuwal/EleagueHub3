@@ -1,6 +1,6 @@
-import 'package:go_router/go_router.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/theme/theme_controller.dart';
 import '../../../core/widgets/glass.dart';
 
@@ -12,14 +12,15 @@ class ProfileScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = Theme.of(context).textTheme;
-    final themeMode = ref.watch(themeControllerProvider).mode;
+    final themeState = ref.watch(themeControllerProvider);
 
     return Scaffold(
       backgroundColor: Colors.black,
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          const SizedBox(height: 50),
+          const SizedBox(height: 60),
+          // User Info & Theme Toggle Card
           Glass(
             child: Row(
               children: [
@@ -33,35 +34,42 @@ class ProfileScreen extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Admin_User', style: t.titleLarge?.copyWith(fontWeight: FontWeight.w900, color: Colors.white)),
+                      Text('Admin_User', 
+                        style: t.titleLarge?.copyWith(fontWeight: FontWeight.w900, color: Colors.white)),
                       const SizedBox(height: 4),
-                      Text('Tournament Director', style: t.bodySmall?.copyWith(color: Colors.white70)),
+                      Text('Tournament Director', 
+                        style: t.bodySmall?.copyWith(color: Colors.white70)),
                     ],
                   ),
                 ),
-                // Merged Theme Toggle
+                // Modern Theme Toggle
                 IconButton(
                   icon: Icon(
-                    themeMode == ThemeMode.dark ? Icons.light_mode : Icons.dark_mode,
+                    themeState.mode == ThemeMode.dark ? Icons.light_mode : Icons.dark_mode,
                     color: Colors.cyanAccent,
                   ),
                   onPressed: () => ref.read(themeControllerProvider.notifier).toggleLightDark(context),
                 ),
-                // Logout Button
+                // Logout with Navigation
                 IconButton(
-                  onPressed: () => ref.read(authStateProvider.notifier).state = false,
+                  onPressed: () {
+                    ref.read(authStateProvider.notifier).state = false;
+                    context.go('/login');
+                  },
                   icon: const Icon(Icons.logout, color: Colors.white70),
                 ),
               ],
             ),
           ),
           const SizedBox(height: 12),
+          // Stats Card
           Glass(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('League Stats', style: t.titleMedium?.copyWith(fontWeight: FontWeight.w800, color: Colors.white)),
-                const SizedBox(height: 12),
+                Text('League Overview', 
+                  style: t.titleMedium?.copyWith(fontWeight: FontWeight.w800, color: Colors.white)),
+                const SizedBox(height: 16),
                 Row(
                   children: const [
                     Expanded(child: _Stat(label: 'Active', value: '2')),
@@ -97,7 +105,8 @@ class _Stat extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Text(value, style: t.titleLarge?.copyWith(fontWeight: FontWeight.w900, color: Colors.white)),
+          Text(value, 
+            style: t.titleLarge?.copyWith(fontWeight: FontWeight.w900, color: Colors.white)),
           const SizedBox(height: 4),
           Text(label, style: t.bodySmall?.copyWith(color: Colors.white60)),
         ],
