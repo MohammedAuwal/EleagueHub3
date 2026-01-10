@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import '../widgets/glass_search_bar.dart';
-import '../widgets/league_flip_card.dart';
+import '../../../widgets/glass_search_bar.dart';
+import '../../../widgets/league_flip_card.dart';
 
 class LeaguesListScreen extends StatelessWidget {
   final List<dynamic> leagues; 
 
-  const LeaguesListScreen({super.key, required this.leagues});
+  const LeaguesListScreen({super.key, this.leagues = const []});
 
   @override
   Widget build(BuildContext context) {

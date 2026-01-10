@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-// Link to the actual location of your provider and enum
 import '../routing/league_mode_provider.dart';
 
 class LeagueSwitcher extends ConsumerWidget {
@@ -38,7 +37,6 @@ class LeagueSwitcher extends ConsumerWidget {
                     color: isSelected ? Colors.cyanAccent : Colors.white60,
                     fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                     fontSize: 12,
-                    letterSpacing: 1.1,
                   ),
                 ),
               ),
@@ -51,12 +49,9 @@ class LeagueSwitcher extends ConsumerWidget {
 
   String _getLabel(LeagueType type) {
     switch (type) {
-      case LeagueType.classic:
-        return 'CLASSIC';
-      case LeagueType.uclClassic:
-        return 'UCL';
-      case LeagueType.uclSwiss:
-        return 'SWISS';
+      case LeagueType.classic: return 'CLASSIC';
+      case LeagueType.uclClassic: return 'UCL';
+      case LeagueType.uclSwiss: return 'SWISS';
     }
   }
 }

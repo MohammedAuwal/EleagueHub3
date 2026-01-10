@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/theme_controller.dart';
 import '../../../core/routing/league_mode_provider.dart';
-import '../../../core/widgets/league_switcher.dart';
 import '../../../core/widgets/glass.dart';
 
 final authStateProvider = StateProvider<bool>((ref) => true);
