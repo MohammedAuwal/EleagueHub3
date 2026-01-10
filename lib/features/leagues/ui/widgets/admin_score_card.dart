@@ -7,10 +7,10 @@ class AdminScoreCard extends StatefulWidget {
   final Function(int, int) onSave;
 
   const AdminScoreCard({
-    super.key, 
-    required this.homeTeam, 
-    required this.awayTeam, 
-    required this.onSave
+    super.key,
+    required this.homeTeam,
+    required this.awayTeam,
+    required this.onSave,
   });
 
   @override
@@ -18,15 +18,38 @@ class AdminScoreCard extends StatefulWidget {
 }
 
 class _AdminScoreCardState extends State<AdminScoreCard> {
-  final _homeController = TextEditingController();
-  final _awayController = TextEditingController();
+  int homeScore = 0;
+  int awayScore = 0;
+
+  Widget _scoreCounter(String label, int score, Function(int) onChanged) {
+    return Column(
+      children: [
+        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+        const SizedBox(height: 8),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.remove_circle_outline, color: Colors.cyanAccent),
+              onPressed: () => score > 0 ? onChanged(score - 1) : null,
+            ),
+            Text("$score", style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
+            IconButton(
+              icon: const Icon(Icons.add_circle_outline, color: Colors.cyanAccent),
+              onPressed: () => onChanged(score + 1),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(20),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
         child: Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
@@ -36,58 +59,36 @@ class _AdminScoreCardState extends State<AdminScoreCard> {
           ),
           child: Column(
             children: [
-              const Text("ENTER MATCH RESULT", style: TextStyle(color: Colors.cyanAccent, fontSize: 10, fontWeight: FontWeight.bold)),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  Expanded(child: Text(widget.homeTeam, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+                  const Text("VS", style: TextStyle(color: Colors.cyanAccent, fontWeight: FontWeight.w900)),
+                  Expanded(child: Text(widget.awayTeam, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+                ],
+              ),
               const SizedBox(height: 20),
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _buildTeamInput(widget.homeTeam, _homeController),
-                  const Text("VS", style: TextStyle(color: Colors.white38, fontWeight: FontWeight.bold)),
-                  _buildTeamInput(widget.awayTeam, _awayController),
+                  _scoreCounter("HOME", homeScore, (val) => setState(() => homeScore = val)),
+                  _scoreCounter("AWAY", awayScore, (val) => setState(() => awayScore = val)),
                 ],
               ),
               const SizedBox(height: 20),
               ElevatedButton(
+                onPressed: () => widget.onSave(homeScore, awayScore),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blueAccent.withOpacity(0.6),
+                  backgroundColor: Colors.cyanAccent.withOpacity(0.3),
+                  foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  minimumSize: const Size(double.infinity, 45),
                 ),
-                onPressed: () {
-                  final h = int.tryParse(_homeController.text) ?? 0;
-                  final a = int.tryParse(_awayController.text) ?? 0;
-                  widget.onSave(h, a);
-                },
-                child: const Text("CONFIRM SCORE", style: TextStyle(fontWeight: FontWeight.bold)),
+                child: const Text("UPDATE SCORE"),
               ),
             ],
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildTeamInput(String name, TextEditingController controller) {
-    return Column(
-      children: [
-        Text(name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-        const SizedBox(height: 10),
-        Container(
-          width: 60,
-          height: 60,
-          decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.3),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: TextField(
-            controller: controller,
-            textAlign: TextAlign.center,
-            keyboardType: TextInputType.number,
-            style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
-            decoration: const InputDecoration(border: InputBorder.none),
-          ),
-        ),
-      ],
     );
   }
 }
