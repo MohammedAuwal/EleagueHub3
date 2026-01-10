@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../../core/routing/app_router.dart';
 import '../../../core/widgets/glass.dart';
 
-// Mock provider if not already defined elsewhere
+// 2026 Best Practice: Moving providers to a dedicated logic file later, 
+// but keeping it here for now as requested.
 final authStateProvider = StateProvider<bool>((ref) => true);
 
 class ProfileScreen extends ConsumerWidget {
@@ -14,63 +13,66 @@ class ProfileScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = Theme.of(context).textTheme;
 
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        Glass(
-          child: Row(
-            children: [
-              CircleAvatar(
-                radius: 26,
-                backgroundColor: Theme.of(context).colorScheme.primary,
-                child: const Icon(Icons.person, color: Colors.white),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('PlayerOne', style: t.titleLarge?.copyWith(fontWeight: FontWeight.w900)),
-                    const SizedBox(height: 4),
-                    Text('Rank: Elite (mock) • Region: EU', style: t.bodySmall),
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          const SizedBox(height: 40), // SafeArea spacing
+          Glass(
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 26,
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  child: const Icon(Icons.person, color: Colors.white),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Admin_User', style: t.titleLarge?.copyWith(fontWeight: FontWeight.w900, color: Colors.white)),
+                      const SizedBox(height: 4),
+                      Text('Rank: Tournament Director', style: t.bodySmall?.copyWith(color: Colors.white70)),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Log out',
+                  onPressed: () => ref.read(authStateProvider.notifier).state = false,
+                  icon: const Icon(Icons.logout, color: Colors.white70),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Glass(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('League Overview', style: t.titleMedium?.copyWith(fontWeight: FontWeight.w800, color: Colors.white)),
+                const SizedBox(height: 10),
+                Row(
+                  children: const [
+                    Expanded(child: _Stat(label: 'Active', value: '2')),
+                    SizedBox(width: 12),
+                    Expanded(child: _Stat(label: 'Teams', value: '16')),
+                    SizedBox(width: 12),
+                    Expanded(child: _Stat(label: 'Matches', value: '48')),
                   ],
                 ),
-              ),
-              IconButton(
-                tooltip: 'Log out',
-                onPressed: () => ref.read(authStateProvider.notifier).state = false,
-                icon: const Icon(Icons.logout),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-        const SizedBox(height: 12),
-        Glass(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Stats', style: t.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
-              const SizedBox(height: 10),
-              Row(
-                children: const [
-                  Expanded(child: _Stat(label: 'Leagues', value: '4')),
-                  SizedBox(width: 12),
-                  Expanded(child: _Stat(label: 'Wins', value: '28')),
-                  SizedBox(width: 12),
-                  Expanded(child: _Stat(label: 'Winrate', value: '61%')),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
 
 class _Stat extends StatelessWidget {
   const _Stat({required this.label, required this.value});
-
   final String label;
   final String value;
 
@@ -81,7 +83,6 @@ class _Stat extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
-        // Changed withValues to withOpacity
         color: Theme.of(context).colorScheme.primary.withOpacity(0.10),
         border: Border.all(
           color: Theme.of(context).colorScheme.primary.withOpacity(0.18),
@@ -89,9 +90,9 @@ class _Stat extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Text(value, style: t.titleLarge?.copyWith(fontWeight: FontWeight.w900)),
+          Text(value, style: t.titleLarge?.copyWith(fontWeight: FontWeight.w900, color: Colors.cyanAccent)),
           const SizedBox(height: 4),
-          Text(label, style: t.bodySmall),
+          Text(label, style: t.bodySmall?.copyWith(color: Colors.white60)),
         ],
       ),
     );
