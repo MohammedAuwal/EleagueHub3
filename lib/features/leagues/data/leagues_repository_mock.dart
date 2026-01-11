@@ -4,6 +4,9 @@ import '../models/team.dart';
 import '../models/team_stats.dart';
 
 class LeaguesRepositoryMock {
+  /// internal cache for joined teams to avoid duplicates and make calls idempotent
+  final Map<String, List<Team>> _joinedTeams = {}; // leagueId -> teams
+
   /// =========================
   /// LEAGUES
   /// =========================
@@ -40,37 +43,69 @@ class LeaguesRepositoryMock {
   }
 
   /// =========================
-  /// TEAMS
+  /// TEAMS (cached / idempotent)
   /// =========================
   List<Team> teams(String leagueId) {
-    switch (leagueId) {
-      case 'L-1':
-        return List.generate(8, (i) => Team(
+    _joinedTeams.putIfAbsent(leagueId, () {
+      // initial mock teams (same shape as original implementation)
+      switch (leagueId) {
+        case 'L-1':
+          return List.generate(
+            8,
+            (i) => Team(
               id: 'T1-$i',
               leagueId: leagueId,
               name: 'Team ${i + 1}',
               updatedAtMs: DateTime.now().millisecondsSinceEpoch,
               version: 1,
-            ));
-      case 'L-2': // UCL
-        return List.generate(16, (i) => Team(
+            ),
+          );
+        case 'L-2': // UCL
+          return List.generate(
+            16,
+            (i) => Team(
               id: 'T2-$i',
               leagueId: leagueId,
               name: 'Club ${i + 1}',
               updatedAtMs: DateTime.now().millisecondsSinceEpoch,
               version: 1,
-            ));
-      case 'L-3':
-        return List.generate(12, (i) => Team(
+            ),
+          );
+        case 'L-3':
+          return List.generate(
+            12,
+            (i) => Team(
               id: 'T3-$i',
               leagueId: leagueId,
               name: 'Side ${i + 1}',
               updatedAtMs: DateTime.now().millisecondsSinceEpoch,
               version: 1,
-            ));
-      default:
-        return [];
+            ),
+          );
+        default:
+          return <Team>[];
+      }
+    });
+    return _joinedTeams[leagueId]!;
+  }
+
+  /// Adds a participant to a league.
+  /// If a team with the same id already exists, it is updated (no duplicate is created).
+  void addParticipant(String leagueId, Team team) {
+    _joinedTeams.putIfAbsent(leagueId, () => []);
+    final list = _joinedTeams[leagueId]!;
+    final idx = list.indexWhere((t) => t.id == team.id);
+    if (idx >= 0) {
+      // replace/update existing entry to avoid duplicates
+      list[idx] = team;
+    } else {
+      list.add(team);
     }
+  }
+
+  /// Removes a participant by id.
+  void removeParticipant(String leagueId, String teamId) {
+    _joinedTeams[leagueId]?.removeWhere((t) => t.id == teamId);
   }
 
   /// =========================
