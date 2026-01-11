@@ -1,17 +1,10 @@
 import 'dart:convert';
-
 import 'league_format.dart';
 
-/// Configuration for league rules and sync state.
-///
-/// This class handles how the league logic operates (e.g., group sizes)
-/// and tracks the last synchronization time to optimize data pulling.
 class LeagueSettings {
-  final bool doubleRoundRobin; // default true (Home and Away matches)
-  final int groupSize; // default 4 for UCL groups
-  final int swissRounds; // default 8
-
-  /// Used by sync to avoid expensive full scans.
+  final bool doubleRoundRobin;
+  final int groupSize;
+  final int swissRounds;
   final int lastPulledAtMs;
 
   const LeagueSettings({
@@ -21,7 +14,7 @@ class LeagueSettings {
     required this.lastPulledAtMs,
   });
 
-  /// Provides reasonable defaults based on the chosen LeagueFormat.
+  /// Your production defaults logic
   factory LeagueSettings.defaultsFor(LeagueFormat format) {
     return const LeagueSettings(
       doubleRoundRobin: true,
@@ -31,7 +24,16 @@ class LeagueSettings {
     );
   }
 
-  /// Creates a copy of the settings with updated values.
+  /// Alias to fix the repository error while keeping your logic
+  factory LeagueSettings.defaultSettings() {
+    return const LeagueSettings(
+      doubleRoundRobin: true,
+      groupSize: 4,
+      swissRounds: 8,
+      lastPulledAtMs: 0,
+    );
+  }
+
   LeagueSettings copyWith({
     bool? doubleRoundRobin,
     int? groupSize,
@@ -46,7 +48,6 @@ class LeagueSettings {
     );
   }
 
-  /// Converts the settings object to a Map for storage/JSON.
   Map<String, dynamic> toMap() => {
         'doubleRoundRobin': doubleRoundRobin,
         'groupSize': groupSize,
@@ -54,7 +55,6 @@ class LeagueSettings {
         'lastPulledAtMs': lastPulledAtMs,
       };
 
-  /// Creates a settings object from a Map.
   factory LeagueSettings.fromMap(Map<String, dynamic> map) {
     return LeagueSettings(
       doubleRoundRobin: (map['doubleRoundRobin'] as bool?) ?? true,
@@ -64,10 +64,8 @@ class LeagueSettings {
     );
   }
 
-  /// Encodes the settings to a JSON string.
   String toJson() => jsonEncode(toMap());
 
-  /// Decodes a JSON string into a LeagueSettings object.
   factory LeagueSettings.fromJson(String json) {
     if (json.trim().isEmpty) {
       return const LeagueSettings(
