@@ -3,6 +3,7 @@ import '../widgets/my_fixtures_filter.dart';
 import '../models/match.dart';
 import '../models/team_stats.dart';
 import '../logic/standings_engine.dart';
+import '../presentation/knockout_bracket_screen.dart';
 
 class LeagueDashboardScreen extends StatefulWidget {
   final String leagueId;
@@ -19,13 +20,25 @@ class LeagueDashboardScreen extends StatefulWidget {
 class _LeagueDashboardScreenState extends State<LeagueDashboardScreen> {
   bool filterByMe = false;
 
-  /// These will later come from Provider / Backend
+  /// These will come from Provider / Backend
   final List<Match> _matches = [];
   final List<TeamStats> _teams = [];
 
   @override
   Widget build(BuildContext context) {
-    final standings = StandingsEngine.compute(_teams, _matches);
+    // Compute standings and inject position
+    final sortedTeams = StandingsEngine.compute(_teams, _matches);
+    final standings = List<TeamStats>.generate(
+      sortedTeams.length,
+      (index) {
+        final t = sortedTeams[index];
+        return TeamStatsWithExtras(
+          base: t,
+          position: index + 1,
+          teamName: _lookupTeamName(t.teamId),
+        );
+      },
+    );
 
     return Scaffold(
       backgroundColor: const Color(0xFF4FC3F7),
@@ -33,6 +46,12 @@ class _LeagueDashboardScreenState extends State<LeagueDashboardScreen> {
         title: const Text('League Dashboard'),
         backgroundColor: Colors.transparent,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.emoji_events),
+            onPressed: _openKnockoutIfUCL,
+          ),
+        ],
       ),
       body: SafeArea(
         child: LayoutBuilder(
@@ -58,8 +77,7 @@ class _LeagueDashboardScreenState extends State<LeagueDashboardScreen> {
   }
 
   /// ---------------- MOBILE ----------------
-
-  Widget _buildMobileView(List<TeamStats> standings) {
+  Widget _buildMobileView(List<TeamStatsWithExtras> standings) {
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
@@ -75,8 +93,7 @@ class _LeagueDashboardScreenState extends State<LeagueDashboardScreen> {
   }
 
   /// ---------------- TABLET ----------------
-
-  Widget _buildTabletView(List<TeamStats> standings) {
+  Widget _buildTabletView(List<TeamStatsWithExtras> standings) {
     return Row(
       children: [
         Expanded(
@@ -113,7 +130,6 @@ class _LeagueDashboardScreenState extends State<LeagueDashboardScreen> {
   }
 
   /// ---------------- COMPONENTS ----------------
-
   Widget _sectionTitle(String title) {
     return Text(
       title,
@@ -125,7 +141,7 @@ class _LeagueDashboardScreenState extends State<LeagueDashboardScreen> {
     );
   }
 
-  Widget _buildStandingsList(List<TeamStats> standings) {
+  Widget _buildStandingsList(List<TeamStatsWithExtras> standings) {
     if (standings.isEmpty) {
       return _emptyBox("No standings yet");
     }
@@ -142,7 +158,7 @@ class _LeagueDashboardScreenState extends State<LeagueDashboardScreen> {
             style: const TextStyle(color: Colors.white),
           ),
           trailing: Text(
-            "${team.points} pts",
+            "${team.base.points} pts",
             style: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.bold,
@@ -202,4 +218,43 @@ class _LeagueDashboardScreenState extends State<LeagueDashboardScreen> {
       ),
     );
   }
+
+  /// ---------------- HELPERS ----------------
+
+  String _lookupTeamName(String teamId) {
+    final team = _teams.firstWhere(
+      (t) => t.teamId == teamId,
+      orElse: () => TeamStats.empty(teamId: teamId, leagueId: widget.leagueId),
+    );
+    return team.teamId; // replace with actual name if available
+  }
+
+  void _openKnockoutIfUCL() {
+    // Only trigger if league uses knockout stages
+    final hasGroups = _matches.any((m) => m.groupId != null);
+    if (!hasGroups) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => KnockoutBracketScreen(
+          matches: _matches,
+          teamsById: {}, // You'll need to pass your team map here
+        ),
+      ),
+    );
+  }
+}
+
+/// Helper wrapper to attach position & teamName to TeamStats
+class TeamStatsWithExtras {
+  final TeamStats base;
+  final int position;
+  final String teamName;
+
+  TeamStatsWithExtras({
+    required this.base,
+    required this.position,
+    required this.teamName,
+  });
 }

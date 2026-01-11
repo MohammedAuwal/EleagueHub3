@@ -1,17 +1,16 @@
-import '../domain/models.dart';
+import '../../../core/domain/models.dart';
+import '../models/fixture_match.dart';
+import '../models/team.dart';
+import '../models/team_stats.dart';
 
 class LeaguesRepositoryMock {
-  // NOTE:
-  // This mock now represents a REALISTIC empty league state.
-  // No physical league IDs, no physical teams, no auto-filled fixtures.
-
   /// =========================
   /// LEAGUES
   /// =========================
   List<League> listLeagues() {
     return [
       League(
-        id: '', // Generated automatically by backend
+        id: 'L-1',
         name: 'EleagueHub Open',
         format: 'Swiss',
         privacy: 'Public',
@@ -20,7 +19,7 @@ class LeaguesRepositoryMock {
         isPrivate: false,
       ),
       League(
-        id: '',
+        id: 'L-2',
         name: 'Night Ops Invitational',
         format: 'UCL Groups+Knockout',
         privacy: 'Private',
@@ -29,7 +28,7 @@ class LeaguesRepositoryMock {
         isPrivate: true,
       ),
       League(
-        id: '',
+        id: 'L-3',
         name: 'Weekend Round Robin',
         format: 'Round Robin',
         privacy: 'Public',
@@ -41,30 +40,99 @@ class LeaguesRepositoryMock {
   }
 
   /// =========================
-  /// STANDINGS
+  /// TEAMS
   /// =========================
-  /// Empty until teams join
-  List<StandingRow> standings(String leagueId) {
-    return [];
+  List<Team> teams(String leagueId) {
+    switch (leagueId) {
+      case 'L-1':
+        return List.generate(8, (i) => Team(
+              id: 'T1-$i',
+              leagueId: leagueId,
+              name: 'Team ${i + 1}',
+              updatedAtMs: DateTime.now().millisecondsSinceEpoch,
+              version: 1,
+            ));
+      case 'L-2': // UCL
+        return List.generate(16, (i) => Team(
+              id: 'T2-$i',
+              leagueId: leagueId,
+              name: 'Club ${i + 1}',
+              updatedAtMs: DateTime.now().millisecondsSinceEpoch,
+              version: 1,
+            ));
+      case 'L-3':
+        return List.generate(12, (i) => Team(
+              id: 'T3-$i',
+              leagueId: leagueId,
+              name: 'Side ${i + 1}',
+              updatedAtMs: DateTime.now().millisecondsSinceEpoch,
+              version: 1,
+            ));
+      default:
+        return [];
+    }
   }
 
   /// =========================
   /// FIXTURES
   /// =========================
-  /// Fixtures exist but teams are NOT assigned yet
-  List<Fixture> fixtures(String leagueId) {
-    final now = DateTime.now();
+  List<FixtureMatch> fixtures(String leagueId) {
+    final ts = teams(leagueId);
+    if (ts.isEmpty) return [];
 
-    return List.generate(10, (i) {
-      return Fixture(
-        id: 'F-$i', // Temporary local ID
-        home: null, // Will be assigned later
-        away: null, // Will be assigned later
-        scheduledAt: now.add(Duration(days: i)),
-        status: 'Scheduled',
-        matchId: 'M-$i',
-      );
-    });
+    final now = DateTime.now();
+    final fixtures = <FixtureMatch>[];
+
+    // Simple round-robin generation
+    for (var i = 0; i < ts.length; i++) {
+      for (var j = i + 1; j < ts.length; j++) {
+        fixtures.add(FixtureMatch(
+          id: 'F-$leagueId-$i-$j',
+          leagueId: leagueId,
+          groupId: leagueId == 'L-2' ? 'Group ${i % 4 + 1}' : null,
+          roundNumber: i + 1,
+          homeTeamId: ts[i].id,
+          awayTeamId: ts[j].id,
+          homeScore: null,
+          awayScore: null,
+          status: MatchStatus.scheduled,
+          sortIndex: fixtures.length,
+          updatedAtMs: now.millisecondsSinceEpoch,
+          version: 1,
+        ));
+      }
+    }
+    return fixtures;
+  }
+
+  /// =========================
+  /// STANDINGS
+  /// =========================
+  /// Generates TeamStats from fixtures
+  List<TeamStats> standings(String leagueId) {
+    final ts = teams(leagueId);
+    final fx = fixtures(leagueId);
+
+    final Map<String, TeamStats> statsMap = {
+      for (var t in ts) t.id: TeamStats.empty(teamId: t.id, leagueId: leagueId)
+    };
+
+    for (var match in fx) {
+      if (match.isPlayed) {
+        statsMap[match.homeTeamId] =
+            statsMap[match.homeTeamId]!.applyMatch(
+          scored: match.homeScore!,
+          conceded: match.awayScore!,
+        );
+        statsMap[match.awayTeamId] =
+            statsMap[match.awayTeamId]!.applyMatch(
+          scored: match.awayScore!,
+          conceded: match.homeScore!,
+        );
+      }
+    }
+
+    return statsMap.values.toList();
   }
 
   /// =========================
@@ -80,10 +148,8 @@ class LeaguesRepositoryMock {
     required int proofDeadlineHours,
     required List<String> tiebreakers,
   }) async {
-    // Backend will:
-    // - Generate League ID
-    // - Generate QR Code
-    await Future<void>.delayed(const Duration(milliseconds: 450));
+    // Simulate network delay
+    await Future.delayed(const Duration(milliseconds: 450));
   }
 
   /// =========================
@@ -94,7 +160,7 @@ class LeaguesRepositoryMock {
     required String matchId,
     required String note,
   }) async {
-    await Future<void>.delayed(const Duration(milliseconds: 400));
+    await Future.delayed(const Duration(milliseconds: 400));
   }
 
   /// =========================
@@ -105,6 +171,6 @@ class LeaguesRepositoryMock {
     required String matchId,
     required MatchReviewDecision decision,
   }) async {
-    await Future<void>.delayed(const Duration(milliseconds: 350));
+    await Future.delayed(const Duration(milliseconds: 350));
   }
 }
