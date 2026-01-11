@@ -1,41 +1,74 @@
 import 'package:flutter/material.dart';
 import 'dart:ui';
 import '../../models/league_format.dart';
+import '../data/leagues_repository_mock.dart';
+import '../models/team_stats.dart';
 
-class LeagueLeaderboardScreen extends StatelessWidget {
+class LeagueLeaderboardScreen extends StatefulWidget {
   final LeagueFormat format;
+  final String leagueId;
   final String leagueName;
 
   const LeagueLeaderboardScreen({
-    super.key, 
-    required this.format, 
-    required this.leagueName
+    super.key,
+    required this.format,
+    required this.leagueId,
+    required this.leagueName,
   });
+
+  @override
+  State<LeagueLeaderboardScreen> createState() => _LeagueLeaderboardScreenState();
+}
+
+class _LeagueLeaderboardScreenState extends State<LeagueLeaderboardScreen> {
+  final LeaguesRepositoryMock repo = LeaguesRepositoryMock();
+  List<TeamStats> _teams = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTeams();
+  }
+
+  void _loadTeams() {
+    final teams = repo.standings(widget.leagueId); // get teams with points
+    setState(() {
+      _teams = teams;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF4FC3F7), // Matching your Home theme
+      backgroundColor: const Color(0xFF4FC3F7),
       appBar: AppBar(
-        title: Text('$leagueName Standings'),
+        title: Text('${widget.leagueName} Standings'),
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
       body: SafeArea(
-        child: format == LeagueFormat.uclGroup 
-          ? _buildGroupView() 
-          : _buildSingleTableView(),
+        child: widget.format == LeagueFormat.uclGroup
+            ? _buildGroupView()
+            : _buildSingleTableView(),
       ),
     );
   }
 
-  // View for UCL Groups (A, B, C...)
+  /// ---------------- GROUP VIEW ----------------
   Widget _buildGroupView() {
-    return ListView.builder(
+    final groups = <String, List<TeamStats>>{};
+    for (int i = 0; i < _teams.length; i++) {
+      String group = "Group ${String.fromCharCode(65 + (i ~/ 4))}";
+      groups.putIfAbsent(group, () => []);
+      groups[group]!.add(_teams[i]);
+    }
+
+    return ListView(
       padding: const EdgeInsets.all(16),
-      itemCount: 8, // Groups A through H
-      itemBuilder: (context, index) {
-        String groupLetter = String.fromCharCode(65 + index);
+      children: groups.entries.map((entry) {
+        final groupTeams = entry.value;
+        groupTeams.sort((a, b) => b.points.compareTo(a.points)); // descending points
+
         return Padding(
           padding: const EdgeInsets.only(bottom: 24),
           child: Column(
@@ -43,24 +76,31 @@ class LeagueLeaderboardScreen extends StatelessWidget {
             children: [
               Padding(
                 padding: const EdgeInsets.only(left: 8, bottom: 8),
-                child: Text("GROUP $groupLetter", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                child: Text(
+                  entry.key,
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                ),
               ),
-              _buildGlassTable(teamCount: 4),
+              _buildGlassTable(groupTeams),
             ],
           ),
         );
-      },
+      }).toList(),
     );
   }
 
-  // View for Classic or Swiss League
+  /// ---------------- SINGLE TABLE VIEW ----------------
   Widget _buildSingleTableView() {
+    final teams = [..._teams];
+    teams.sort((a, b) => b.points.compareTo(a.points));
+
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Column(
         children: [
           _buildTableHead(),
-          Expanded(child: _buildGlassTable(teamCount: 20)),
+          const SizedBox(height: 8),
+          Expanded(child: _buildGlassTable(teams)),
         ],
       ),
     );
@@ -81,7 +121,7 @@ class LeagueLeaderboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildGlassTable({required int teamCount}) {
+  Widget _buildGlassTable(List<TeamStats> teams) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(20),
       child: BackdropFilter(
@@ -95,34 +135,26 @@ class LeagueLeaderboardScreen extends StatelessWidget {
           child: ListView.separated(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            itemCount: teamCount,
-            separatorBuilder: (context, index) => Divider(color: Colors.white.withOpacity(0.1), height: 1),
-            itemBuilder: (context, index) {
-              return _buildTeamRow(index + 1);
-            },
+            itemCount: teams.length,
+            separatorBuilder: (_, __) => Divider(color: Colors.white.withOpacity(0.1), height: 1),
+            itemBuilder: (_, index) => _buildTeamRow(index + 1, teams[index]),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildTeamRow(int rank) {
-    bool isQualified = rank <= 2; // For UCL/Swiss progression highlight
+  Widget _buildTeamRow(int rank, TeamStats team) {
+    bool isQualified = rank <= 2; // highlight top 2 for UCL/Swiss
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         children: [
-          Expanded(
-            flex: 1, 
-            child: Text("$rank", style: TextStyle(color: isQualified ? Colors.cyanAccent : Colors.white70))
-          ),
-          const Expanded(
-            flex: 4, 
-            child: Text("Team Name", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500))
-          ),
-          const Expanded(child: Text("0", style: TextStyle(color: Colors.white70))),
-          const Expanded(child: Text("0", style: TextStyle(color: Colors.white70))),
-          const Expanded(child: Text("0", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+          Expanded(flex: 1, child: Text("$rank", style: TextStyle(color: isQualified ? Colors.cyanAccent : Colors.white70))),
+          Expanded(flex: 4, child: Text(team.teamName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500))),
+          Expanded(child: Text("${team.played}", style: const TextStyle(color: Colors.white70))),
+          Expanded(child: Text("${team.gd}", style: const TextStyle(color: Colors.white70))),
+          Expanded(child: Text("${team.points}", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
         ],
       ),
     );
