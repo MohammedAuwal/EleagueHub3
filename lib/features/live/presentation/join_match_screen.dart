@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-
 import '../../../core/widgets/glass.dart';
 import '../../../core/widgets/glass_scaffold.dart';
+import '../../leagues/data/leagues_repository_mock.dart';
 
 class JoinMatchScreen extends StatefulWidget {
   const JoinMatchScreen({super.key});
@@ -14,11 +14,27 @@ class JoinMatchScreen extends StatefulWidget {
 class _JoinMatchScreenState extends State<JoinMatchScreen> {
   final _id = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+  final _repo = LeaguesRepositoryMock();
 
   @override
   void dispose() {
     _id.dispose();
     super.dispose();
+  }
+
+  void _join() {
+    final input = _id.text.trim();
+    // Check if match exists
+    final exists = _repo.fixtures('').any((f) => f.matchId == input);
+    if (!exists) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Invalid Match ID')),
+      );
+      return;
+    }
+
+    // Navigate to match view
+    context.push('/live/view/$input');
   }
 
   @override
@@ -40,7 +56,7 @@ class _JoinMatchScreenState extends State<JoinMatchScreen> {
                       controller: _id,
                       decoration: const InputDecoration(
                         labelText: 'Match ID',
-                        hintText: 'e.g. LM-8891',
+                        hintText: 'e.g. M-L-3307-0',
                       ),
                       validator: (v) => (v == null || v.trim().isEmpty)
                           ? 'Enter a match ID'
@@ -51,9 +67,7 @@ class _JoinMatchScreenState extends State<JoinMatchScreen> {
                       width: double.infinity,
                       child: FilledButton(
                         onPressed: () {
-                          if (_formKey.currentState!.validate()) {
-                            context.push('/live/view/${_id.text.trim()}');
-                          }
+                          if (_formKey.currentState!.validate()) _join();
                         },
                         child: const Text('Join'),
                       ),

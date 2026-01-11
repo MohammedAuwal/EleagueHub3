@@ -51,10 +51,14 @@ class _LeagueCreateWizardState extends State<LeagueCreateWizard> {
               controlsBuilder: (context, details) {
                 final isLast = _step == 2;
                 return Padding(
-                  padding: const EdgeInsets.only(top: 12),
+                  padding: const EdgeInsets.only(top: 16),
                   child: Row(
                     children: [
                       FilledButton(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Colors.cyanAccent,
+                          foregroundColor: Colors.black,
+                        ),
                         onPressed: _submitting
                             ? null
                             : () async {
@@ -82,8 +86,8 @@ class _LeagueCreateWizardState extends State<LeagueCreateWizard> {
                       if (_submitting) ...[
                         const SizedBox(width: 12),
                         const SizedBox(
-                          width: 16,
-                          height: 16,
+                          width: 18,
+                          height: 18,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         ),
                       ],
@@ -117,6 +121,7 @@ class _LeagueCreateWizardState extends State<LeagueCreateWizard> {
 
   Widget _basicsStep(BuildContext context) {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         TextField(
           controller: _name,
@@ -130,8 +135,7 @@ class _LeagueCreateWizardState extends State<LeagueCreateWizard> {
           value: _format,
           items: const [
             DropdownMenuItem(value: 'Round Robin', child: Text('Round Robin')),
-            DropdownMenuItem(
-                value: 'UCL Groups+Knockout', child: Text('UCL Groups+Knockout')),
+            DropdownMenuItem(value: 'UCL Groups+Knockout', child: Text('UCL Groups+Knockout')),
             DropdownMenuItem(value: 'Swiss', child: Text('Swiss')),
           ],
           onChanged: (v) => setState(() => _format = v ?? _format),
@@ -182,7 +186,7 @@ class _LeagueCreateWizardState extends State<LeagueCreateWizard> {
       children: [
         Text('Tiebreakers', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),
-        _check('Head-to-head', value: _tbHeadToHead, onChanged: null),
+        _check('Head-to-head', value: _tbHeadToHead, onChanged: null), // read-only
         _check(
           'Goal difference',
           value: _tbGoalDiff,
@@ -274,7 +278,7 @@ class _LeagueCreateWizardState extends State<LeagueCreateWizard> {
     final name = _name.text.trim();
     if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a league name.')),
+        const SnackBar(content: Text('Please enter a league name.'), duration: Duration(seconds: 2)),
       );
       setState(() => _step = 0);
       return;
@@ -295,7 +299,7 @@ class _LeagueCreateWizardState extends State<LeagueCreateWizard> {
 
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('League created (mock).')),
+        const SnackBar(content: Text('League created (mock).'), duration: Duration(seconds: 2)),
       );
       context.pop();
     } finally {

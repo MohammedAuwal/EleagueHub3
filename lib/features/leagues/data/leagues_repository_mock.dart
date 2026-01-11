@@ -1,15 +1,17 @@
-import 'dart:math';
-
 import '../domain/models.dart';
 
 class LeaguesRepositoryMock {
-  // TODO(backend): Replace with real data source (Firebase/Supabase/etc).
-  final _rng = Random(4);
+  // NOTE:
+  // This mock now represents a REALISTIC empty league state.
+  // No physical league IDs, no physical teams, no auto-filled fixtures.
 
+  /// =========================
+  /// LEAGUES
+  /// =========================
   List<League> listLeagues() {
     return [
       League(
-        id: 'L-1001',
+        id: '', // Generated automatically by backend
         name: 'EleagueHub Open',
         format: 'Swiss',
         privacy: 'Public',
@@ -18,7 +20,7 @@ class LeaguesRepositoryMock {
         isPrivate: false,
       ),
       League(
-        id: 'L-2042',
+        id: '',
         name: 'Night Ops Invitational',
         format: 'UCL Groups+Knockout',
         privacy: 'Private',
@@ -27,7 +29,7 @@ class LeaguesRepositoryMock {
         isPrivate: true,
       ),
       League(
-        id: 'L-3307',
+        id: '',
         name: 'Weekend Round Robin',
         format: 'Round Robin',
         privacy: 'Public',
@@ -38,57 +40,36 @@ class LeaguesRepositoryMock {
     ];
   }
 
+  /// =========================
+  /// STANDINGS
+  /// =========================
+  /// Empty until teams join
   List<StandingRow> standings(String leagueId) {
-    final teams = [
-      'Nova',
-      'Apex',
-      'Vortex',
-      'Zenith',
-      'Pulse',
-      'Orion',
-      'Kairo',
-      'Helix'
-    ];
-    teams.shuffle(_rng);
-    return List.generate(8, (i) {
-      final p = 7;
-      final w = _rng.nextInt(6);
-      final d = _rng.nextInt(3);
-      final l = (p - w - d).clamp(0, 7);
-      final gf = 6 + _rng.nextInt(18);
-      final ga = 4 + _rng.nextInt(16);
-      final pts = w * 3 + d;
-      return StandingRow(
-        team: teams[i],
-        played: p,
-        wins: w,
-        draws: d,
-        losses: l,
-        gf: gf,
-        ga: ga,
-        points: pts,
-      );
-    })..sort((a, b) => b.points.compareTo(a.points));
+    return [];
   }
 
+  /// =========================
+  /// FIXTURES
+  /// =========================
+  /// Fixtures exist but teams are NOT assigned yet
   List<Fixture> fixtures(String leagueId) {
     final now = DateTime.now();
-    final statuses = ['Scheduled', 'Pending Proof', 'Under Review', 'Completed'];
 
     return List.generate(10, (i) {
-      final status = statuses[_rng.nextInt(statuses.length)];
-      final scheduled = now.add(Duration(hours: (i - 3) * 9));
       return Fixture(
-        id: 'F-$leagueId-$i',
-        home: ['Nova', 'Apex', 'Vortex', 'Zenith'][_rng.nextInt(4)],
-        away: ['Pulse', 'Orion', 'Kairo', 'Helix'][_rng.nextInt(4)],
-        scheduledAt: scheduled,
-        status: status,
-        matchId: 'M-$leagueId-$i',
+        id: 'F-$i', // Temporary local ID
+        home: null, // Will be assigned later
+        away: null, // Will be assigned later
+        scheduledAt: now.add(Duration(days: i)),
+        status: 'Scheduled',
+        matchId: 'M-$i',
       );
     });
   }
 
+  /// =========================
+  /// CREATE LEAGUE
+  /// =========================
   Future<void> createLeague({
     required String name,
     required String format,
@@ -99,25 +80,31 @@ class LeaguesRepositoryMock {
     required int proofDeadlineHours,
     required List<String> tiebreakers,
   }) async {
-    // TODO(backend): call API
+    // Backend will:
+    // - Generate League ID
+    // - Generate QR Code
     await Future<void>.delayed(const Duration(milliseconds: 450));
   }
 
+  /// =========================
+  /// UPLOAD MATCH PROOF
+  /// =========================
   Future<void> uploadProofPlaceholder({
     required String leagueId,
     required String matchId,
     required String note,
   }) async {
-    // TODO(backend): integrate file picker + upload storage + attach proof to match
     await Future<void>.delayed(const Duration(milliseconds: 400));
   }
 
+  /// =========================
+  /// ORGANIZER REVIEW
+  /// =========================
   Future<void> organizerReviewDecision({
     required String leagueId,
     required String matchId,
     required MatchReviewDecision decision,
   }) async {
-    // TODO(backend): post decision
     await Future<void>.delayed(const Duration(milliseconds: 350));
   }
 }

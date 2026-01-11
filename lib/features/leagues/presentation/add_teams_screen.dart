@@ -21,8 +21,6 @@ class _AddTeamsScreenState extends State<AddTeamsScreen> with SingleTickerProvid
   final _singleController = TextEditingController();
   final _bulkController = TextEditingController();
   
-  // Storage: Map team names to their assigned Group (e.g., "Group A")
-  // For Classic and Swiss, we just use "General"
   List<Map<String, String>> _tempTeams = [];
   String _selectedGroup = "Group A";
   final List<String> _groups = ["Group A", "Group B", "Group C", "Group D", "Group E", "Group F", "Group G", "Group H"];
@@ -34,12 +32,21 @@ class _AddTeamsScreenState extends State<AddTeamsScreen> with SingleTickerProvid
   }
 
   void _addTeam(String name) {
-    if (name.isEmpty) return;
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return;
+    if (_tempTeams.any((t) => t['name'] == trimmed)) return; // prevent duplicates
+
     setState(() {
       _tempTeams.add({
-        'name': name.trim(),
+        'name': trimmed,
         'group': widget.format == LeagueFormat.uclGroup ? _selectedGroup : "League Pool",
       });
+
+      // Optional: Auto-advance group for UCL Groups
+      if (widget.format == LeagueFormat.uclGroup) {
+        final nextIndex = (_groups.indexOf(_selectedGroup) + 1) % _groups.length;
+        _selectedGroup = _groups[nextIndex];
+      }
     });
   }
 
@@ -62,12 +69,14 @@ class _AddTeamsScreenState extends State<AddTeamsScreen> with SingleTickerProvid
         backgroundColor: Colors.transparent,
         bottom: TabBar(
           controller: _tabController,
+          indicatorColor: Colors.cyanAccent,
+          labelColor: Colors.cyanAccent,
+          unselectedLabelColor: Colors.white54,
           tabs: const [Tab(text: 'Single Entry'), Tab(text: 'Bulk Import')],
         ),
       ),
       body: Column(
         children: [
-          // Group Selector (Only visible for UCL Group League)
           if (widget.format == LeagueFormat.uclGroup) _buildGroupSelector(),
 
           Expanded(
@@ -157,7 +166,7 @@ class _AddTeamsScreenState extends State<AddTeamsScreen> with SingleTickerProvid
               maxLines: null,
               style: const TextStyle(color: Colors.white),
               decoration: const InputDecoration(
-                hintText: 'Paste teams here...\nTeam 1, Team 2, Team 3',
+                hintText: 'Paste teams here (comma or newline separated)',
                 hintStyle: TextStyle(color: Colors.white24),
                 border: InputBorder.none
               ),
@@ -224,6 +233,12 @@ class _AddTeamsScreenState extends State<AddTeamsScreen> with SingleTickerProvid
               side: const BorderSide(color: Colors.cyanAccent),
             ),
             onPressed: () {
+              if (_tempTeams.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Add at least one team to continue')),
+                );
+                return;
+              }
               // SAVE & START LEAGUE LOGIC
             },
             child: const Text('GENERATE LEAGUE FIXTURES', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
