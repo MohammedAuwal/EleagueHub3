@@ -2,6 +2,9 @@ import '../../../core/domain/models.dart';
 import '../models/fixture_match.dart';
 import '../models/team.dart';
 import '../models/team_stats.dart';
+import '../models/league.dart';
+import '../models/league_format.dart';
+import '../models/league_settings.dart';
 
 class LeaguesRepositoryMock {
   /// internal cache for joined teams to avoid duplicates and make calls idempotent
@@ -11,33 +14,38 @@ class LeaguesRepositoryMock {
   /// LEAGUES
   /// =========================
   List<League> listLeagues() {
+    final now = DateTime.now().millisecondsSinceEpoch;
+
     return [
       League(
         id: 'L-1',
+        code: 'ELEAGUE1',
         name: 'EleagueHub Open',
-        format: 'Swiss',
-        privacy: 'Public',
-        region: 'EU',
-        maxTeams: 32,
-        isPrivate: false,
+        format: LeagueFormat.uclSwiss,
+        organizerUserId: 'admin-1',
+        settings: LeagueSettings.defaultSettings(),
+        updatedAtMs: now,
+        version: 1,
       ),
       League(
         id: 'L-2',
+        code: 'UCLGROUP',
         name: 'Night Ops Invitational',
-        format: 'UCL Groups+Knockout',
-        privacy: 'Private',
-        region: 'NA',
-        maxTeams: 16,
-        isPrivate: true,
+        format: LeagueFormat.uclGroup,
+        organizerUserId: 'admin-2',
+        settings: LeagueSettings.defaultSettings(),
+        updatedAtMs: now,
+        version: 1,
       ),
       League(
         id: 'L-3',
+        code: 'CLASSIC1',
         name: 'Weekend Round Robin',
-        format: 'Round Robin',
-        privacy: 'Public',
-        region: 'APAC',
-        maxTeams: 12,
-        isPrivate: false,
+        format: LeagueFormat.classic,
+        organizerUserId: 'admin-3',
+        settings: LeagueSettings.defaultSettings(),
+        updatedAtMs: now,
+        version: 1,
       ),
     ];
   }
@@ -47,7 +55,6 @@ class LeaguesRepositoryMock {
   /// =========================
   List<Team> teams(String leagueId) {
     _joinedTeams.putIfAbsent(leagueId, () {
-      // initial mock teams (same shape as original implementation)
       switch (leagueId) {
         case 'L-1':
           return List.generate(
@@ -60,7 +67,7 @@ class LeaguesRepositoryMock {
               version: 1,
             ),
           );
-        case 'L-2': // UCL
+        case 'L-2':
           return List.generate(
             16,
             (i) => Team(
@@ -89,21 +96,19 @@ class LeaguesRepositoryMock {
     return _joinedTeams[leagueId]!;
   }
 
-  /// Adds a participant to a league.
-  /// If a team with the same id already exists, it is updated (no duplicate is created).
+  /// Adds a participant to a league (idempotent)
   void addParticipant(String leagueId, Team team) {
     _joinedTeams.putIfAbsent(leagueId, () => []);
     final list = _joinedTeams[leagueId]!;
     final idx = list.indexWhere((t) => t.id == team.id);
     if (idx >= 0) {
-      // replace/update existing entry to avoid duplicates
       list[idx] = team;
     } else {
       list.add(team);
     }
   }
 
-  /// Removes a participant by id.
+  /// Removes a participant by id
   void removeParticipant(String leagueId, String teamId) {
     _joinedTeams[leagueId]?.removeWhere((t) => t.id == teamId);
   }
@@ -118,23 +123,24 @@ class LeaguesRepositoryMock {
     final now = DateTime.now();
     final fixtures = <FixtureMatch>[];
 
-    // Simple round-robin generation
     for (var i = 0; i < ts.length; i++) {
       for (var j = i + 1; j < ts.length; j++) {
-        fixtures.add(FixtureMatch(
-          id: 'F-$leagueId-$i-$j',
-          leagueId: leagueId,
-          groupId: leagueId == 'L-2' ? 'Group ${i % 4 + 1}' : null,
-          roundNumber: i + 1,
-          homeTeamId: ts[i].id,
-          awayTeamId: ts[j].id,
-          homeScore: null,
-          awayScore: null,
-          status: MatchStatus.scheduled,
-          sortIndex: fixtures.length,
-          updatedAtMs: now.millisecondsSinceEpoch,
-          version: 1,
-        ));
+        fixtures.add(
+          FixtureMatch(
+            id: 'F-$leagueId-$i-$j',
+            leagueId: leagueId,
+            groupId: leagueId == 'L-2' ? 'Group ${i % 4 + 1}' : null,
+            roundNumber: i + 1,
+            homeTeamId: ts[i].id,
+            awayTeamId: ts[j].id,
+            homeScore: null,
+            awayScore: null,
+            status: MatchStatus.scheduled,
+            sortIndex: fixtures.length,
+            updatedAtMs: now.millisecondsSinceEpoch,
+            version: 1,
+          ),
+        );
       }
     }
     return fixtures;
@@ -143,13 +149,13 @@ class LeaguesRepositoryMock {
   /// =========================
   /// STANDINGS
   /// =========================
-  /// Generates TeamStats from fixtures
   List<TeamStats> standings(String leagueId) {
     final ts = teams(leagueId);
     final fx = fixtures(leagueId);
 
     final Map<String, TeamStats> statsMap = {
-      for (var t in ts) t.id: TeamStats.empty(teamId: t.id, leagueId: leagueId)
+      for (var t in ts)
+        t.id: TeamStats.empty(teamId: t.id, leagueId: leagueId)
     };
 
     for (var match in fx) {
@@ -171,24 +177,18 @@ class LeaguesRepositoryMock {
   }
 
   /// =========================
-  /// CREATE LEAGUE
+  /// CREATE LEAGUE (ONLINE ONLY)
   /// =========================
   Future<void> createLeague({
     required String name,
-    required String format,
-    required String privacy,
-    required String region,
-    required int maxTeams,
-    required bool forfeitEnabled,
-    required int proofDeadlineHours,
-    required List<String> tiebreakers,
+    required LeagueFormat format,
+    required LeagueSettings settings,
   }) async {
-    // Simulate network delay
     await Future.delayed(const Duration(milliseconds: 450));
   }
 
   /// =========================
-  /// UPLOAD MATCH PROOF
+  /// UPLOAD MATCH PROOF (ONLINE)
   /// =========================
   Future<void> uploadProofPlaceholder({
     required String leagueId,
@@ -199,7 +199,7 @@ class LeaguesRepositoryMock {
   }
 
   /// =========================
-  /// ORGANIZER REVIEW
+  /// ORGANIZER REVIEW (ONLINE)
   /// =========================
   Future<void> organizerReviewDecision({
     required String leagueId,
