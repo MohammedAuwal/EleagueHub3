@@ -6,6 +6,7 @@ import '../../../core/widgets/glass_scaffold.dart';
 import '../../../core/widgets/glass_search_bar.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../widgets/league_flip_card.dart';
+import '../data/leagues_repository_mock.dart';
 
 class LeaguesListScreen extends StatelessWidget {
   const LeaguesListScreen({super.key});
@@ -13,6 +14,10 @@ class LeaguesListScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
+    // Use the mock repository
+    final repo = LeaguesRepositoryMock();
+    final leagues = repo.listLeagues();
 
     return GlassScaffold(
       appBar: AppBar(
@@ -31,20 +36,17 @@ class LeaguesListScreen extends StatelessWidget {
         children: [
           const GlassSearchBar(),
           const SizedBox(height: 12),
-          Expanded(child: _buildContent(context)),
+          Expanded(
+            child: leagues.isEmpty
+                ? _buildEmptyState(context)
+                : _buildLeagueList(context, leagues),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildContent(BuildContext context) {
-    // TODO: Replace with real provider / repository
-    final leagues = <Map<String, String>>[];
-
-    if (leagues.isEmpty) {
-      return _buildEmptyState(context);
-    }
-
+  Widget _buildLeagueList(BuildContext context, List leagues) {
     return ListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: leagues.length,
@@ -54,9 +56,10 @@ class LeaguesListScreen extends StatelessWidget {
         return Padding(
           padding: const EdgeInsets.only(bottom: 16),
           child: LeagueFlipCard(
-            leagueName: league['name']!,
-            leagueCode: league['code']!,
-            distribution: league['distribution']!,
+            leagueName: league.name,
+            leagueCode: league.id,
+            distribution: league.format,
+            onTap: () => context.push('/leagues/${league.id}'),
           ),
         );
       },

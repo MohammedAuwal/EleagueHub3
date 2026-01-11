@@ -9,6 +9,7 @@ class FixtureCard extends StatelessWidget {
     required this.subtitle,
     required this.trailing,
     required this.onTap,
+    this.isPlayed = false,
   });
 
   final String home;
@@ -17,29 +18,50 @@ class FixtureCard extends StatelessWidget {
   final Widget trailing;
   final VoidCallback onTap;
 
+  /// Optional: change text color if match is played
+  final bool isPlayed;
+
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
-    return Glass(
-      child: InkWell(
-        onTap: onTap,
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Glass(
         borderRadius: BorderRadius.circular(20),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('$home vs $away',
-                      style: t.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
-                  const SizedBox(height: 4),
-                  Text(subtitle, style: t.bodySmall),
-                ],
-              ),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(20),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '$home vs $away',
+                        style: t.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w900,
+                          color: isPlayed ? Colors.grey[400] : Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle,
+                        style: t.bodySmall?.copyWith(
+                          color: isPlayed ? Colors.grey[500] : Colors.white70,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                trailing,
+              ],
             ),
-            const SizedBox(width: 8),
-            trailing,
-          ],
+          ),
         ),
       ),
     );
