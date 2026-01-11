@@ -1,22 +1,69 @@
+import 'package:flutter/foundation.dart';
+import '../../core/database/db_helper.dart';
+
 class ParticipantsService {
-  // Mock backend: replace with API calls
-  final Map<String, List<String>> _data = {};
+  final DbHelper _db = DbHelper.instance;
 
+  ParticipantsService();
+
+  /// Get all participants for a league
   Future<List<String>> getParticipants(String leagueId) async {
-    await Future.delayed(const Duration(milliseconds: 300)); // simulate network
-    return _data[leagueId] ?? [];
+    final rows = await _db.getAllParticipants(leagueId);
+    return rows.map((e) => e['participantId'] as String).toList();
   }
 
-  Future<bool> addParticipant(String leagueId, String id) async {
-    await Future.delayed(const Duration(milliseconds: 300)); // simulate network
-    _data[leagueId] ??= [];
-    if (_data[leagueId]!.contains(id)) return false;
-    _data[leagueId]!.add(id);
-    return true;
+  /// Add participant (offline + online flag)
+  Future<bool> addParticipant(String leagueId, String participantId, {String? name, bool joinedOnline = false}) async {
+    try {
+      final row = {
+        'leagueId': leagueId,
+        'participantId': participantId,
+        'name': name ?? participantId,
+        'joinedOnline': joinedOnline ? 1 : 0,
+      };
+      await _db.insertParticipant(row);
+      return true;
+    } catch (e) {
+      debugPrint("Error adding participant: $e");
+      return false;
+    }
   }
 
-  Future<bool> removeParticipant(String leagueId, String id) async {
-    await Future.delayed(const Duration(milliseconds: 300)); // simulate network
-    return _data[leagueId]?.remove(id) ?? false;
+  /// Remove participant
+  Future<bool> removeParticipant(String leagueId, String participantId) async {
+    try {
+      final count = await _db.deleteParticipant(leagueId, participantId);
+      return count > 0;
+    } catch (e) {
+      debugPrint("Error removing participant: $e");
+      return false;
+    }
+  }
+
+  /// Sync offline participants that joined offline to online
+  Future<void> syncParticipants(String leagueId) async {
+    final rows = await _db.getAllParticipants(leagueId);
+    for (var row in rows) {
+      final joinedOnline = row['joinedOnline'] as int;
+      if (joinedOnline == 0) {
+        final participantId = row['participantId'] as String;
+
+        // ------------------------------
+        // TODO: Replace this block with real online API call
+        // Example: await api.addParticipantToServer(leagueId, participantId);
+        await Future.delayed(const Duration(milliseconds: 200));
+        debugPrint("Synced participant $participantId to server");
+        // ------------------------------
+
+        // Mark participant as synced locally
+        await _db.markParticipantSynced(leagueId, participantId);
+      }
+    }
+  }
+
+  /// Check if participant exists
+  Future<bool> participantExists(String leagueId, String participantId) async {
+    final rows = await _db.getAllParticipants(leagueId);
+    return rows.any((e) => e['participantId'] == participantId);
   }
 }

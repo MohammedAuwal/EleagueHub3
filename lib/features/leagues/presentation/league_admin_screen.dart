@@ -1,13 +1,21 @@
 import 'package:flutter/material.dart';
 import 'dart:ui';
-
-// Import the participants screen (assumes the file exists in the same directory)
+import '../../logic/participants_service.dart';
 import 'league_participants_screen.dart';
 
-class LeagueAdminScreen extends StatelessWidget {
+class LeagueAdminScreen extends StatefulWidget {
   final bool hasPendingChanges;
+  final String leagueId;
 
-  const LeagueAdminScreen({super.key, this.hasPendingChanges = true});
+  const LeagueAdminScreen({super.key, this.hasPendingChanges = true, required this.leagueId});
+
+  @override
+  State<LeagueAdminScreen> createState() => _LeagueAdminScreenState();
+}
+
+class _LeagueAdminScreenState extends State<LeagueAdminScreen> {
+  final ParticipantsService _participantsService = ParticipantsService();
+  bool _isSyncing = false;
 
   @override
   Widget build(BuildContext context) {
@@ -32,8 +40,8 @@ class LeagueAdminScreen extends StatelessWidget {
       child: Row(
         children: [
           Icon(
-            hasPendingChanges ? Icons.cloud_off : Icons.cloud_done,
-            color: hasPendingChanges ? Colors.orangeAccent : Colors.greenAccent,
+            widget.hasPendingChanges ? Icons.cloud_off : Icons.cloud_done,
+            color: widget.hasPendingChanges ? Colors.orangeAccent : Colors.greenAccent,
             size: 40,
           ),
           const SizedBox(width: 20),
@@ -42,24 +50,35 @@ class LeagueAdminScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  hasPendingChanges ? "Offline Changes" : "Fully Synced",
+                  widget.hasPendingChanges ? "Offline Changes" : "Fully Synced",
                   style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                 ),
                 Text(
-                  hasPendingChanges ? "3 matches pending upload" : "Up to date with server",
+                  widget.hasPendingChanges ? "Pending upload" : "Up to date with server",
                   style: const TextStyle(color: Colors.white70, fontSize: 12),
                 ),
               ],
             ),
           ),
-          if (hasPendingChanges)
+          if (widget.hasPendingChanges)
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: Colors.cyanAccent),
-              onPressed: () {}, // Trigger Sync Logic
-              child: const Text("SYNC", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+              onPressed: _isSyncing ? null : _syncParticipants,
+              child: _isSyncing
+                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2))
+                  : const Text("SYNC", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
             ),
         ],
       ),
+    );
+  }
+
+  Future<void> _syncParticipants() async {
+    setState(() => _isSyncing = true);
+    await _participantsService.syncParticipants(widget.leagueId);
+    setState(() => _isSyncing = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Participants synced successfully!")),
     );
   }
 
@@ -73,11 +92,10 @@ class LeagueAdminScreen extends StatelessWidget {
             "Manage Participants",
             "Add or remove teams / view joined participants",
             onTap: () {
-              // Navigate to participant management screen
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => LeagueParticipantsScreen(leagueId: "L-1"), // replace with actual leagueId
+                  builder: (_) => LeagueParticipantsScreen(leagueId: widget.leagueId),
                 ),
               );
             },

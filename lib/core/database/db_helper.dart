@@ -57,6 +57,19 @@ class DbHelper {
         FOREIGN KEY (awayTeamId) REFERENCES teams (id)
       )
     ''');
+
+    // =========================
+    // PARTICIPANTS TABLE
+    // =========================
+    await db.execute('''
+      CREATE TABLE participants (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        leagueId TEXT NOT NULL,
+        participantId TEXT NOT NULL,
+        name TEXT,
+        joinedOnline INTEGER DEFAULT 0
+      )
+    ''');
   }
 
   /// =========================
@@ -75,16 +88,49 @@ class DbHelper {
     return await db.insert('matches', row);
   }
 
-  /// Query all teams
-  Future<List<Map<String, dynamic>>> getAllTeams() async {
+  /// Insert participant
+  Future<int> insertParticipant(Map<String, dynamic> row) async {
     final db = await instance.database;
-    return await db.query('teams');
+    return await db.insert('participants', row, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  /// Query all teams
+  Future<List<Map<String, dynamic>>> getAllTeams(String leagueId) async {
+    final db = await instance.database;
+    return await db.query('teams', where: 'leagueId = ?', whereArgs: [leagueId]);
   }
 
   /// Query all matches
-  Future<List<Map<String, dynamic>>> getAllMatches() async {
+  Future<List<Map<String, dynamic>>> getAllMatches(String leagueId) async {
     final db = await instance.database;
-    return await db.query('matches');
+    return await db.query('matches', where: 'leagueId = ?', whereArgs: [leagueId]);
+  }
+
+  /// Query all participants
+  Future<List<Map<String, dynamic>>> getAllParticipants(String leagueId) async {
+    final db = await instance.database;
+    return await db.query('participants', where: 'leagueId = ?', whereArgs: [leagueId]);
+  }
+
+  /// Delete a participant
+  Future<int> deleteParticipant(String leagueId, String participantId) async {
+    final db = await instance.database;
+    return await db.delete(
+      'participants',
+      where: 'leagueId = ? AND participantId = ?',
+      whereArgs: [leagueId, participantId],
+    );
+  }
+
+  /// Mark participant as synced
+  Future<int> markParticipantSynced(String leagueId, String participantId) async {
+    final db = await instance.database;
+    return await db.update(
+      'participants',
+      {'joinedOnline': 1},
+      where: 'leagueId = ? AND participantId = ?',
+      whereArgs: [leagueId, participantId],
+    );
   }
 
   /// Close database
