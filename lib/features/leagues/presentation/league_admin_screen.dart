@@ -61,26 +61,31 @@ class LeagueAdminScreen extends StatelessWidget {
   }
 
   Widget _buildSettingsList() {
-    return _buildGlassBox(
-      child: Column(
+    return Expanded(
+      child: ListView(
         children: [
-          _buildSettingItem(Icons.edit, "Edit League Name"),
-          const Divider(color: Colors.white10),
-          _buildSettingItem(Icons.timer, "Change Match Duration"),
-          const Divider(color: Colors.white10),
-          _buildSettingItem(Icons.person_remove, "Remove a Team", isDestructive: true),
-          const Divider(color: Colors.white10),
-          _buildSettingItem(Icons.refresh, "Reset League Standings", isDestructive: true),
+          _buildSettingsTile(Icons.people, "Manage Participants", "Add or remove teams"),
+          _buildSettingsTile(Icons.Rule, "League Rules", "Tiebreakers and deadlines"),
+          _buildSettingsTile(Icons.notifications_active, "Notifications", "Alerts for scores"),
+          _buildSettingsTile(Icons.delete_forever, "Delete League", "Permanent action", isDestructive: true),
         ],
       ),
     );
   }
 
-  Widget _buildSettingItem(IconData icon, String title, {bool isDestructive = false}) {
-    return ListTile(
-      leading: Icon(icon, color: isDestructive ? Colors.redAccent : Colors.white70),
-      title: Text(title, style: TextStyle(color: isDestructive ? Colors.redAccent : Colors.white)),
-      trailing: const Icon(Icons.chevron_right, color: Colors.white24),
+  Widget _buildSettingsTile(IconData icon, String title, String subtitle, {bool isDestructive = false}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: _buildGlassBox(
+        child: ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: Icon(icon, color: isDestructive ? Colors.redAccent : Colors.white),
+          title: Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500)),
+          subtitle: Text(subtitle, style: const TextStyle(color: Colors.white60, fontSize: 12)),
+          trailing: const Icon(Icons.chevron_right, color: Colors.white30),
+          onTap: () {},
+        ),
+      ),
     );
   }
 
@@ -90,7 +95,7 @@ class LeagueAdminScreen extends StatelessWidget {
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
         child: Container(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: Colors.white.withOpacity(0.1),
             borderRadius: BorderRadius.circular(20),

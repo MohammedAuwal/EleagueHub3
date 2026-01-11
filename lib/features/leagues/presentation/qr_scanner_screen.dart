@@ -1,9 +1,28 @@
 import 'package:flutter/material.dart';
 import 'dart:ui';
 import 'package:go_router/go_router.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 
-class QRScannerScreen extends StatelessWidget {
+class QRScannerScreen extends StatefulWidget {
   const QRScannerScreen({super.key});
+
+  @override
+  State<QRScannerScreen> createState() => _QRScannerScreenState();
+}
+
+class _QRScannerScreenState extends State<QRScannerScreen> {
+  bool _isScanned = false; // prevent multiple scans
+
+  void _onDetect(BarcodeCapture capture) {
+    if (_isScanned) return;
+    final barcode = capture.barcodes.first.rawValue;
+    if (barcode == null) return;
+
+    _isScanned = true;
+
+    // Navigate after successful scan
+    context.push('/live/view/$barcode');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -11,15 +30,10 @@ class QRScannerScreen extends StatelessWidget {
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // Camera feed placeholder
-          Container(
-            color: Colors.black,
-            child: const Center(
-              child: Text(
-                "Camera Feed Here",
-                style: TextStyle(color: Colors.white24),
-              ),
-            ),
+          // Real camera feed
+          MobileScanner(
+            allowDuplicates: false,
+            onDetect: _onDetect,
           ),
 
           // Glass overlay
@@ -35,7 +49,7 @@ class QRScannerScreen extends StatelessWidget {
             ),
           ),
 
-          // Simulate QR scan
+          // Optional: Simulate QR (can remove in production)
           Positioned(
             bottom: 150,
             left: 0,
