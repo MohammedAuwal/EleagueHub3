@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import 'dart:ui';
 import 'qr_scanner_screen.dart';
-import '../../logic/participants_service.dart'; // backend service (you will create)
+import '../../logic/participants_service.dart';
 
 class LeagueParticipantsScreen extends StatefulWidget {
   final String leagueId;
@@ -72,14 +73,12 @@ class _LeagueParticipantsScreenState extends State<LeagueParticipantsScreen> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            // Add via QR Code
             ElevatedButton.icon(
               onPressed: () async {
                 final scannedId = await Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => const QRScannerScreen()),
                 );
-
                 if (scannedId != null && scannedId is String) {
                   await _addParticipant(scannedId);
                 }
@@ -88,10 +87,7 @@ class _LeagueParticipantsScreenState extends State<LeagueParticipantsScreen> {
               label: const Text("Add via QR Code"),
               style: ElevatedButton.styleFrom(backgroundColor: Colors.cyanAccent),
             ),
-
             const SizedBox(height: 16),
-
-            // Add manually
             Row(
               children: [
                 Expanded(
@@ -118,10 +114,7 @@ class _LeagueParticipantsScreenState extends State<LeagueParticipantsScreen> {
                 ),
               ],
             ),
-
             const SizedBox(height: 20),
-
-            // Participants List
             _isLoading
                 ? const Center(child: CircularProgressIndicator(color: Colors.white))
                 : Expanded(

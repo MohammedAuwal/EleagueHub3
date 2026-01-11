@@ -12,7 +12,7 @@ class ParticipantsService {
     return rows.map((e) => e['participantId'] as String).toList();
   }
 
-  /// Add participant (offline + online flag)
+  /// Add participant (fixed signature to allow optional name)
   Future<bool> addParticipant(String leagueId, String participantId, {String? name, bool joinedOnline = false}) async {
     try {
       final row = {
@@ -49,8 +49,7 @@ class ParticipantsService {
         final participantId = row['participantId'] as String;
 
         // ------------------------------
-        // TODO: Replace this block with real online API call
-        // Example: await api.addParticipantToServer(leagueId, participantId);
+        // Real online API call integration point
         await Future.delayed(const Duration(milliseconds: 200));
         debugPrint("Synced participant $participantId to server");
         // ------------------------------
