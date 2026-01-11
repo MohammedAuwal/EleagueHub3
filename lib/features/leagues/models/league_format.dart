@@ -22,3 +22,15 @@ extension LeagueFormatX on LeagueFormat {
     return LeagueFormat.values[v];
   }
 }
+
+class MatchReviewDecision {
+  final bool approved;
+  final String reason;
+  MatchReviewDecision({required this.approved, required this.reason});
+}
+
+class MatchReviewDecision {
+  final bool approved;
+  final String reason;
+  MatchReviewDecision({required this.approved, required this.reason});
+}

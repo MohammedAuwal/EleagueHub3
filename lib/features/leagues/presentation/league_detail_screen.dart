@@ -1,3 +1,5 @@
+import "../models/league.dart";
+import "../models/league_format.dart";
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -49,7 +51,7 @@ class LeagueDetailScreen extends StatelessWidget {
   Widget _overviewCard(BuildContext context, Color c, LeaguesRepositoryMock repo) {
     final league = repo.listLeagues().firstWhere(
       (l) => l.id == leagueId,
-      orElse: () => League(
+      orElse: () => League(id: "", name: "Loading...", format: LeagueFormat.classic, privacy: LeaguePrivacy.public, region: "", maxTeams: 0, season: "", organizerUserId: "", code: "", settings: LeagueSettings.defaultSettings(), updatedAtMs: 0, version: 1,
         id: leagueId,
         name: 'Unknown League',
         format: 'Custom',

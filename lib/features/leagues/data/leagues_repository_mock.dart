@@ -18,7 +18,7 @@ class LeaguesRepositoryMock {
     final now = DateTime.now().millisecondsSinceEpoch;
 
     return [
-      League(
+      League(privacy: LeaguePrivacy.public,privacy: LeaguePrivacy.public,
         id: 'L-1',
         code: 'ELEAGUE1',
         name: 'EleagueHub Open',
@@ -28,7 +28,7 @@ class LeaguesRepositoryMock {
         updatedAtMs: now,
         version: 1,
       ),
-      League(
+      League(privacy: LeaguePrivacy.public,privacy: LeaguePrivacy.public,
         id: 'L-2',
         code: 'UCLGROUP',
         name: 'Night Ops Invitational',
@@ -38,7 +38,7 @@ class LeaguesRepositoryMock {
         updatedAtMs: now,
         version: 1,
       ),
-      League(
+      League(privacy: LeaguePrivacy.public,privacy: LeaguePrivacy.public,
         id: 'L-3',
         code: 'CLASSIC1',
         name: 'Weekend Round Robin',
@@ -180,7 +180,7 @@ class LeaguesRepositoryMock {
   /// =========================
   /// CREATE LEAGUE (ONLINE ONLY)
   /// =========================
-  Future<void> createLeague({
+  Future<void> createLeague(privacy: LeaguePrivacy.public,privacy: LeaguePrivacy.public,{
     required String name,
     required LeagueFormat format,
     required LeagueSettings settings,
