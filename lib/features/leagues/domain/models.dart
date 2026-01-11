@@ -1,67 +1,121 @@
+/// --------------------
+/// ENUMS
+/// --------------------
+
+enum LeagueFormat {
+  roundRobin,
+  swissModel,
+  knockout,
+}
+
+enum LeaguePrivacy {
+  public,
+  private,
+}
+
+enum MatchStatus {
+  scheduled,
+  pendingProof,
+  underReview,
+  completed,
+}
+
+/// --------------------
+/// LEAGUE
+/// --------------------
+
 class League {
-  League({
+  const League({
     required this.id,
     required this.name,
     required this.format,
     required this.privacy,
     required this.region,
     required this.maxTeams,
-    required this.isPrivate,
+    required this.season,
+    required this.ownerId,
   });
 
   final String id;
   final String name;
-  final String format;
-  final String privacy;
+  final LeagueFormat format;
+  final LeaguePrivacy privacy;
   final String region;
   final int maxTeams;
-  final bool isPrivate;
+  final String season;
+  final String ownerId;
+
+  bool get isPrivate => privacy == LeaguePrivacy.private;
 }
 
+/// --------------------
+/// STANDINGS
+/// --------------------
+
 class StandingRow {
-  StandingRow({
-    required this.team,
+  const StandingRow({
+    required this.teamId,
+    required this.teamName,
     required this.played,
     required this.wins,
     required this.draws,
     required this.losses,
     required this.gf,
     required this.ga,
-    required this.points,
   });
 
-  final String team;
+  final String teamId;
+  final String teamName;
   final int played;
   final int wins;
   final int draws;
   final int losses;
   final int gf;
   final int ga;
-  final int points;
 
+  int get points => (wins * 3) + draws;
   int get gd => gf - ga;
 }
 
+/// --------------------
+/// FIXTURE / MATCH
+/// --------------------
+
 class Fixture {
-  Fixture({
+  const Fixture({
     required this.id,
-    required this.home,
-    required this.away,
+    required this.homeTeam,
+    required this.awayTeam,
     required this.scheduledAt,
     required this.status,
     required this.matchId,
   });
 
   final String id;
-  final String home;
-  final String away;
+  final String homeTeam;
+  final String awayTeam;
   final DateTime scheduledAt;
-  final String status; // Scheduled, Pending Proof, Under Review, Completed
+  final MatchStatus status;
   final String matchId;
+
+  bool get canUploadProof => status == MatchStatus.pendingProof;
+  bool get isReviewable => status == MatchStatus.underReview;
 }
 
+/// --------------------
+/// REVIEW DECISION
+/// --------------------
+
 class MatchReviewDecision {
-  MatchReviewDecision({required this.approved, required this.reason});
+  const MatchReviewDecision({
+    required this.approved,
+    required this.reason,
+    this.reviewedBy = 'Organizer',
+    DateTime? reviewedAt,
+  }) : reviewedAt = reviewedAt ?? const DateTime(2026, 1, 11);
+
   final bool approved;
   final String reason;
+  final String reviewedBy;
+  final DateTime reviewedAt;
 }
