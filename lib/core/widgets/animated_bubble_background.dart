@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 
+/// Animated bubble background with floating, drifting bubbles.
 class AnimatedBubbleBackground extends StatefulWidget {
   const AnimatedBubbleBackground({super.key});
 
@@ -13,21 +14,27 @@ class AnimatedBubbleBackground extends StatefulWidget {
 
 class _AnimatedBubbleBackgroundState extends State<AnimatedBubbleBackground>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _c;
+  late final AnimationController _controller;
   late final List<_Bubble> _bubbles;
-  final _rng = Random(7);
+  final Random _rng = Random(); // dynamic random seed
 
   @override
   void initState() {
     super.initState();
-    _c = AnimationController(vsync: this, duration: const Duration(seconds: 18))
-      ..repeat();
-    _bubbles = List.generate(18, (i) => _Bubble.random(_rng));
+
+    // Animation controller for bubble movement
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 18),
+    )..repeat();
+
+    // Generate bubbles
+    _bubbles = List.generate(18, (_) => _Bubble.random(_rng));
   }
 
   @override
   void dispose() {
-    _c.dispose();
+    _controller.dispose();
     super.dispose();
   }
 
@@ -40,11 +47,11 @@ class _AnimatedBubbleBackgroundState extends State<AnimatedBubbleBackground>
       ignoring: true,
       child: RepaintBoundary(
         child: AnimatedBuilder(
-          animation: _c,
+          animation: _controller,
           builder: (context, _) {
             return CustomPaint(
               painter: _BubblePainter(
-                t: _c.value,
+                t: _controller.value,
                 bubbles: _bubbles,
                 colors: colors,
               ),
@@ -56,6 +63,7 @@ class _AnimatedBubbleBackgroundState extends State<AnimatedBubbleBackground>
   }
 }
 
+/// Single bubble data model
 class _Bubble {
   _Bubble({
     required this.seed,
@@ -69,13 +77,13 @@ class _Bubble {
   });
 
   final double seed;
-  final double baseX; // 0..1
-  final double baseY; // 0..1
-  final double radius; // logical radius factor
-  final double drift; // 0..1
-  final double speed; // 0.2..1.4
-  final double phase; // 0..2pi
-  final int colorIndex;
+  final double baseX; // 0..1 horizontal position
+  final double baseY; // 0..1 vertical position
+  final double radius; // relative size factor
+  final double drift; // horizontal/vertical drift factor
+  final double speed; // movement speed multiplier
+  final double phase; // initial phase offset
+  final int colorIndex; // index in color palette
 
   factory _Bubble.random(Random rng) {
     return _Bubble(
@@ -86,11 +94,12 @@ class _Bubble {
       drift: 0.10 + rng.nextDouble() * 0.35,
       speed: 0.25 + rng.nextDouble() * 1.2,
       phase: rng.nextDouble() * pi * 2,
-      colorIndex: rng.nextInt(3),
+      colorIndex: rng.nextInt(3), // ensure palette has at least 3 colors
     );
   }
 }
 
+/// Custom painter for bubbles
 class _BubblePainter extends CustomPainter {
   _BubblePainter({
     required this.t,
@@ -98,7 +107,7 @@ class _BubblePainter extends CustomPainter {
     required this.colors,
   });
 
-  final double t; // 0..1
+  final double t; // animation progress 0..1
   final List<_Bubble> bubbles;
   final List<Color> colors;
 
@@ -114,7 +123,8 @@ class _BubblePainter extends CustomPainter {
       final x = (b.baseX + wobbleX * 0.12) * size.width;
       final y = (b.baseY + wobbleY * 0.10) * size.height;
 
-      final r = b.radius * min(size.width, size.height) *
+      final r = b.radius *
+          min(size.width, size.height) *
           (0.85 + 0.25 * sin(dt * 0.9 + b.phase));
 
       final paint = Paint()

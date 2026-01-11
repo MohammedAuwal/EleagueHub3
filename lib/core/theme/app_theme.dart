@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 
 class AppTheme {
+  // =========================
+  // CORE BRAND COLORS
+  // =========================
+
   // Deep Navy (Night)
   static const Color navyBg = Color(0xFF0A1D37);
   static const Color navyAccent = Color(0xFF00D4FF);
@@ -9,39 +13,89 @@ class AppTheme {
   static const Color skyTop = Color(0xFF40C4FF);
   static const Color skyBottom = Color(0xFF81D4FA);
 
-  // Aliases for compatibility with your existing App and main.dart
-  static ThemeData skyTheme() => light();
-  static ThemeData navyTheme() => dark();
+  // =========================
+  // PUBLIC THEME ACCESSORS
+  // =========================
 
-  static ThemeData light() {
+  static ThemeData skyTheme() => _lightTheme();
+  static ThemeData navyTheme() => _darkTheme();
+
+  // =========================
+  // LIGHT (SKY) THEME
+  // =========================
+
+  static ThemeData _lightTheme() {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
+
       colorScheme: ColorScheme.fromSeed(
         seedColor: skyTop,
         brightness: Brightness.light,
+        surface: skyBottom,
       ),
-      scaffoldBackgroundColor: Colors.white,
+
+      scaffoldBackgroundColor: skyBottom,
+
+      appBarTheme: const AppBarTheme(
+        backgroundColor: Colors.transparent,
+        foregroundColor: Color(0xFF0A1D37),
+        elevation: 0,
+      ),
+
+      cardTheme: CardTheme(
+        color: glassFill(Brightness.light),
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(color: glassStroke(Brightness.light)),
+        ),
+      ),
     );
   }
 
-  static ThemeData dark() {
+  // =========================
+  // DARK (NAVY) THEME
+  // =========================
+
+  static ThemeData _darkTheme() {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
+
       colorScheme: ColorScheme.fromSeed(
         seedColor: navyAccent,
         brightness: Brightness.dark,
+        surface: navyBg,
       ),
+
       scaffoldBackgroundColor: navyBg,
+
+      appBarTheme: const AppBarTheme(
+        backgroundColor: Colors.transparent,
+        foregroundColor: Colors.white,
+        elevation: 0,
+      ),
+
+      cardTheme: CardTheme(
+        color: glassFill(Brightness.dark),
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(color: glassStroke(Brightness.dark)),
+        ),
+      ),
     );
   }
 
-  // Glass helpers
+  // =========================
+  // GLASSMORPHISM HELPERS
+  // =========================
+
   static Color glassFill(Brightness b) {
     return (b == Brightness.dark)
-        ? const Color(0x1AFFFFFF) // ~0.10
-        : const Color(0x26FFFFFF); // ~0.15
+        ? const Color(0x1AFFFFFF) // ~10%
+        : const Color(0x26FFFFFF); // ~15%
   }
 
   static Color glassStroke(Brightness b) {
@@ -64,42 +118,56 @@ class AppTheme {
     return const LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
-      colors: [skyTop, skyBottom],
+      colors: [
+        skyTop,
+        skyBottom,
+      ],
     );
   }
 
-  /// Used by status_badge.dart
+  // =========================
+  // DOMAIN COLORS
+  // =========================
+
   static Color statusColor(String status, Brightness b) {
     final s = status.trim().toLowerCase();
+
     switch (s) {
       case 'open':
       case 'recruiting':
         return (b == Brightness.dark)
-            ? const Color(0xFF00D4FF)
+            ? navyAccent
             : const Color(0xFF0A1D37);
+
       case 'in progress':
       case 'ongoing':
-        return const Color(0xFFF1C40F); // yellow
+        return const Color(0xFFF1C40F);
+
       case 'live':
-        return const Color(0xFFE74C3C); // red-ish live
+        return const Color(0xFFE74C3C);
+
       case 'completed':
       case 'finished':
-        return const Color(0xFF2ECC71); // green
+        return const Color(0xFF2ECC71);
+
       case 'disputed':
-        return const Color(0xFF9B59B6); // purple
+        return const Color(0xFF9B59B6);
+
       case 'cancelled':
       case 'canceled':
         return Colors.grey;
+
       default:
-        return (b == Brightness.dark) ? Colors.white : const Color(0xFF0A1D37);
+        return (b == Brightness.dark)
+            ? Colors.white
+            : const Color(0xFF0A1D37);
     }
   }
 
-  /// Used by animated_bubble_background.dart
   static List<Color> bubblePalette(Brightness b) {
     if (b == Brightness.dark) {
       return [
-        const Color(0xFF0A1D37),
+        navyBg,
         const Color(0xFF07162A),
         navyAccent.withOpacity(0.22),
         Colors.white.withOpacity(0.06),

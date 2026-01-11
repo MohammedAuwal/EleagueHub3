@@ -2,45 +2,62 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../persistence/prefs_service.dart';
 
+/// App-level theme state
 class ThemeState {
-  const ThemeState({required this.mode});
   final ThemeMode mode;
-  ThemeState copyWith({ThemeMode? mode}) => ThemeState(mode: mode ?? this.mode);
+
+  const ThemeState({required this.mode});
+
+  ThemeState copyWith({ThemeMode? mode}) {
+    return ThemeState(mode: mode ?? this.mode);
+  }
 }
 
-final themeControllerProvider = NotifierProvider<ThemeController, ThemeState>(ThemeController.new);
+/// Riverpod controller
+final themeControllerProvider =
+    NotifierProvider<ThemeController, ThemeState>(ThemeController.new);
 
 class ThemeController extends Notifier<ThemeState> {
+  static const _storageKeyLight = 'light';
+  static const _storageKeyDark = 'dark';
+
   @override
   ThemeState build() {
     final prefs = ref.watch(prefsServiceProvider);
-    final savedMode = prefs.getThemeMode();
-    
-    final initialMode = switch (savedMode) {
-      'dark' => ThemeMode.dark,
-      'light' => ThemeMode.light,
-      _ => ThemeMode.system,
+
+    final saved = prefs.getThemeMode();
+
+    // We explicitly support ONLY light or dark
+    // (mapped later to Sky ↔ Navy)
+    final ThemeMode initialMode = switch (saved) {
+      _storageKeyDark => ThemeMode.dark,
+      _storageKeyLight => ThemeMode.light,
+      _ => ThemeMode.light,
     };
+
     return ThemeState(mode: initialMode);
   }
 
+  /// Explicitly set theme mode
   Future<void> setThemeMode(ThemeMode mode) async {
     state = state.copyWith(mode: mode);
-    await ref.read(prefsServiceProvider).setThemeMode(mode.name);
+
+    final value = mode == ThemeMode.dark
+        ? _storageKeyDark
+        : _storageKeyLight;
+
+    await ref.read(prefsServiceProvider).setThemeMode(value);
   }
 
-  Future<void> toggleLightDark(BuildContext context) async {
-    // FIX: Mandatory wildcard (_) for Dart 3.5+ exhaustiveness
-    final effectiveBrightness = switch (state.mode) {
-      ThemeMode.light => Brightness.light,
-      ThemeMode.dark => Brightness.dark,
-      _ => MediaQuery.platformBrightnessOf(context),
-    };
+  /// Toggle between Sky (light) and Navy (dark)
+  Future<void> toggleTheme() async {
+    final next =
+        state.mode == ThemeMode.dark ? ThemeMode.light : ThemeMode.dark;
 
-    final next = effectiveBrightness == Brightness.dark
-        ? ThemeMode.light
-        : ThemeMode.dark;
-    
     await setThemeMode(next);
   }
+
+  /// Convenience getters (used by UI)
+  bool get isDark => state.mode == ThemeMode.dark;
+  bool get isLight => state.mode == ThemeMode.light;
 }

@@ -1,24 +1,39 @@
 import 'package:flutter/material.dart';
-import 'dart:ui';
+
+import 'glass.dart';
 
 class OfflineBanner extends StatelessWidget {
   const OfflineBanner({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          color: Colors.orangeAccent.withOpacity(0.8),
-          child: const Text(
-            "OFFLINE MODE: Scores will sync when back online",
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Glass(
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+      borderRadius: 0,
+      enableBorder: false,
+      fill: colorScheme.error.withOpacity(0.85),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.wifi_off_rounded,
+            size: 16,
+            color: colorScheme.onError,
           ),
-        ),
+          const SizedBox(width: 8),
+          Text(
+            'OFFLINE MODE: Scores will sync when back online',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: colorScheme.onError,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.3,
+            ),
+          ),
+        ],
       ),
     );
   }

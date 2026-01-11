@@ -3,16 +3,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/app/app.dart';
 import 'core/persistence/prefs_service.dart';
+import 'core/theme/app_theme.dart';
 import 'core/theme/theme_controller.dart';
 import 'core/services/connectivity_service.dart';
-import 'widgets/offline_banner.dart';
+import 'core/widgets/offline_banner.dart';
 
 Future<void> main() async {
-  // 1. Initialize Flutter engine for release stability
+  // Initialize Flutter engine
   WidgetsFlutterBinding.ensureInitialized();
 
   try {
-    // 2. Load Services
+    // Load persisted preferences
     final prefs = await PreferencesService.create();
     ConnectivityService.instance.initialize();
 
@@ -25,9 +26,15 @@ Future<void> main() async {
       ),
     );
   } catch (e) {
+    // Fallback in case of startup error
     runApp(MaterialApp(
       home: Scaffold(
-        body: Center(child: Text('Fatal Start Error: $e', style: const TextStyle(color: Colors.red))),
+        body: Center(
+          child: Text(
+            'Fatal Start Error: $e',
+            style: const TextStyle(color: Colors.red),
+          ),
+        ),
       ),
     ));
   }
@@ -38,33 +45,27 @@ class AppRoot extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // 3. Sync UI with the Riverpod Theme Notifier
+    // Watch theme mode from ThemeController
     final themeMode = ref.watch(themeControllerProvider).mode;
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'EleagueHub 3',
-      
-      themeMode: themeMode,
-      theme: ThemeData(
-        useMaterial3: true,
-        brightness: Brightness.light,
-        colorSchemeSeed: Colors.cyan,
-      ),
-      darkTheme: ThemeData(
-        useMaterial3: true,
-        brightness: Brightness.dark,
-        colorSchemeSeed: Colors.cyan,
-        scaffoldBackgroundColor: Colors.black,
-      ),
+      title: 'eSportlyic',
 
-      // 4. Global Wrapper for Connectivity Banner
+      // =========================
+      // THEME CONFIGURATION
+      // =========================
+      themeMode: themeMode,
+      theme: AppTheme.skyTheme(),    // Sky (light) theme
+      darkTheme: AppTheme.navyTheme(), // Navy (dark) theme
+
+      // =========================
+      // CONNECTIVITY WRAPPER
+      // =========================
       builder: (context, child) {
         return Stack(
           children: [
             if (child != null) child,
-            
-            // This sits above all screens when offline
             ValueListenableBuilder<bool>(
               valueListenable: ConnectivityService.instance.isConnected,
               builder: (context, online, _) {
@@ -74,6 +75,10 @@ class AppRoot extends ConsumerWidget {
           ],
         );
       },
+
+      // =========================
+      // APP ENTRY
+      // =========================
       home: const EleagueHubApp(),
     );
   }
