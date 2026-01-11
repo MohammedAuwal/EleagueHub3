@@ -1,27 +1,111 @@
 import 'package:flutter/material.dart';
-import '../../../widgets/glass_search_bar.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../../core/widgets/glass.dart';
+import '../../../core/widgets/glass_scaffold.dart';
+import '../../../core/widgets/glass_search_bar.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../widgets/league_flip_card.dart';
 
 class LeaguesListScreen extends StatelessWidget {
-  final List<dynamic> leagues; 
-
-  const LeaguesListScreen({super.key, this.leagues = const []});
+  const LeaguesListScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF4FC3F7), // Your light blue theme
-      body: SafeArea(
+    final theme = Theme.of(context);
+
+    return GlassScaffold(
+      appBar: AppBar(
+        title: const Text('Leagues'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            onPressed: () => context.push('/settings'),
+          ),
+        ],
+      ),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const GlassSearchBar(),
+          const SizedBox(height: 12),
+          Expanded(child: _buildContent(context)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildContent(BuildContext context) {
+    // TODO: Replace with real provider / repository
+    final leagues = <Map<String, String>>[];
+
+    if (leagues.isEmpty) {
+      return _buildEmptyState(context);
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: leagues.length,
+      itemBuilder: (context, index) {
+        final league = leagues[index];
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: LeagueFlipCard(
+            leagueName: league['name']!,
+            leagueCode: league['code']!,
+            distribution: league['distribution']!,
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildEmptyState(BuildContext context) {
+    final t = Theme.of(context).textTheme;
+
+    return Center(
+      child: Glass(
+        padding: const EdgeInsets.all(24),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            _buildHeader(),
-            const GlassSearchBar(),
-            const SizedBox(height: 10),
-            Expanded(
-              child: leagues.isEmpty 
-                ? _buildEmptyState(context) 
-                : _buildLeaguesList(),
+            Icon(
+              Icons.emoji_events_outlined,
+              size: 72,
+              color: Theme.of(context).hintColor,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'No active leagues',
+              style: t.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Create or join a league to get started',
+              style: t.bodySmall,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _actionButton(
+                  context,
+                  label: 'Create',
+                  icon: Icons.add_circle_outline,
+                  onTap: () => context.push('/leagues/create'),
+                ),
+                const SizedBox(width: 12),
+                _actionButton(
+                  context,
+                  label: 'Join',
+                  icon: Icons.qr_code_scanner,
+                  onTap: () => context.push('/leagues/join'),
+                ),
+              ],
             ),
           ],
         ),
@@ -29,76 +113,16 @@ class LeaguesListScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          const Text(
-            'Leagues',
-            style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white),
-          ),
-          IconButton(
-            icon: const Icon(Icons.settings, color: Colors.white),
-            onPressed: () {},
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmptyState(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.sports_soccer, size: 100, color: Colors.white.withOpacity(0.3)),
-          const SizedBox(height: 20),
-          const Text("No active leagues", style: TextStyle(color: Colors.white, fontSize: 18)),
-          const SizedBox(height: 30),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _buildSimpleButton("Create", Icons.add, context),
-              const SizedBox(width: 20),
-              _buildSimpleButton("Join", Icons.qr_code, context),
-            ],
-          )
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSimpleButton(String label, IconData icon, BuildContext context) {
-    return ElevatedButton.icon(
-      onPressed: () {},
-      icon: Icon(icon, size: 18),
+  Widget _actionButton(
+    BuildContext context, {
+    required String label,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return FilledButton.icon(
+      onPressed: onTap,
+      icon: Icon(icon),
       label: Text(label),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.white.withOpacity(0.2),
-        foregroundColor: Colors.white,
-        elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        side: const BorderSide(color: Colors.white30),
-      ),
-    );
-  }
-
-  Widget _buildLeaguesList() {
-    return ListView.builder(
-      padding: const EdgeInsets.all(20),
-      itemCount: leagues.length,
-      itemBuilder: (context, index) {
-        return const Padding(
-          padding: EdgeInsets.only(bottom: 20),
-          child: LeagueFlipCard(
-            leagueName: "UCL Season 1",
-            leagueCode: "CHAMP99",
-            distribution: "Swiss Model • 32 Teams",
-          ),
-        );
-      },
     );
   }
 }

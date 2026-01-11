@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
 
+/// Core Sky/Navy app theme with glassmorphism helpers
 class AppTheme {
   // =========================
   // CORE BRAND COLORS
   // =========================
 
-  // Deep Navy (Night)
+  // Deep Navy (Dark Mode)
   static const Color navyBg = Color(0xFF0A1D37);
   static const Color navyAccent = Color(0xFF00D4FF);
 
-  // Sky (Day)
+  // Sky (Light Mode)
   static const Color skyTop = Color(0xFF40C4FF);
   static const Color skyBottom = Color(0xFF81D4FA);
 
@@ -28,21 +29,17 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
-
+      scaffoldBackgroundColor: skyBottom,
       colorScheme: ColorScheme.fromSeed(
         seedColor: skyTop,
         brightness: Brightness.light,
         surface: skyBottom,
       ),
-
-      scaffoldBackgroundColor: skyBottom,
-
       appBarTheme: const AppBarTheme(
         backgroundColor: Colors.transparent,
         foregroundColor: Color(0xFF0A1D37),
         elevation: 0,
       ),
-
       cardTheme: CardTheme(
         color: glassFill(Brightness.light),
         elevation: 0,
@@ -62,21 +59,17 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
-
+      scaffoldBackgroundColor: navyBg,
       colorScheme: ColorScheme.fromSeed(
         seedColor: navyAccent,
         brightness: Brightness.dark,
         surface: navyBg,
       ),
-
-      scaffoldBackgroundColor: navyBg,
-
       appBarTheme: const AppBarTheme(
         backgroundColor: Colors.transparent,
         foregroundColor: Colors.white,
         elevation: 0,
       ),
-
       cardTheme: CardTheme(
         color: glassFill(Brightness.dark),
         elevation: 0,
@@ -92,36 +85,27 @@ class AppTheme {
   // GLASSMORPHISM HELPERS
   // =========================
 
-  static Color glassFill(Brightness b) {
-    return (b == Brightness.dark)
-        ? const Color(0x1AFFFFFF) // ~10%
-        : const Color(0x26FFFFFF); // ~15%
-  }
+  /// Glass fill color (semi-transparent)
+  static Color glassFill(Brightness b) =>
+      (b == Brightness.dark) ? const Color(0x1AFFFFFF) : const Color(0x26FFFFFF);
 
-  static Color glassStroke(Brightness b) {
-    return (b == Brightness.dark)
-        ? const Color(0x2EFFFFFF)
-        : const Color(0x33FFFFFF);
-  }
+  /// Glass stroke color (border)
+  static Color glassStroke(Brightness b) =>
+      (b == Brightness.dark) ? const Color(0x2EFFFFFF) : const Color(0x33FFFFFF);
 
+  /// Background gradient for entire scaffold
   static Gradient backgroundGradient(Brightness b) {
     if (b == Brightness.dark) {
       return const LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
-        colors: [
-          navyBg,
-          Color(0xFF07162A),
-        ],
+        colors: [navyBg, Color(0xFF07162A)],
       );
     }
     return const LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
-      colors: [
-        skyTop,
-        skyBottom,
-      ],
+      colors: [skyTop, skyBottom],
     );
   }
 
@@ -129,15 +113,14 @@ class AppTheme {
   // DOMAIN COLORS
   // =========================
 
+  /// Badge / status color helper
   static Color statusColor(String status, Brightness b) {
     final s = status.trim().toLowerCase();
 
     switch (s) {
       case 'open':
       case 'recruiting':
-        return (b == Brightness.dark)
-            ? navyAccent
-            : const Color(0xFF0A1D37);
+        return (b == Brightness.dark) ? navyAccent : const Color(0xFF0A1D37);
 
       case 'in progress':
       case 'ongoing':
@@ -158,12 +141,11 @@ class AppTheme {
         return Colors.grey;
 
       default:
-        return (b == Brightness.dark)
-            ? Colors.white
-            : const Color(0xFF0A1D37);
+        return (b == Brightness.dark) ? Colors.white : const Color(0xFF0A1D37);
     }
   }
 
+  /// Bubble palette for animated backgrounds
   static List<Color> bubblePalette(Brightness b) {
     if (b == Brightness.dark) {
       return [

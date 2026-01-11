@@ -8,6 +8,7 @@ import '../../live/presentation/live_list_screen.dart';
 import '../../marketplace/presentation/marketplace_list_screen.dart';
 import '../../profile/presentation/profile_screen.dart';
 
+/// HomeShell: Main tabbed scaffold for the app
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key});
 
@@ -17,6 +18,8 @@ class HomeShell extends StatefulWidget {
 
 class _HomeShellState extends State<HomeShell> {
   int _index = 0;
+
+  static const _tabTitles = ['Home', 'Leagues', 'Live', 'Marketplace', 'Profile'];
 
   static const _tabs = [
     _HomeTab(),
@@ -37,11 +40,9 @@ class _HomeShellState extends State<HomeShell> {
       ),
       child: Scaffold(
         backgroundColor: Colors.transparent,
-        extendBody: true, // Allows body to flow behind the navigation bar
+        extendBody: true,
         appBar: AppBar(
-          title: Text(
-            ['Home', 'Leagues', 'Live', 'Marketplace', 'Profile'][_index],
-          ),
+          title: Text(_tabTitles[_index]),
           backgroundColor: Colors.transparent,
           elevation: 0,
           actions: [
@@ -106,19 +107,25 @@ class _HomeShellState extends State<HomeShell> {
   }
 }
 
+/// HomeTab: Default landing tab with quick cards
 class _HomeTab extends StatelessWidget {
   const _HomeTab();
 
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
+
     return ListView(
       children: [
         Glass(
+          padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Welcome back', style: t.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
+              Text(
+                'Welcome back',
+                style: t.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+              ),
               const SizedBox(height: 8),
               Text(
                 'This is the MVP foundation. Explore Leagues, Live, and Marketplace with mock data.',
@@ -129,6 +136,7 @@ class _HomeTab extends StatelessWidget {
         ),
         const SizedBox(height: 14),
         Glass(
+          padding: const EdgeInsets.all(12),
           child: Row(
             children: [
               Expanded(
@@ -156,6 +164,7 @@ class _HomeTab extends StatelessWidget {
   }
 }
 
+/// QuickCard: Small card for home actions
 class _QuickCard extends StatelessWidget {
   const _QuickCard({
     required this.icon,
@@ -185,7 +194,10 @@ class _QuickCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+                  Text(
+                    title,
+                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                  ),
                   const SizedBox(height: 2),
                   Text(subtitle, style: theme.textTheme.bodySmall),
                 ],

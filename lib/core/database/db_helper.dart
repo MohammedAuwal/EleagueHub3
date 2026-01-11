@@ -2,17 +2,21 @@ import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 
 class DbHelper {
+  /// Singleton instance
   static final DbHelper instance = DbHelper._init();
+
   static Database? _database;
 
   DbHelper._init();
 
+  /// Get database (initialize if null)
   Future<Database> get database async {
     if (_database != null) return _database!;
     _database = await _initDB('esportlyic.db');
     return _database!;
   }
 
+  /// Initialize database
   Future<Database> _initDB(String filePath) async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
@@ -24,8 +28,11 @@ class DbHelper {
     );
   }
 
-  Future _createDB(Database db, int version) async {
-    // 1. Teams Table
+  /// Create all tables
+  Future<void> _createDB(Database db, int version) async {
+    // =========================
+    // TEAMS TABLE
+    // =========================
     await db.execute('''
       CREATE TABLE teams (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -34,7 +41,9 @@ class DbHelper {
       )
     ''');
 
-    // 2. Matches Table (Offline-First Ready)
+    // =========================
+    // MATCHES TABLE
+    // =========================
     await db.execute('''
       CREATE TABLE matches (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -50,9 +59,38 @@ class DbHelper {
     ''');
   }
 
-  // Example: Insert a match (Manual Query)
+  /// =========================
+  /// DATABASE HELPERS
+  /// =========================
+
+  /// Insert a team
+  Future<int> insertTeam(Map<String, dynamic> row) async {
+    final db = await instance.database;
+    return await db.insert('teams', row);
+  }
+
+  /// Insert a match
   Future<int> insertMatch(Map<String, dynamic> row) async {
     final db = await instance.database;
     return await db.insert('matches', row);
+  }
+
+  /// Query all teams
+  Future<List<Map<String, dynamic>>> getAllTeams() async {
+    final db = await instance.database;
+    return await db.query('teams');
+  }
+
+  /// Query all matches
+  Future<List<Map<String, dynamic>>> getAllMatches() async {
+    final db = await instance.database;
+    return await db.query('matches');
+  }
+
+  /// Close database
+  Future<void> close() async {
+    final db = await instance.database;
+    await db.close();
+    _database = null;
   }
 }

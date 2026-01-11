@@ -3,14 +3,16 @@ import 'package:drift_flutter/drift_flutter.dart';
 
 part 'app_database.g.dart';
 
-// 1. Teams Table
+/// =========================
+/// TABLES
+/// =========================
+
 class Teams extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get name => text()();
   TextColumn get leagueId => text()();
 }
 
-// 2. Matches Table (The engine for fixtures)
 class Matches extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get leagueId => text()();
@@ -22,7 +24,6 @@ class Matches extends Table {
   BoolColumn get isSynced => boolean().withDefault(const Constant(false))();
 }
 
-// 3. Standings Table (Cached version for offline speed)
 class Standings extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get leagueId => text()();
@@ -33,6 +34,10 @@ class Standings extends Table {
   IntColumn get goalsAgainst => integer().withDefault(const Constant(0))();
 }
 
+/// =========================
+/// DATABASE CLASS
+/// =========================
+
 @DriftDatabase(tables: [Teams, Matches, Standings])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
@@ -40,7 +45,25 @@ class AppDatabase extends _$AppDatabase {
   @override
   int get schemaVersion => 1;
 
-  static QueryExecutor _openConnection() {
-    return driftDatabase(name: 'esportlyic_db');
+  /// Open Flutter database connection
+  static LazyDatabase _openConnection() {
+    return LazyDatabase(() async {
+      return FlutterQueryExecutor(
+        path: 'esportlyic_db.sqlite',
+        logStatements: true, // optional: helpful for debugging
+      );
+    });
   }
+
+  // =========================
+  // OPTIONAL CRUD HELPERS
+  // =========================
+
+  Future<int> insertTeam(TeamsCompanion team) => into(teams).insert(team);
+
+  Future<int> insertMatch(MatchesCompanion match) => into(matches).insert(match);
+
+  Future<List<Match>> getAllMatches() => select(matches).get();
+
+  Future<List<Team>> getAllTeams() => select(teams).get();
 }

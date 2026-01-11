@@ -13,7 +13,7 @@ class ThemeState {
   }
 }
 
-/// Riverpod controller
+/// Riverpod controller for theme management
 final themeControllerProvider =
     NotifierProvider<ThemeController, ThemeState>(ThemeController.new);
 
@@ -24,11 +24,9 @@ class ThemeController extends Notifier<ThemeState> {
   @override
   ThemeState build() {
     final prefs = ref.watch(prefsServiceProvider);
-
     final saved = prefs.getThemeMode();
 
-    // We explicitly support ONLY light or dark
-    // (mapped later to Sky ↔ Navy)
+    // Map stored string to ThemeMode (Sky ↔ Navy)
     final ThemeMode initialMode = switch (saved) {
       _storageKeyDark => ThemeMode.dark,
       _storageKeyLight => ThemeMode.light,
@@ -38,26 +36,20 @@ class ThemeController extends Notifier<ThemeState> {
     return ThemeState(mode: initialMode);
   }
 
-  /// Explicitly set theme mode
+  /// Explicitly set theme mode and persist
   Future<void> setThemeMode(ThemeMode mode) async {
     state = state.copyWith(mode: mode);
-
-    final value = mode == ThemeMode.dark
-        ? _storageKeyDark
-        : _storageKeyLight;
-
+    final value = mode == ThemeMode.dark ? _storageKeyDark : _storageKeyLight;
     await ref.read(prefsServiceProvider).setThemeMode(value);
   }
 
   /// Toggle between Sky (light) and Navy (dark)
   Future<void> toggleTheme() async {
-    final next =
-        state.mode == ThemeMode.dark ? ThemeMode.light : ThemeMode.dark;
-
+    final next = state.mode == ThemeMode.dark ? ThemeMode.light : ThemeMode.dark;
     await setThemeMode(next);
   }
 
-  /// Convenience getters (used by UI)
+  /// Convenience getters for UI usage
   bool get isDark => state.mode == ThemeMode.dark;
   bool get isLight => state.mode == ThemeMode.light;
 }
