@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-
 import '../../../../core/widgets/glass.dart';
 import '../../domain/models.dart';
 
@@ -13,12 +12,13 @@ class StandingsTable extends StatefulWidget {
 }
 
 class _StandingsTableState extends State<StandingsTable> {
-  int _sortCol = 7; // points
+  int _sortCol = 7; // default sort by points
   bool _asc = false;
 
   List<StandingRow> get _sorted {
     final rows = [...widget.rows];
-    int cmp(StandingRow a, StandingRow b) {
+
+    rows.sort((a, b) {
       int v;
       switch (_sortCol) {
         case 0: v = a.team.compareTo(b.team); break;
@@ -33,8 +33,8 @@ class _StandingsTableState extends State<StandingsTable> {
           v = a.points.compareTo(b.points);
       }
       return _asc ? v : -v;
-    }
-    rows.sort(cmp);
+    });
+
     return rows;
   }
 
@@ -43,8 +43,10 @@ class _StandingsTableState extends State<StandingsTable> {
     final rows = _sorted;
 
     return Glass(
+      borderRadius: BorderRadius.circular(20),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.all(12),
         child: DataTable(
           sortAscending: _asc,
           sortColumnIndex: _sortCol,
@@ -59,8 +61,7 @@ class _StandingsTableState extends State<StandingsTable> {
             _col('Pts', 7, numeric: true),
           ],
           rows: [
-            for (int i = 0; i < rows.length; i++)
-              _row(context, i, rows[i]),
+            for (int i = 0; i < rows.length; i++) _row(context, i, rows[i]),
           ],
         ),
       ),
@@ -71,10 +72,10 @@ class _StandingsTableState extends State<StandingsTable> {
     return DataColumn(
       numeric: numeric,
       label: Text(label, style: const TextStyle(fontWeight: FontWeight.w800)),
-      onSort: (col, asc) {
+      onSort: (colIndex, ascending) {
         setState(() {
-          _sortCol = col;
-          _asc = asc;
+          _sortCol = colIndex;
+          _asc = ascending;
         });
       },
     );
@@ -82,16 +83,14 @@ class _StandingsTableState extends State<StandingsTable> {
 
   DataRow _row(BuildContext context, int i, StandingRow r) {
     final primary = Theme.of(context).colorScheme.primary;
-    // Changed withValues to withOpacity
     final zoneColor = i < 2
-        ? Colors.green.withOpacity(0.12)
+        ? Colors.green.withOpacity(0.12)       // Champions zone
         : i < 4
-            ? primary.withOpacity(0.10)
+            ? primary.withOpacity(0.10)       // European qualifiers
             : Colors.transparent;
 
     return DataRow(
-      // Changed WidgetStatePropertyAll to MaterialStatePropertyAll
-      color: MaterialStatePropertyAll(zoneColor),
+      color: WidgetStatePropertyAll(zoneColor),
       cells: [
         DataCell(Text(r.team, style: const TextStyle(fontWeight: FontWeight.w700))),
         DataCell(Text('${r.played}')),

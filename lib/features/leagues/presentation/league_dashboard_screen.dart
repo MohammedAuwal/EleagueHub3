@@ -26,9 +26,9 @@ class _LeagueDashboardScreenState extends State<LeagueDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Compute standings and inject position
+    // Compute standings and attach position
     final sortedTeams = StandingsEngine.compute(_teams, _matches);
-    final standings = List<TeamStats>.generate(
+    final standings = List<TeamStatsWithExtras>.generate(
       sortedTeams.length,
       (index) {
         final t = sortedTeams[index];
@@ -220,13 +220,13 @@ class _LeagueDashboardScreenState extends State<LeagueDashboardScreen> {
   }
 
   /// ---------------- HELPERS ----------------
-
   String _lookupTeamName(String teamId) {
     final team = _teams.firstWhere(
       (t) => t.teamId == teamId,
       orElse: () => TeamStats.empty(teamId: teamId, leagueId: widget.leagueId),
     );
-    return team.teamId; // replace with actual name if available
+    // Replace with actual name if available
+    return team.teamName.isNotEmpty ? team.teamName : "Team $teamId";
   }
 
   void _openKnockoutIfUCL() {
@@ -239,7 +239,7 @@ class _LeagueDashboardScreenState extends State<LeagueDashboardScreen> {
       MaterialPageRoute(
         builder: (_) => KnockoutBracketScreen(
           matches: _matches,
-          teamsById: {}, // You'll need to pass your team map here
+          teamsById: {for (var t in _teams) t.teamId: t},
         ),
       ),
     );
