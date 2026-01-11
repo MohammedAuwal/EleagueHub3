@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'dart:ui';
-import 'package:go_router/go_router.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 class QRScannerScreen extends StatefulWidget {
@@ -15,13 +14,14 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
 
   void _onDetect(BarcodeCapture capture) {
     if (_isScanned) return;
+
     final barcode = capture.barcodes.first.rawValue;
     if (barcode == null) return;
 
     _isScanned = true;
 
-    // Navigate after successful scan
-    context.push('/live/view/$barcode');
+    // Return scanned value to previous screen
+    Navigator.pop(context, barcode);
   }
 
   @override
@@ -58,7 +58,7 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
               child: FilledButton(
                 onPressed: () {
                   const scannedId = 'M-L-3307-0'; // mock QR result
-                  context.push('/live/view/$scannedId');
+                  Navigator.pop(context, scannedId); // return to previous screen
                 },
                 child: const Text('Simulate QR Scan'),
               ),
