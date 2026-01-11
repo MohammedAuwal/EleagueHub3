@@ -4,6 +4,7 @@ import '../models/match.dart';
 import '../models/team_stats.dart';
 import '../logic/standings_engine.dart';
 import '../presentation/knockout_bracket_screen.dart';
+import '../data/leagues_repository_mock.dart'; // import repo
 
 class LeagueDashboardScreen extends StatefulWidget {
   final String leagueId;
@@ -20,13 +21,29 @@ class LeagueDashboardScreen extends StatefulWidget {
 class _LeagueDashboardScreenState extends State<LeagueDashboardScreen> {
   bool filterByMe = false;
 
-  /// These will come from Provider / Backend
-  final List<Match> _matches = [];
-  final List<TeamStats> _teams = [];
+  final LeaguesRepositoryMock repo = LeaguesRepositoryMock(); // repo instance
+  List<Match> _matches = [];
+  List<TeamStats> _teams = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLeagueData();
+  }
+
+  /// Load teams and fixtures from repository
+  void _loadLeagueData() {
+    final teams = repo.standings(widget.leagueId); // TeamStats with points
+    final fixtures = repo.fixtures(widget.leagueId); // Match list
+
+    setState(() {
+      _teams = teams;
+      _matches = fixtures.map((f) => Match.fromFixtureMatch(f)).toList();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    // Compute standings and attach position
     final sortedTeams = StandingsEngine.compute(_teams, _matches);
     final standings = List<TeamStatsWithExtras>.generate(
       sortedTeams.length,
@@ -71,6 +88,30 @@ class _LeagueDashboardScreenState extends State<LeagueDashboardScreen> {
               ],
             );
           },
+        ),
+      ),
+    );
+  }
+
+  /// ---------------- HELPERS ----------------
+  String _lookupTeamName(String teamId) {
+    final team = _teams.firstWhere(
+      (t) => t.teamId == teamId,
+      orElse: () => TeamStats.empty(teamId: teamId, leagueId: widget.leagueId),
+    );
+    return team.teamName.isNotEmpty ? team.teamName : "Team $teamId";
+  }
+
+  void _openKnockoutIfUCL() {
+    final hasGroups = _matches.any((m) => m.groupId != null);
+    if (!hasGroups) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => KnockoutBracketScreen(
+          matches: _matches,
+          teamsById: {for (var t in _teams) t.teamId: t},
         ),
       ),
     );
@@ -142,61 +183,32 @@ class _LeagueDashboardScreenState extends State<LeagueDashboardScreen> {
   }
 
   Widget _buildStandingsList(List<TeamStatsWithExtras> standings) {
-    if (standings.isEmpty) {
-      return _emptyBox("No standings yet");
-    }
+    if (standings.isEmpty) return _emptyBox("No standings yet");
 
     return Column(
       children: standings.map((team) {
         return ListTile(
-          leading: Text(
-            team.position.toString(),
-            style: const TextStyle(color: Colors.white),
-          ),
-          title: Text(
-            team.teamName,
-            style: const TextStyle(color: Colors.white),
-          ),
-          trailing: Text(
-            "${team.base.points} pts",
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+          leading: Text(team.position.toString(), style: const TextStyle(color: Colors.white)),
+          title: Text(team.teamName, style: const TextStyle(color: Colors.white)),
+          trailing: Text("${team.base.points} pts",
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         );
       }).toList(),
     );
   }
 
   Widget _buildFixturesList() {
-    final fixtures = filterByMe
-        ? _matches.where((m) => m.isMyMatch).toList()
-        : _matches;
+    final fixtures = filterByMe ? _matches.where((m) => m.isMyMatch).toList() : _matches;
 
-    if (fixtures.isEmpty) {
-      return _emptyBox("No fixtures available");
-    }
+    if (fixtures.isEmpty) return _emptyBox("No fixtures available");
 
     return Column(
       children: fixtures.map((match) {
         return ListTile(
-          title: Text(
-            "${match.homeTeamName} vs ${match.awayTeamName}",
-            style: const TextStyle(color: Colors.white),
-          ),
-          subtitle: Text(
-            match.isPlayed ? "Finished" : "Upcoming",
-            style: const TextStyle(color: Colors.white70),
-          ),
+          title: Text("${match.homeTeamName} vs ${match.awayTeamName}", style: const TextStyle(color: Colors.white)),
+          subtitle: Text(match.isPlayed ? "Finished" : "Upcoming", style: const TextStyle(color: Colors.white70)),
           trailing: match.isPlayed
-              ? Text(
-                  "${match.homeScore} - ${match.awayScore}",
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                )
+              ? Text("${match.homeScore} - ${match.awayScore}", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))
               : const Icon(Icons.chevron_right, color: Colors.white54),
         );
       }).toList(),
@@ -206,42 +218,8 @@ class _LeagueDashboardScreenState extends State<LeagueDashboardScreen> {
   Widget _emptyBox(String message) {
     return Container(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Center(
-        child: Text(
-          message,
-          style: const TextStyle(color: Colors.white70),
-        ),
-      ),
-    );
-  }
-
-  /// ---------------- HELPERS ----------------
-  String _lookupTeamName(String teamId) {
-    final team = _teams.firstWhere(
-      (t) => t.teamId == teamId,
-      orElse: () => TeamStats.empty(teamId: teamId, leagueId: widget.leagueId),
-    );
-    // Replace with actual name if available
-    return team.teamName.isNotEmpty ? team.teamName : "Team $teamId";
-  }
-
-  void _openKnockoutIfUCL() {
-    // Only trigger if league uses knockout stages
-    final hasGroups = _matches.any((m) => m.groupId != null);
-    if (!hasGroups) return;
-
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => KnockoutBracketScreen(
-          matches: _matches,
-          teamsById: {for (var t in _teams) t.teamId: t},
-        ),
-      ),
+      decoration: BoxDecoration(color: Colors.white.withOpacity(0.08), borderRadius: BorderRadius.circular(12)),
+      child: Center(child: Text(message, style: const TextStyle(color: Colors.white70))),
     );
   }
 }
