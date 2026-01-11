@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:uuid/uuid.dart'; // For mock league ID
 
 import '../../../core/widgets/glass.dart';
 import '../../../core/widgets/glass_scaffold.dart';
 import '../data/leagues_repository_mock.dart';
+import 'add_teams_screen.dart';
+import '../../models/league_format.dart';
 
 class LeagueCreateWizard extends StatefulWidget {
   const LeagueCreateWizard({super.key});
@@ -14,6 +17,7 @@ class LeagueCreateWizard extends StatefulWidget {
 
 class _LeagueCreateWizardState extends State<LeagueCreateWizard> {
   final _repo = LeaguesRepositoryMock();
+  final _uuid = const Uuid();
 
   int _step = 0;
 
@@ -36,6 +40,18 @@ class _LeagueCreateWizardState extends State<LeagueCreateWizard> {
   void dispose() {
     _name.dispose();
     super.dispose();
+  }
+
+  LeagueFormat _mapFormat(String format) {
+    switch (format) {
+      case 'UCL Groups+Knockout':
+        return LeagueFormat.uclGroup;
+      case 'Swiss':
+        return LeagueFormat.uclSwiss;
+      case 'Round Robin':
+      default:
+        return LeagueFormat.classic;
+    }
   }
 
   @override
@@ -65,6 +81,13 @@ class _LeagueCreateWizardState extends State<LeagueCreateWizard> {
                                 if (isLast) {
                                   await _create(context);
                                 } else {
+                                  if (_step == 0 && _name.text.trim().isEmpty) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                          content: Text('Please enter a league name')),
+                                    );
+                                    return;
+                                  }
                                   setState(() => _step += 1);
                                 }
                               },
@@ -186,7 +209,7 @@ class _LeagueCreateWizardState extends State<LeagueCreateWizard> {
       children: [
         Text('Tiebreakers', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),
-        _check('Head-to-head', value: _tbHeadToHead, onChanged: null), // read-only
+        _check('Head-to-head', value: _tbHeadToHead, onChanged: null),
         _check(
           'Goal difference',
           value: _tbGoalDiff,
@@ -298,10 +321,21 @@ class _LeagueCreateWizardState extends State<LeagueCreateWizard> {
       );
 
       if (!context.mounted) return;
+
+      final leagueId = _uuid.v4();
+      final leagueFormat = _mapFormat(_format);
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('League created (mock).'), duration: Duration(seconds: 2)),
       );
-      context.pop();
+
+      context.push(
+        '/add-teams',
+        extra: {
+          'leagueId': leagueId,
+          'format': leagueFormat,
+        },
+      );
     } finally {
       if (mounted) setState(() => _submitting = false);
     }

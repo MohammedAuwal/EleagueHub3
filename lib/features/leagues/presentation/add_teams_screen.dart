@@ -42,7 +42,7 @@ class _AddTeamsScreenState extends State<AddTeamsScreen> with SingleTickerProvid
         'group': widget.format == LeagueFormat.uclGroup ? _selectedGroup : "League Pool",
       });
 
-      // Optional: Auto-advance group for UCL Groups
+      // Auto-advance group for UCL Groups
       if (widget.format == LeagueFormat.uclGroup) {
         final nextIndex = (_groups.indexOf(_selectedGroup) + 1) % _groups.length;
         _selectedGroup = _groups[nextIndex];
@@ -239,7 +239,7 @@ class _AddTeamsScreenState extends State<AddTeamsScreen> with SingleTickerProvid
                 );
                 return;
               }
-              // SAVE & START LEAGUE LOGIC
+              // TODO: Implement SAVE & START LEAGUE LOGIC
             },
             child: const Text('GENERATE LEAGUE FIXTURES', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
