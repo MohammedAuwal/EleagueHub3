@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'qr_scanner_screen.dart';
-import 'dart:ui';
+import '../../logic/participants_service.dart'; // backend service (you will create)
 
 class LeagueParticipantsScreen extends StatefulWidget {
   final String leagueId;
-
   const LeagueParticipantsScreen({super.key, required this.leagueId});
 
   @override
@@ -12,48 +11,55 @@ class LeagueParticipantsScreen extends StatefulWidget {
 }
 
 class _LeagueParticipantsScreenState extends State<LeagueParticipantsScreen> {
-  final List<String> _participants = []; // Replace with DB/API fetch
   final TextEditingController _controller = TextEditingController();
+  late ParticipantsService _service;
+  List<String> _participants = [];
+  bool _isLoading = true;
 
-  // Add participant manually
-  void _addParticipant(String id) {
+  @override
+  void initState() {
+    super.initState();
+    _service = ParticipantsService();
+    _loadParticipants();
+  }
+
+  Future<void> _loadParticipants() async {
+    setState(() => _isLoading = true);
+    final fetched = await _service.getParticipants(widget.leagueId);
+    setState(() {
+      _participants = fetched;
+      _isLoading = false;
+    });
+  }
+
+  Future<void> _addParticipant(String id) async {
     if (id.isEmpty) return;
-    if (_participants.contains(id)) {
+
+    final success = await _service.addParticipant(widget.leagueId, id);
+    if (success) {
+      setState(() => _participants.add(id));
+      _controller.clear();
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("$id is already in the league!")),
+        SnackBar(content: Text("$id added successfully!")),
       );
-      return;
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Failed to add $id. Already exists or invalid.")),
+      );
     }
-
-    setState(() {
-      _participants.add(id);
-    });
-
-    _controller.clear();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("$id added successfully!")),
-    );
   }
 
-  // Remove participant
-  void _removeParticipant(String id) {
-    setState(() {
-      _participants.remove(id);
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("$id removed.")),
-    );
-  }
-
-  // Open QR scanner to add participant
-  Future<void> _scanQRCode() async {
-    final scannedId = await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const QRScannerScreen()),
-    );
-
-    if (scannedId != null && scannedId is String) {
-      _addParticipant(scannedId);
+  Future<void> _removeParticipant(String id) async {
+    final success = await _service.removeParticipant(widget.leagueId, id);
+    if (success) {
+      setState(() => _participants.remove(id));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("$id removed.")),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Failed to remove participant.")),
+      );
     }
   }
 
@@ -61,22 +67,28 @@ class _LeagueParticipantsScreenState extends State<LeagueParticipantsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF4FC3F7),
-      appBar: AppBar(
-        title: const Text("Participants"),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-      ),
+      appBar: AppBar(title: const Text("Participants"), backgroundColor: Colors.transparent),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
             // Add via QR Code
             ElevatedButton.icon(
-              onPressed: _scanQRCode,
+              onPressed: () async {
+                final scannedId = await Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const QRScannerScreen()),
+                );
+
+                if (scannedId != null && scannedId is String) {
+                  await _addParticipant(scannedId);
+                }
+              },
               icon: const Icon(Icons.qr_code),
               label: const Text("Add via QR Code"),
               style: ElevatedButton.styleFrom(backgroundColor: Colors.cyanAccent),
             ),
+
             const SizedBox(height: 16),
 
             // Add manually
@@ -109,67 +121,28 @@ class _LeagueParticipantsScreenState extends State<LeagueParticipantsScreen> {
 
             const SizedBox(height: 20),
 
-            // List of participants
-            Expanded(
-              child: _participants.isEmpty
-                  ? _emptyBox("No participants yet")
-                  : ListView.builder(
+            // Participants List
+            _isLoading
+                ? const Center(child: CircularProgressIndicator(color: Colors.white))
+                : Expanded(
+                    child: ListView.builder(
                       itemCount: _participants.length,
                       itemBuilder: (context, index) {
                         final participant = _participants[index];
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: _buildGlassBox(
-                            child: ListTile(
-                              title: Text(
-                                participant,
-                                style: const TextStyle(color: Colors.white),
-                              ),
-                              trailing: IconButton(
-                                icon: const Icon(Icons.delete, color: Colors.redAccent),
-                                onPressed: () => _removeParticipant(participant),
-                              ),
+                        return Card(
+                          color: Colors.white.withOpacity(0.1),
+                          child: ListTile(
+                            title: Text(participant, style: const TextStyle(color: Colors.white)),
+                            trailing: IconButton(
+                              icon: const Icon(Icons.delete, color: Colors.redAccent),
+                              onPressed: () => _removeParticipant(participant),
                             ),
                           ),
                         );
                       },
                     ),
-            ),
+                  ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _emptyBox(String message) {
-    return Center(
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.08),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Text(
-          message,
-          style: const TextStyle(color: Colors.white70),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildGlassBox({required Widget child}) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(20),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.white.withOpacity(0.2)),
-          ),
-          child: child,
         ),
       ),
     );
