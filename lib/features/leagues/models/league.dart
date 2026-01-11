@@ -9,7 +9,7 @@ class League {
   final String region;
   final int maxTeams;
   final String season;
-  final String ownerId;
+  final String organizerUserId; // Renamed from ownerId to fix repo error
   final String code;
   final LeagueSettings settings;
   final int updatedAtMs;
@@ -23,7 +23,7 @@ class League {
     required this.region,
     required this.maxTeams,
     required this.season,
-    required this.ownerId,
+    required this.organizerUserId,
     required this.code,
     required this.settings,
     required this.updatedAtMs,
@@ -42,7 +42,7 @@ class League {
       region: map['region'] as String? ?? 'Global',
       maxTeams: (map['maxTeams'] as num?)?.toInt() ?? 20,
       season: map['season'] as String? ?? '2026',
-      ownerId: map['organizerUserId'] as String? ?? '',
+      organizerUserId: map['organizerUserId'] as String? ?? '',
       code: map['code'] as String? ?? '',
       settings: LeagueSettings.fromMap((map['settings'] as Map).cast<String, dynamic>()),
       updatedAtMs: (map['updatedAtMs'] as num?)?.toInt() ?? 0,

@@ -53,7 +53,7 @@ class ProfileScreen extends ConsumerWidget {
                     themeState.mode == ThemeMode.dark ? Icons.light_mode : Icons.dark_mode,
                     color: Colors.cyanAccent,
                   ),
-                  onPressed: () => ref.read(themeControllerProvider.notifier).toggleLightDark(context),
+                  onPressed: () => ref.read(themeControllerProvider.notifier).toggleTheme(),
                 ),
                 IconButton(
                   onPressed: () {
