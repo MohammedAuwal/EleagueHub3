@@ -1,56 +1,29 @@
-/// --------------------
-/// ENUMS
-/// --------------------
+import '../models/league_format.dart';
 
-enum LeagueFormat {
-  roundRobin,
-  swissModel,
-  knockout,
-}
-
-enum LeaguePrivacy {
-  public,
-  private,
-}
-
-enum MatchStatus {
-  scheduled,
-  pendingProof,
-  underReview,
-  completed,
-}
-
-/// --------------------
-/// LEAGUE
-/// --------------------
-
-class League {
-  const League({
+class Fixture {
+  const Fixture({
     required this.id,
-    required this.name,
-    required this.format,
-    required this.privacy,
-    required this.region,
-    required this.maxTeams,
-    required this.season,
-    required this.ownerId,
+    required this.homeTeam,
+    required this.awayTeam,
+    required this.scheduledAt,
+    required this.status,
+    required this.matchId,
   });
 
   final String id;
-  final String name;
-  final LeagueFormat format;
-  final LeaguePrivacy privacy;
-  final String region;
-  final int maxTeams;
-  final String season;
-  final String ownerId;
+  final String homeTeam;
+  final String awayTeam;
+  final DateTime scheduledAt;
+  final MatchStatus status;
+  final String matchId;
 
-  bool get isPrivate => privacy == LeaguePrivacy.private;
+  // These getters fix the LeagueDetailScreen errors
+  String get home => homeTeam;
+  String get away => awayTeam;
+
+  bool get canUploadProof => status == MatchStatus.pendingProof;
+  bool get isReviewable => status == MatchStatus.underReview;
 }
-
-/// --------------------
-/// STANDINGS
-/// --------------------
 
 class StandingRow {
   const StandingRow({
@@ -76,35 +49,6 @@ class StandingRow {
   int get points => (wins * 3) + draws;
   int get gd => gf - ga;
 }
-
-/// --------------------
-/// FIXTURE / MATCH
-/// --------------------
-
-class Fixture {
-  const Fixture({
-    required this.id,
-    required this.homeTeam,
-    required this.awayTeam,
-    required this.scheduledAt,
-    required this.status,
-    required this.matchId,
-  });
-
-  final String id;
-  final String homeTeam;
-  final String awayTeam;
-  final DateTime scheduledAt;
-  final MatchStatus status;
-  final String matchId;
-
-  bool get canUploadProof => status == MatchStatus.pendingProof;
-  bool get isReviewable => status == MatchStatus.underReview;
-}
-
-/// --------------------
-/// REVIEW DECISION
-/// --------------------
 
 class MatchReviewDecision {
   const MatchReviewDecision({
