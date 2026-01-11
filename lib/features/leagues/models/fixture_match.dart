@@ -3,24 +3,30 @@ enum MatchStatus { scheduled, played }
 
 /// Extension to handle conversion from integer (database) to MatchStatus.
 extension MatchStatusX on MatchStatus {
-  static MatchStatus fromInt(int v) => MatchStatus.values[v];
+  static MatchStatus fromInt(int v) {
+    if (v < 0 || v >= MatchStatus.values.length) {
+      return MatchStatus.scheduled;
+    }
+    return MatchStatus.values[v];
+  }
 }
 
-/// Represents a single match between two teams in eSportlyic.
-/// 
-/// This model handles:
-/// - Home and Away team assignments.
-/// - Scores and match status.
-/// - Round numbers and Group IDs (for UCL format).
-/// - Sync metadata for offline-first capabilities.
+/// Represents a single match fixture in eSportlyic.
+///
+/// Supports:
+/// - Classic Round Robin
+/// - UCL Group Stage
+/// - UCL Swiss Model
+/// - Offline-first syncing
 class FixtureMatch {
   final String id;
   final String leagueId;
 
-  /// Group stage only (e.g., UCL Groups). Null for Classic/Domestic leagues.
+  /// Used only for UCL Group Stage (e.g. Group A, Group B).
+  /// Null for Classic & Swiss formats.
   final String? groupId;
 
-  /// The round number (e.g., Week 1, Round 2, etc.).
+  /// Round number (Week 1, Matchday 2, etc.)
   final int roundNumber;
 
   final String homeTeamId;
@@ -31,9 +37,10 @@ class FixtureMatch {
 
   final MatchStatus status;
 
-  /// Used for ordering matches within the same round.
+  /// Sorting within the same round (UI consistency)
   final int sortIndex;
 
+  /// Offline sync metadata
   final int updatedAtMs;
   final int version;
 
@@ -52,10 +59,17 @@ class FixtureMatch {
     required this.version,
   });
 
-  /// Quick check to see if a result has been recorded.
-  bool get isPlayed => status == MatchStatus.played && homeScore != null && awayScore != null;
+  /// True only when the match has a valid recorded result.
+  bool get isPlayed =>
+      status == MatchStatus.played &&
+      homeScore != null &&
+      awayScore != null;
 
-  /// Creates a copy of the match with updated fields.
+  /// Safe goal values (used by standings engine)
+  int get safeHomeScore => homeScore ?? 0;
+  int get safeAwayScore => awayScore ?? 0;
+
+  /// Creates a new instance with updated fields.
   FixtureMatch copyWith({
     String? id,
     String? leagueId,
@@ -86,7 +100,7 @@ class FixtureMatch {
     );
   }
 
-  /// Converts the match object into a Map for remote database storage.
+  /// Serialize for remote storage (Firebase / REST / Supabase).
   Map<String, dynamic> toRemoteMap() => {
         'id': id,
         'leagueId': leagueId,
@@ -102,7 +116,7 @@ class FixtureMatch {
         'version': version,
       };
 
-  /// Factory to create a FixtureMatch object from a remote database Map.
+  /// Deserialize from remote storage.
   static FixtureMatch fromRemoteMap(Map<String, dynamic> map) {
     return FixtureMatch(
       id: map['id'] as String,

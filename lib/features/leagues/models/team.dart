@@ -1,14 +1,17 @@
 /// Represents a team within a specific league in eSportlyic.
-/// 
-/// This model stores the team name and links it to a parent league 
-/// using the leagueId. It also includes synchronization metadata 
-/// to ensure data consistency across devices.
+///
+/// This model is league-scoped:
+/// - A team belongs to ONE league
+/// - Team IDs are globally unique
+/// - Safe for Classic, UCL Group, and Swiss formats
+///
+/// Includes offline-first sync metadata (Last Write Wins).
 class Team {
   final String id;
-  final String leagueId; // Links this team to its parent Classic or UCL league
+  final String leagueId;
   final String name;
 
-  /// Local + remote sync metadata (Last Write Wins)
+  /// Offline + remote sync metadata
   final int updatedAtMs;
   final int version;
 
@@ -20,7 +23,7 @@ class Team {
     required this.version,
   });
 
-  /// Creates a copy of the Team with updated fields.
+  /// Creates a new Team with modified fields.
   Team copyWith({
     String? id,
     String? leagueId,
@@ -37,7 +40,7 @@ class Team {
     );
   }
 
-  /// Converts the Team object into a Map for remote database storage.
+  /// Serialize for remote database storage.
   Map<String, dynamic> toRemoteMap() => {
         'id': id,
         'leagueId': leagueId,
@@ -46,7 +49,7 @@ class Team {
         'version': version,
       };
 
-  /// Factory to create a Team object from a remote database Map.
+  /// Deserialize from remote database.
   static Team fromRemoteMap(Map<String, dynamic> map) {
     return Team(
       id: map['id'] as String,
@@ -56,4 +59,13 @@ class Team {
       version: (map['version'] as num).toInt(),
     );
   }
+
+  /// Equality based on stable identity (important for Riverpod & UI diffing)
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is Team && runtimeType == other.runtimeType && id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
 }
