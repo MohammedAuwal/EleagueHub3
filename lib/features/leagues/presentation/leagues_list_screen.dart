@@ -28,7 +28,7 @@ class LeaguesListScreen extends StatelessWidget {
           ),
         ],
       ),
-      // Lift the FAB up by 80 logical pixels to clear the bottom navigation bar
+      // FAB lifted to clear the navigation bar
       floatingActionButton: Padding(
         padding: const EdgeInsets.only(bottom: 80.0),
         child: FloatingActionButton(
@@ -54,8 +54,7 @@ class LeaguesListScreen extends StatelessWidget {
 
   Widget _buildLeagueList(BuildContext context, List<League> leagues) {
     return ListView.builder(
-      // Bottom padding of 120 ensures the last card scrolls above the FAB/Nav bar
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 140),
       itemCount: leagues.length,
       itemBuilder: (context, index) {
         final league = leagues[index];
@@ -79,7 +78,6 @@ class LeaguesListScreen extends StatelessWidget {
 
     return Center(
       child: Padding(
-        // Shift content slightly up so it feels balanced with the lifted FAB
         padding: const EdgeInsets.only(left: 24, right: 24, bottom: 40),
         child: Glass(
           child: Padding(
@@ -136,7 +134,7 @@ class LeaguesListScreen extends StatelessWidget {
                 context.push('/leagues/join');
               },
             ),
-            const SizedBox(height: 40), // Space to clear system gesture bar
+            const SizedBox(height: 40),
           ],
         ),
       ),
