@@ -14,6 +14,12 @@ enum LeagueFormat {
 
 enum LeaguePrivacy { public, private }
 
+enum MatchStatus { 
+  scheduled, 
+  pendingProof, 
+  underReview, // Standardized name
+  played       // Standardized name
+}
 
 class MatchReviewDecision {
   final bool approved;
