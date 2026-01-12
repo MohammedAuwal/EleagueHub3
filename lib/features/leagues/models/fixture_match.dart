@@ -1,10 +1,6 @@
-import 'league_format.dart';
-/// Defines whether a match is waiting to be played or finished.
-    return MatchStatus.values[v];
-  }
-}
+import 'enums.dart';
 
-/// Represents a single match fixture in eSportlyic.
+/// Represents a single match fixture.
 ///
 /// Supports:
 /// - Classic Round Robin
@@ -54,7 +50,7 @@ class FixtureMatch {
 
   /// True only when the match has a valid recorded result.
   bool get isPlayed =>
-      status == MatchStatus.completed &&
+      (status == MatchStatus.played || status == MatchStatus.completed) &&
       homeScore != null &&
       awayScore != null;
 
@@ -62,7 +58,6 @@ class FixtureMatch {
   int get safeHomeScore => homeScore ?? 0;
   int get safeAwayScore => awayScore ?? 0;
 
-  /// Creates a new instance with updated fields.
   FixtureMatch copyWith({
     String? id,
     String? leagueId,
@@ -93,7 +88,6 @@ class FixtureMatch {
     );
   }
 
-  /// Serialize for remote storage (Firebase / REST / Supabase).
   Map<String, dynamic> toRemoteMap() => {
         'id': id,
         'leagueId': leagueId,
@@ -109,7 +103,6 @@ class FixtureMatch {
         'version': version,
       };
 
-  /// Deserialize from remote storage.
   static FixtureMatch fromRemoteMap(Map<String, dynamic> map) {
     return FixtureMatch(
       id: map['id'] as String,

@@ -1,21 +1,22 @@
-import 'fixture_match.dart';
+import 'enums.dart';
 
 /// Represents a match in the Bracket stage (R16, QF, SF, Final).
-///
-/// Extends the basic match logic to include tournament progression.
 class KnockoutMatch {
   final String id;
   final String leagueId;
   final String roundName; // R16, QF, SF, Final, 3rd Place
+
   final String? homeTeamId;
   final String? awayTeamId;
+
   final int? homeScore;
   final int? awayScore;
+
   final MatchStatus status;
-  
+
   /// The ID of the match the winner will advance to.
   final String? nextMatchId;
-  
+
   /// For 3rd place logic: where the loser goes.
   final String? loserGoesToMatchId;
 
@@ -36,11 +37,42 @@ class KnockoutMatch {
     this.isSecondLeg = false,
   });
 
-  /// Logic to determine the winner (including aggregate/penalties if needed).
-  String? get winnerId {
-    if (status != MatchStatus.completed || homeScore == null || awayScore == null) return null;
+  bool get isFinished =>
+      status == MatchStatus.played || status == MatchStatus.completed;
+
+  /// Determine winner (draw returns null; add penalties/aggregate logic later)
+  String? get winnerTeamId {
+    if (!isFinished || homeScore == null || awayScore == null) return null;
     if (homeScore! > awayScore!) return homeTeamId;
     if (awayScore! > homeScore!) return awayTeamId;
-    return null; // Draw (requires extra-time/penalties logic)
+    return null;
+  }
+
+  KnockoutMatch copyWith({
+    String? id,
+    String? leagueId,
+    String? roundName,
+    String? homeTeamId,
+    String? awayTeamId,
+    int? homeScore,
+    int? awayScore,
+    MatchStatus? status,
+    String? nextMatchId,
+    String? loserGoesToMatchId,
+    bool? isSecondLeg,
+  }) {
+    return KnockoutMatch(
+      id: id ?? this.id,
+      leagueId: leagueId ?? this.leagueId,
+      roundName: roundName ?? this.roundName,
+      homeTeamId: homeTeamId ?? this.homeTeamId,
+      awayTeamId: awayTeamId ?? this.awayTeamId,
+      homeScore: homeScore ?? this.homeScore,
+      awayScore: awayScore ?? this.awayScore,
+      status: status ?? this.status,
+      nextMatchId: nextMatchId ?? this.nextMatchId,
+      loserGoesToMatchId: loserGoesToMatchId ?? this.loserGoesToMatchId,
+      isSecondLeg: isSecondLeg ?? this.isSecondLeg,
+    );
   }
 }

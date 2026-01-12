@@ -1,12 +1,14 @@
-import "../models/league.dart";
-import "../models/league_format.dart";
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/widgets/glass.dart';
 import '../../../core/widgets/glass_scaffold.dart';
 import '../data/leagues_repository_mock.dart';
-import ../../models/fixture_match.dart';
+import '../models/enums.dart';
+import '../models/fixture_match.dart';
+import '../models/league.dart';
+import '../models/league_format.dart';
+import '../models/league_settings.dart';
 
 class LeagueDetailScreen extends StatelessWidget {
   final String leagueId;
@@ -22,7 +24,6 @@ class LeagueDetailScreen extends StatelessWidget {
     final primary = theme.colorScheme.primary;
     final repo = LeaguesRepositoryMock();
 
-    // Fetch the first fixture dynamically if exists
     final fixturesList = repo.fixtures(leagueId);
     final nextFixture = fixturesList.isNotEmpty ? fixturesList.first : null;
 
@@ -45,19 +46,22 @@ class LeagueDetailScreen extends StatelessWidget {
     );
   }
 
-  /// -------------------------------
-  /// League overview
-  /// -------------------------------
   Widget _overviewCard(BuildContext context, Color c, LeaguesRepositoryMock repo) {
     final league = repo.listLeagues().firstWhere(
       (l) => l.id == leagueId,
-      orElse: () => League(id: "", name: "Loading...", format: LeagueFormat.classic, privacy: LeaguePrivacy.public, region: "", maxTeams: 0, season: "", organizerUserId: "", code: "", settings: LeagueSettings.defaultSettings(), updatedAtMs: 0, version: 1,
+      orElse: () => League(
         id: leagueId,
         name: 'Unknown League',
-        format: 'Custom',
-        privacy: 'Public',
-        region: 'N/A',
+        format: LeagueFormat.classic,
+        privacy: LeaguePrivacy.public,
+        region: 'Global',
         maxTeams: 0,
+        season: '2026',
+        organizerUserId: '',
+        code: '',
+        settings: LeagueSettings.defaultSettings(),
+        updatedAtMs: 0,
+        version: 1,
       ),
     );
 
@@ -71,7 +75,7 @@ class LeagueDetailScreen extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            '${league.format} • Proof required • Auto standings',
+            '${league.format.displayName} • Proof required • Auto standings',
             style: TextStyle(color: Theme.of(context).hintColor),
           ),
           const SizedBox(height: 14),
@@ -80,7 +84,7 @@ class LeagueDetailScreen extends StatelessWidget {
             runSpacing: 8,
             children: [
               _pill(league.isPrivate ? 'Private' : 'Public', c),
-              _pill('${league.maxTeams} Players', c),
+              _pill('${league.maxTeams} Teams', c),
               _pill('Region: ${league.region}', c),
             ],
           ),
@@ -89,9 +93,6 @@ class LeagueDetailScreen extends StatelessWidget {
     );
   }
 
-  /// -------------------------------
-  /// Quick actions
-  /// -------------------------------
   Widget _quickActions(BuildContext context) {
     return Glass(
       child: Column(
@@ -126,9 +127,6 @@ class LeagueDetailScreen extends StatelessWidget {
     );
   }
 
-  /// -------------------------------
-  /// Next fixture
-  /// -------------------------------
   Widget _nextFixture(BuildContext context, FixtureMatch? fixture) {
     return Glass(
       child: Column(
@@ -143,9 +141,14 @@ class LeagueDetailScreen extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('${fixture.home} vs ${fixture.away}'),
+                Expanded(
+                  child: Text(
+                    '${fixture.homeTeamId} vs ${fixture.awayTeamId}',
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
                 Text(
-                  'Scheduled at: ${fixture.scheduledAt}',
+                  'Round ${fixture.roundNumber}',
                   style: TextStyle(color: Theme.of(context).hintColor),
                 ),
               ],
@@ -158,7 +161,7 @@ class LeagueDetailScreen extends StatelessWidget {
             child: TextButton(
               onPressed: fixture != null
                   ? () => GoRouter.of(context).push(
-                        '/leagues/$leagueId/matches/${fixture.matchId}',
+                        '/leagues/$leagueId/matches/${fixture.id}',
                       )
                   : null,
               child: const Text('View match'),
@@ -169,9 +172,6 @@ class LeagueDetailScreen extends StatelessWidget {
     );
   }
 
-  /// -------------------------------
-  /// Pill widget
-  /// -------------------------------
   Widget _pill(String text, Color c) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),

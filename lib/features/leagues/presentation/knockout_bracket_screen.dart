@@ -1,3 +1,4 @@
+import '../models/enums.dart';
 import 'package:flutter/material.dart';
 import '../models/fixture_match.dart';
 import '../models/team.dart';
