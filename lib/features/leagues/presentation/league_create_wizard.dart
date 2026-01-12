@@ -1,5 +1,4 @@
 import "../models/league_format.dart";
-import "../models/league_settings.dart";
 import '../models/league.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -7,7 +6,6 @@ import 'package:uuid/uuid.dart';
 
 import '../../../core/widgets/glass.dart';
 import '../../../core/widgets/glass_scaffold.dart';
-import '../models/league_format.dart';
 
 class LeagueCreateWizard extends StatefulWidget {
   const LeagueCreateWizard({super.key});
@@ -18,23 +16,14 @@ class LeagueCreateWizard extends StatefulWidget {
 
 class _LeagueCreateWizardState extends State<LeagueCreateWizard> {
   final _uuid = const Uuid();
-
   int _step = 0;
 
   final _name = TextEditingController();
   LeagueFormat _format = LeagueFormat.classic;
+  final int _maxTeams = 16;
 
-  String _privacy = 'Public';
-  String _region = 'EU';
-  int _maxTeams = 16;
-
-  final bool _tbHeadToHead = true;
   bool _tbGoalDiff = true;
   bool _tbGoalsFor = false;
-
-  int _proofDeadlineHours = 24;
-  bool _forfeitEnabled = true;
-
   bool _submitting = false;
 
   @override
@@ -47,71 +36,75 @@ class _LeagueCreateWizardState extends State<LeagueCreateWizard> {
   Widget build(BuildContext context) {
     return GlassScaffold(
       appBar: AppBar(title: const Text('Create League')),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-        children: [
-          Glass(
-            child: Stepper(
-              currentStep: _step,
-              controlsBuilder: (context, details) {
-                final isLast = _step == 2;
-                return Padding(
-                  padding: const EdgeInsets.only(top: 16),
-                  child: Row(
-                    children: [
-                      FilledButton(
-                        onPressed: _submitting
-                            ? null
-                            : () async {
-                                if (isLast) {
-                                  await _create(context);
-                                } else {
-                                  if (_step == 0 && _name.text.trim().isEmpty) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text('Please enter a league name'),
-                                      ),
-                                    );
-                                    return;
+      // Use Center to align the content in the middle
+      body: Center(
+        child: SingleChildScrollView(
+          child: Container(
+            // Limits width on large devices while staying responsive on phones
+            constraints: const BoxConstraints(maxWidth: 500),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+            child: Glass(
+              child: Stepper(
+                physics: const NeverScrollableScrollPhysics(),
+                currentStep: _step,
+                controlsBuilder: (context, details) {
+                  final isLast = _step == 2;
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 16),
+                    child: Row(
+                      children: [
+                        FilledButton(
+                          onPressed: _submitting
+                              ? null
+                              : () async {
+                                  if (isLast) {
+                                    await _create(context);
+                                  } else {
+                                    if (_step == 0 && _name.text.trim().isEmpty) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(content: Text('Please enter a league name')),
+                                      );
+                                      return;
+                                    }
+                                    setState(() => _step++);
                                   }
-                                  setState(() => _step++);
-                                }
-                              },
-                        child: Text(isLast ? 'Create' : 'Next'),
-                      ),
-                      const SizedBox(width: 12),
-                      TextButton(
-                        onPressed: _submitting
-                            ? null
-                            : () {
-                                if (_step == 0) {
-                                  context.pop();
-                                } else {
-                                  setState(() => _step--);
-                                }
-                              },
-                        child: Text(_step == 0 ? 'Cancel' : 'Back'),
-                      ),
-                      if (_submitting) ...[
-                        const SizedBox(width: 12),
-                        const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                                },
+                          child: Text(isLast ? 'Create' : 'Next'),
                         ),
+                        const SizedBox(width: 12),
+                        TextButton(
+                          onPressed: _submitting
+                              ? null
+                              : () {
+                                  if (_step == 0) {
+                                    context.pop();
+                                  } else {
+                                    setState(() => _step--);
+                                  }
+                                },
+                          child: Text(_step == 0 ? 'Cancel' : 'Back'),
+                        ),
+                        if (_submitting) ...[
+                          const SizedBox(width: 12),
+                          const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        ],
                       ],
-                    ],
-                  ),
-                );
-              },
-              steps: [
-                Step(title: const Text('Basics'), content: _basicsStep()),
-                Step(title: const Text('Rules'), content: _rulesStep()),
-                Step(title: const Text('Review & Create'), content: _reviewStep()),
-              ],
+                    ),
+                  );
+                },
+                steps: [
+                  Step(title: const Text('Basics'), content: _basicsStep(), isActive: _step >= 0),
+                  Step(title: const Text('Rules'), content: _rulesStep(), isActive: _step >= 1),
+                  Step(title: const Text('Review'), content: _reviewStep(), isActive: _step >= 2),
+                ],
+              ),
             ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -127,18 +120,9 @@ class _LeagueCreateWizardState extends State<LeagueCreateWizard> {
         DropdownButtonFormField<LeagueFormat>(
           value: _format,
           items: const [
-            DropdownMenuItem(
-              value: LeagueFormat.classic,
-              child: Text('Round Robin'),
-            ),
-            DropdownMenuItem(
-              value: LeagueFormat.uclGroup,
-              child: Text('UCL Groups + Knockout'),
-            ),
-            DropdownMenuItem(
-              value: LeagueFormat.uclSwiss,
-              child: Text('Swiss'),
-            ),
+            DropdownMenuItem(value: LeagueFormat.classic, child: Text('Round Robin')),
+            DropdownMenuItem(value: LeagueFormat.uclGroup, child: Text('UCL Groups + Knockout')),
+            DropdownMenuItem(value: LeagueFormat.uclSwiss, child: Text('Swiss')),
           ],
           onChanged: (v) => setState(() => _format = v!),
           decoration: const InputDecoration(labelText: 'Format'),
@@ -168,7 +152,7 @@ class _LeagueCreateWizardState extends State<LeagueCreateWizard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Name: ${_name.text}'),
+        Text('Name: ${_name.text}', style: const TextStyle(fontWeight: FontWeight.bold)),
         Text('Format: ${_format.name}'),
         Text('Max Teams: $_maxTeams'),
       ],
@@ -177,13 +161,12 @@ class _LeagueCreateWizardState extends State<LeagueCreateWizard> {
 
   Future<void> _create(BuildContext context) async {
     if (_name.text.trim().isEmpty) return;
-
     setState(() => _submitting = true);
-
     final leagueId = _uuid.v4();
 
     if (!context.mounted) return;
 
+    // Standardized path for nested routes
     context.push(
       '/leagues/add-teams',
       extra: {
@@ -191,7 +174,6 @@ class _LeagueCreateWizardState extends State<LeagueCreateWizard> {
         'format': _format,
       },
     );
-
     setState(() => _submitting = false);
   }
 }
