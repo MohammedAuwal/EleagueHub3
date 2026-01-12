@@ -93,7 +93,8 @@ class ProfileScreen extends ConsumerWidget {
           const SizedBox(height: 24),
 
           /// STATS
-          const SectionHeader(title: 'League Overview'),
+          /// Fixed: Using positional argument for title
+          const SectionHeader('League Overview'),
 
           const SizedBox(height: 12),
 
