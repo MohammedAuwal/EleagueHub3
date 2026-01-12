@@ -71,6 +71,7 @@ class _AddTeamsScreenState extends ConsumerState<AddTeamsScreen> {
       if (name.trim().isNotEmpty) _addTeam(name);
     }
     _bulkController.clear();
+    FocusScope.of(context).unfocus();
   }
 
   Future<void> _generateAndSave() async {
@@ -86,12 +87,7 @@ class _AddTeamsScreenState extends ConsumerState<AddTeamsScreen> {
       );
     }).toList();
 
-    // 1. Save Teams
     await _localRepo.saveTeams(widget.leagueId, teamsToSave);
-
-    // 2. TODO: Generate Fixtures based on widget.format
-    // Classic -> Round Robin
-    // UCL -> Group Stage Rounds
 
     if (mounted) {
       context.go('/leagues/${widget.leagueId}');
@@ -169,6 +165,9 @@ class _AddTeamsScreenState extends ConsumerState<AddTeamsScreen> {
               padding: const EdgeInsets.all(16),
               child: ElevatedButton(
                 onPressed: _importBulk,
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 45),
+                ),
                 child: const Text('ADD TEAMS'),
               ),
             ),
@@ -197,12 +196,12 @@ class _AddTeamsScreenState extends ConsumerState<AddTeamsScreen> {
                 return ListTile(
                   leading: CircleAvatar(
                     backgroundColor: Colors.cyanAccent.withOpacity(0.15),
-                    child: Text('${i + 1}', style: const TextStyle(color: Colors.cyanAccent)),
+                    child: Text('${i + 1}', style: const TextStyle(color: Colors.cyanAccent, fontSize: 12)),
                   ),
-                  title: Text(team['name']!, style: const TextStyle(color: Colors.white)),
-                  subtitle: Text(team['group']!, style: const TextStyle(color: Colors.white38)),
+                  title: Text(team['name']!, style: const TextStyle(color: Colors.white, fontSize: 14)),
+                  subtitle: Text(team['group']!, style: const TextStyle(color: Colors.white38, fontSize: 12)),
                   trailing: IconButton(
-                    icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                    icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
                     onPressed: () => setState(() => _tempTeams.removeAt(i)),
                   ),
                 );
