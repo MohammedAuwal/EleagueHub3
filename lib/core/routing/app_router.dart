@@ -9,6 +9,7 @@ import '../../features/leagues/presentation/league_create_wizard.dart';
 import '../../features/leagues/presentation/league_detail_screen.dart';
 import '../../features/leagues/presentation/leagues_list_screen.dart';
 import '../../features/leagues/presentation/match_detail_screen.dart';
+import '../../features/leagues/presentation/qr_scanner_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 
 final authStateProvider = StateProvider<bool>((ref) => false);
@@ -16,10 +17,6 @@ final authStateProvider = StateProvider<bool>((ref) => false);
 final appRouter = GoRouter(
   initialLocation: '/',
   routes: [
-            GoRoute(
-              path: 'join-scanner',
-              builder: (context, state) => const QRScannerScreen(),
-            ),
     GoRoute(
       path: '/login',
       builder: (context, state) => const LoginScreen(),
@@ -28,10 +25,6 @@ final appRouter = GoRouter(
       path: '/',
       builder: (context, state) => const HomeShell(),
       routes: [
-            GoRoute(
-              path: 'join-scanner',
-              builder: (context, state) => const QRScannerScreen(),
-            ),
         GoRoute(
           path: 'profile',
           builder: (context, state) => const ProfileScreen(),
@@ -41,12 +34,12 @@ final appRouter = GoRouter(
           builder: (context, state) => const LeaguesListScreen(),
           routes: [
             GoRoute(
-              path: 'join-scanner',
-              builder: (context, state) => const QRScannerScreen(),
-            ),
-            GoRoute(
               path: 'create',
               builder: (context, state) => const LeagueCreateWizard(),
+            ),
+            GoRoute(
+              path: 'join-scanner',
+              builder: (context, state) => const QRScannerScreen(),
             ),
             GoRoute(
               path: 'add-teams',
