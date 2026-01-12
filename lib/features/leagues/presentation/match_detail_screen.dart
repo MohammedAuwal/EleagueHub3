@@ -1,3 +1,4 @@
+import '../../domain/models.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/widgets/glass.dart';
@@ -195,7 +196,7 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
       await _repo.organizerReviewDecision(
         leagueId: widget.leagueId,
         matchId: widget.matchId,
-        decision: MatchReviewDecision(
+        decision: MatchReviewDecision.approve
           approved: approve,
           reason: _reason.text.trim(),
         ),

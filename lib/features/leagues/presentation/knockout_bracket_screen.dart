@@ -91,7 +91,7 @@ class KnockoutBracketScreen extends StatelessWidget {
           _buildTeamRow(awayTeam?.name ?? "TBD", awayScore, isAwayWinner),
           const SizedBox(height: 8),
           Text(
-            match.status == MatchStatus.played
+            match.status == MatchStatus.completed
                 ? "Played"
                 : "Scheduled",
             style: const TextStyle(color: Colors.grey, fontSize: 10),

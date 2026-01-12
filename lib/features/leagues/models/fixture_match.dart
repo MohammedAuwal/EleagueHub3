@@ -1,3 +1,4 @@
+import 'league_format.dart';
 /// Defines whether a match is waiting to be played or finished.
     return MatchStatus.values[v];
   }
@@ -53,7 +54,7 @@ class FixtureMatch {
 
   /// True only when the match has a valid recorded result.
   bool get isPlayed =>
-      status == MatchStatus.played &&
+      status == MatchStatus.completed &&
       homeScore != null &&
       awayScore != null;
 

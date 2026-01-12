@@ -38,7 +38,7 @@ class KnockoutMatch {
 
   /// Logic to determine the winner (including aggregate/penalties if needed).
   String? get winnerId {
-    if (status != MatchStatus.played || homeScore == null || awayScore == null) return null;
+    if (status != MatchStatus.completed || homeScore == null || awayScore == null) return null;
     if (homeScore! > awayScore!) return homeTeamId;
     if (awayScore! > homeScore!) return awayTeamId;
     return null; // Draw (requires extra-time/penalties logic)

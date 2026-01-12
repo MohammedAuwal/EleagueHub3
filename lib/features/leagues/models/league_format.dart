@@ -21,10 +21,6 @@ enum MatchStatus {
   played       // Standardized name
 }
 
-class MatchReviewDecision {
-  final bool approved;
-  final String reason;
-  MatchReviewDecision({required this.approved, required this.reason});
 }
 
 extension MatchStatusX on MatchStatus {

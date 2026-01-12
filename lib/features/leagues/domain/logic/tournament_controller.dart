@@ -21,7 +21,7 @@ class TournamentController {
     required KnockoutMatch completedMatch,
     required List<KnockoutMatch> allMatches,
   }) {
-    if (completedMatch.status != MatchStatus.played) return allMatches;
+    if (completedMatch.status != MatchStatus.completed) return allMatches;
 
     final winnerId = completedMatch.winnerId;
     final loserId = (winnerId == completedMatch.homeTeamId) 
