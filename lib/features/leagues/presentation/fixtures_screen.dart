@@ -2,9 +2,11 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/persistence/prefs_service.dart';
 import '../../../core/widgets/glass.dart';
 import '../../../core/widgets/glass_scaffold.dart';
 import '../../../core/widgets/section_header.dart';
+import '../data/leagues_repository_local.dart';
 import '../models/fixture_match.dart';
 import '../models/enums.dart';
 
@@ -22,6 +24,25 @@ class FixturesScreen extends ConsumerStatefulWidget {
 
 class _FixturesScreenState extends ConsumerState<FixturesScreen> {
   int _selectedRound = 1;
+  late LocalLeaguesRepository _repo;
+
+  @override
+  void initState() {
+    super.initState();
+    _repo = LocalLeaguesRepository(ref.read(prefsServiceProvider));
+  }
+
+  Future<List<FixtureMatch>> _getMatches() async {
+    final allMatches = await _repo.getMatches(widget.leagueId);
+    // Filter matches by the selected round
+    return allMatches.where((m) => m.roundNumber == _selectedRound).toList();
+  }
+
+  Future<int> _getTotalRounds() async {
+    final allMatches = await _repo.getMatches(widget.leagueId);
+    if (allMatches.isEmpty) return 0;
+    return allMatches.map((m) => m.roundNumber).reduce((a, b) => a > b ? a : b);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -31,29 +52,36 @@ class _FixturesScreenState extends ConsumerState<FixturesScreen> {
         elevation: 0,
         backgroundColor: Colors.transparent,
       ),
-      body: Column(
-        children: [
-          _buildRoundSelector(),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16),
-            child: SectionHeader('Matchday Schedule'),
-          ),
-          Expanded(
-            child: _buildMatchesList(),
-          ),
-        ],
+      body: FutureBuilder<int>(
+        future: _getTotalRounds(),
+        builder: (context, snapshot) {
+          final totalRounds = snapshot.data ?? 0;
+          
+          return Column(
+            children: [
+              if (totalRounds > 0) _buildRoundSelector(totalRounds),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16),
+                child: SectionHeader('Matchday Schedule'),
+              ),
+              Expanded(
+                child: _buildMatchesList(),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
 
-  Widget _buildRoundSelector() {
+  Widget _buildRoundSelector(int totalRounds) {
     return Container(
       height: 50,
       margin: const EdgeInsets.symmetric(vertical: 12),
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: 10, // Logic to be linked to repo.getTotalRounds()
+        itemCount: totalRounds,
         itemBuilder: (context, i) {
           final round = i + 1;
           final isSelected = _selectedRound == round;
@@ -86,38 +114,45 @@ class _FixturesScreenState extends ConsumerState<FixturesScreen> {
   }
 
   Widget _buildMatchesList() {
-    // This is where you will eventually watch your FixturesProvider
-    // For now, we show a user-friendly empty state
-    final List<FixtureMatch> matches = []; 
+    return FutureBuilder<List<FixtureMatch>>(
+      future: _getMatches(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator(color: Colors.cyanAccent));
+        }
 
-    if (matches.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.03),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.TableChartOutlined, size: 48, color: Colors.white24),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'No matches scheduled for this round',
-              style: TextStyle(color: Colors.white38, fontSize: 14),
-            ),
-          ],
-        ),
-      );
-    }
+        final matches = snapshot.data ?? [];
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: matches.length,
-      itemBuilder: (context, index) {
-        return _buildMatchCard(matches[index]);
+        if (matches.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.03),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.TableChartOutlined, size: 48, color: Colors.white24),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'No matches generated yet',
+                  style: TextStyle(color: Colors.white38, fontSize: 14),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: matches.length,
+          itemBuilder: (context, index) {
+            return _buildMatchCard(matches[index]);
+          },
+        );
       },
     );
   }
@@ -131,7 +166,7 @@ class _FixturesScreenState extends ConsumerState<FixturesScreen> {
           children: [
             Expanded(
               child: Text(
-                match.homeTeamId,
+                match.homeTeamId.length > 8 ? match.homeTeamId.substring(0, 8) : match.homeTeamId,
                 textAlign: TextAlign.right,
                 style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
               ),
@@ -139,7 +174,7 @@ class _FixturesScreenState extends ConsumerState<FixturesScreen> {
             Container(
               width: 80,
               alignment: Alignment.center,
-              child: match.status == MatchStatus.completed
+              child: match.status == MatchStatus.completed || match.status == MatchStatus.played
                   ? Text(
                       '${match.homeScore} - ${match.awayScore}',
                       style: const TextStyle(
@@ -155,7 +190,7 @@ class _FixturesScreenState extends ConsumerState<FixturesScreen> {
             ),
             Expanded(
               child: Text(
-                match.awayTeamId,
+                match.awayTeamId.length > 8 ? match.awayTeamId.substring(0, 8) : match.awayTeamId,
                 textAlign: TextAlign.left,
                 style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
               ),

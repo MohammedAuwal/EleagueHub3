@@ -11,6 +11,8 @@ import '../../../core/widgets/section_header.dart';
 import '../data/leagues_repository_local.dart';
 import '../models/league_format.dart';
 import '../models/team.dart';
+import '../models/fixture_match.dart';
+import '../domain/algorithms/round_robin.dart';
 
 class AddTeamsScreen extends ConsumerStatefulWidget {
   final String leagueId;
@@ -77,6 +79,7 @@ class _AddTeamsScreenState extends ConsumerState<AddTeamsScreen> {
   Future<void> _generateAndSave() async {
     if (_tempTeams.isEmpty) return;
 
+    // 1. Create and Save Teams
     final List<Team> teamsToSave = _tempTeams.map((t) {
       return Team(
         id: const Uuid().v4(),
@@ -88,6 +91,44 @@ class _AddTeamsScreenState extends ConsumerState<AddTeamsScreen> {
     }).toList();
 
     await _localRepo.saveTeams(widget.leagueId, teamsToSave);
+
+    // 2. Generate Fixtures based on Format
+    List<FixtureMatch> generatedFixtures = [];
+    final teamIds = teamsToSave.map((t) => t.id).toList();
+
+    if (widget.format == LeagueFormat.classic) {
+      generatedFixtures = RoundRobinGenerator.generate(
+        leagueId: widget.leagueId,
+        teamIds: teamIds,
+        doubleRoundRobin: true, // Classic usually Home & Away
+        startRoundNumber: 1,
+      );
+    } else if (widget.format == LeagueFormat.uclGroup) {
+      // Logic for UCL Group Stage generation
+      for (var groupName in _groups) {
+        final groupTeams = teamsToSave
+            .where((t) => _tempTeams.firstWhere((temp) => temp['name'] == t.name)['group'] == groupName)
+            .map((t) => t.id)
+            .toList();
+        
+        if (groupTeams.isNotEmpty) {
+          generatedFixtures.addAll(
+            RoundRobinGenerator.generate(
+              leagueId: widget.leagueId,
+              teamIds: groupTeams,
+              doubleRoundRobin: true,
+              groupId: groupName,
+              startRoundNumber: 1,
+            ),
+          );
+        }
+      }
+    }
+
+    // 3. Save Fixtures to Repository
+    if (generatedFixtures.isNotEmpty) {
+      await _localRepo.saveMatches(widget.leagueId, generatedFixtures);
+    }
 
     if (mounted) {
       context.go('/leagues/${widget.leagueId}');
@@ -187,7 +228,6 @@ class _AddTeamsScreenState extends ConsumerState<AddTeamsScreen> {
       ),
       child: Column(
         children: [
-          // Fixed the SectionHeader call to use positional parameter
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 16),
             child: SectionHeader('Team Preview'),

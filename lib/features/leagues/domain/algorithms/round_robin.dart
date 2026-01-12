@@ -2,17 +2,10 @@ import 'package:collection/collection.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../models/fixture_match.dart';
+import '../../models/enums.dart'; // Added missing import
 
 /// The logic engine for generating league schedules in eSportlyic.
-///
-/// Uses the Circle Method to ensure balanced match-ups. 
-/// Handles BYE weeks for odd numbers of teams and supports 
-/// double round-robin (Home & Away) for the UCL and Classic formats.
 class RoundRobinGenerator {
-  /// Generates fixtures using the circle method.
-  ///
-  /// - Balances home/away by alternating per round and flipping second leg.
-  /// - Supports odd team counts via a BYE (no fixture generated for BYE).
   static List<FixtureMatch> generate({
     required String leagueId,
     required List<String> teamIds,
@@ -24,9 +17,8 @@ class RoundRobinGenerator {
     final uuid = const Uuid();
 
     final ids = [...teamIds];
-    ids.sort(); // ensures deterministic schedule generation.
+    ids.sort(); 
 
-    // Add bye slot if the number of teams is odd.
     String? bye;
     if (ids.length.isOdd) {
       bye = '__BYE__';
@@ -36,9 +28,7 @@ class RoundRobinGenerator {
     final n = ids.length;
     if (n < 2) return [];
 
-    // Circle method: fix first team position, rotate all others.
     var rotation = [...ids];
-
     final rounds = n - 1;
     final fixtures = <FixtureMatch>[];
 
@@ -51,9 +41,7 @@ class RoundRobinGenerator {
         pairs.add((a, b));
       }
 
-      // Home/away balancing heuristic to reduce consecutive streaks
       final swapRound = r.isOdd;
-
       final roundPairsList = pairs.toList();
       for (var i = 0; i < roundPairsList.length; i++) {
         final (a, b) = roundPairsList[i];
@@ -79,20 +67,18 @@ class RoundRobinGenerator {
           ),
         );
       }
-
       rotation = _rotate(rotation);
     }
 
     if (!doubleRoundRobin) return fixtures;
 
-    // Second leg: mirror home/away and continue round numbering for double round-robin.
     final secondLeg = fixtures.mapIndexed((idx, m) {
       return FixtureMatch(
         id: uuid.v4(),
         leagueId: leagueId,
         groupId: groupId,
         roundNumber: m.roundNumber + rounds,
-        homeTeamId: m.awayTeamId, // Swap Home/Away for the return leg
+        homeTeamId: m.awayTeamId, 
         awayTeamId: m.homeTeamId,
         homeScore: null,
         awayScore: null,
@@ -106,7 +92,6 @@ class RoundRobinGenerator {
     return [...fixtures, ...secondLeg];
   }
 
-  /// Rotates the list while keeping the first element fixed (Circle Method).
   static List<String> _rotate(List<String> list) {
     if (list.length < 2) return list;
     final result = List<String>.from(list);
