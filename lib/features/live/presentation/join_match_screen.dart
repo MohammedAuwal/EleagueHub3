@@ -14,24 +14,26 @@ class JoinMatchScreen extends ConsumerStatefulWidget {
 }
 
 class _JoinMatchScreenState extends ConsumerState<JoinMatchScreen> {
-  final _idController = TextEditingController();
+  final _id = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
   @override
   void dispose() {
-    _idController.dispose();
+    _id.dispose();
     super.dispose();
   }
 
-  Future<void> _join() async {
-    final inputId = _idController.text.trim();
+  void _join() {
     final repo = LocalLeaguesRepository(ref.read(prefsServiceProvider));
+    final input = _id.text.trim();
     
-    // We don't have a global search yet, so this is a placeholder
-    // for future logic. For now, we'll just show a message.
+    // Safety check for empty input
+    if (input.isEmpty) return;
+
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Searching for match: $inputId')),
+      SnackBar(content: Text('Joining match $input...')),
     );
+    context.push('/live/view/$input');
   }
 
   @override
@@ -48,11 +50,8 @@ class _JoinMatchScreenState extends ConsumerState<JoinMatchScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   TextFormField(
-                    controller: _idController,
-                    decoration: const InputDecoration(
-                      labelText: 'Match ID',
-                      hintText: 'e.g. M-L-3307-0',
-                    ),
+                    controller: _id,
+                    decoration: const InputDecoration(labelText: 'Match ID'),
                     validator: (v) => (v == null || v.trim().isEmpty) ? 'Enter a match ID' : null,
                   ),
                   const SizedBox(height: 12),
