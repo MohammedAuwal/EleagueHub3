@@ -49,13 +49,16 @@ class LeaguesListScreen extends StatelessWidget {
       itemCount: leagues.length,
       itemBuilder: (context, index) {
         final league = leagues[index];
+
         return Padding(
           padding: const EdgeInsets.only(bottom: 16),
-          child: LeagueFlipCard(
-            leagueName: league.name,
-            leagueCode: league.id,
-            distribution: league.format.displayName,
-            onTap: () => context.push('/leagues/${league.id}'),
+          child: GestureDetector(
+            onDoubleTap: () => context.push('/leagues/${league.id}'),
+            child: LeagueFlipCard(
+              leagueName: league.name,
+              leagueCode: league.id,
+              distribution: league.format.displayName,
+            ),
           ),
         );
       },

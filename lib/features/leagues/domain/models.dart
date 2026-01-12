@@ -1,4 +1,4 @@
-import '../models/league_format.dart';
+import '../models/enums.dart';
 
 /// Organizer match review decision
 enum MatchReviewDecision {
@@ -42,35 +42,10 @@ class Fixture {
   final MatchStatus status;
   final String matchId;
 
-  // These getters fix the LeagueDetailScreen errors
+  // These getters help UI code that expects `home`/`away`.
   String get home => homeTeam;
   String get away => awayTeam;
 
   bool get canUploadProof => status == MatchStatus.pendingProof;
   bool get isReviewable => status == MatchStatus.underReview;
-}
-
-class StandingRow {
-  const StandingRow({
-    required this.teamId,
-    required this.teamName,
-    required this.played,
-    required this.wins,
-    required this.draws,
-    required this.losses,
-    required this.gf,
-    required this.ga,
-  });
-
-  final String teamId;
-  final String teamName;
-  final int played;
-  final int wins;
-  final int draws;
-  final int losses;
-  final int gf;
-  final int ga;
-
-  int get points => (wins * 3) + draws;
-  int get gd => gf - ga;
 }
