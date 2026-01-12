@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/persistence/prefs_service.dart';
 import '../../../core/widgets/glass.dart';
 import '../../../core/widgets/glass_scaffold.dart';
-import '../data/leagues_repository_mock.dart';
-import '../models/enums.dart';
+import '../data/leagues_repository_local.dart';
 import '../models/fixture_match.dart';
 import '../models/league.dart';
 import '../models/league_format.dart';
 import '../models/league_settings.dart';
+import '../models/enums.dart';
 
-class LeagueDetailScreen extends StatelessWidget {
+class LeagueDetailScreen extends ConsumerStatefulWidget {
   final String leagueId;
 
   const LeagueDetailScreen({
@@ -19,38 +21,24 @@ class LeagueDetailScreen extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final primary = theme.colorScheme.primary;
-    final repo = LeaguesRepositoryMock();
+  ConsumerState<LeagueDetailScreen> createState() => _LeagueDetailScreenState();
+}
 
-    final fixturesList = repo.fixtures(leagueId);
-    final nextFixture = fixturesList.isNotEmpty ? fixturesList.first : null;
+class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
+  late LocalLeaguesRepository _repo;
 
-    return GlassScaffold(
-      appBar: AppBar(
-        title: const Text('League Details'),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          _overviewCard(context, primary, repo),
-          const SizedBox(height: 12),
-          _quickActions(context),
-          const SizedBox(height: 12),
-          _nextFixture(context, nextFixture),
-        ],
-      ),
-    );
+  @override
+  void initState() {
+    super.initState();
+    _repo = LocalLeaguesRepository(ref.read(prefsServiceProvider));
   }
 
-  Widget _overviewCard(BuildContext context, Color c, LeaguesRepositoryMock repo) {
-    final league = repo.listLeagues().firstWhere(
-      (l) => l.id == leagueId,
+  Future<Map<String, dynamic>> _loadData() async {
+    final leagues = await _repo.listLeagues();
+    final league = leagues.firstWhere(
+      (l) => l.id == widget.leagueId,
       orElse: () => League(
-        id: leagueId,
+        id: widget.leagueId,
         name: 'Unknown League',
         format: LeagueFormat.classic,
         privacy: LeaguePrivacy.public,
@@ -64,7 +52,48 @@ class LeagueDetailScreen extends StatelessWidget {
         version: 1,
       ),
     );
+    final fixtures = await _repo.getMatches(widget.leagueId);
+    return {'league': league, 'fixtures': fixtures};
+  }
 
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final primary = theme.colorScheme.primary;
+
+    return GlassScaffold(
+      appBar: AppBar(
+        title: const Text('League Details'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+      ),
+      body: FutureBuilder<Map<String, dynamic>>(
+        future: _loadData(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          final league = snapshot.data!['league'] as League;
+          final fixtures = snapshot.data!['fixtures'] as List<FixtureMatch>;
+          final nextFixture = fixtures.isNotEmpty ? fixtures.first : null;
+
+          return ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              _overviewCard(context, primary, league),
+              const SizedBox(height: 12),
+              _quickActions(context),
+              const SizedBox(height: 12),
+              _nextFixture(context, nextFixture),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _overviewCard(BuildContext context, Color c, League league) {
     return Glass(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -75,7 +104,7 @@ class LeagueDetailScreen extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            '${league.format.displayName} • Proof required • Auto standings',
+            '${league.format.displayName} • Auto standings',
             style: TextStyle(color: Theme.of(context).hintColor),
           ),
           const SizedBox(height: 14),
@@ -109,7 +138,7 @@ class LeagueDetailScreen extends StatelessWidget {
                 child: FilledButton.icon(
                   icon: const Icon(Icons.list_alt),
                   label: const Text('Fixtures'),
-                  onPressed: () => context.push('/leagues/$leagueId/fixtures'),
+                  onPressed: () => context.push('/leagues/${widget.leagueId}/fixtures'),
                 ),
               ),
               const SizedBox(width: 8),
@@ -117,7 +146,7 @@ class LeagueDetailScreen extends StatelessWidget {
                 child: OutlinedButton.icon(
                   icon: const Icon(Icons.leaderboard),
                   label: const Text('Standings'),
-                  onPressed: () => context.push('/leagues/$leagueId/standings'),
+                  onPressed: () => context.push('/leagues/${widget.leagueId}/standings'),
                 ),
               ),
             ],
@@ -132,7 +161,7 @@ class LeagueDetailScreen extends StatelessWidget {
               ),
               icon: const Icon(Icons.edit_note),
               label: const Text('Manage Scores (Admin)'),
-              onPressed: () => context.push('/leagues/$leagueId/admin-scores'),
+              onPressed: () => context.push('/leagues/${widget.leagueId}/admin-scores'),
             ),
           ),
         ],
@@ -167,13 +196,13 @@ class LeagueDetailScreen extends StatelessWidget {
               ],
             )
           else
-            const Text('No fixtures yet.'),
+            const Text('No fixtures yet.', style: TextStyle(color: Colors.white38)),
           const SizedBox(height: 10),
           Align(
             alignment: Alignment.centerRight,
             child: TextButton(
               onPressed: fixture != null
-                  ? () => context.push('/leagues/$leagueId/matches/${fixture.id}')
+                  ? () => context.push('/leagues/${widget.leagueId}/matches/${fixture.id}')
                   : null,
               child: const Text('View match'),
             ),
@@ -193,11 +222,7 @@ class LeagueDetailScreen extends StatelessWidget {
       ),
       child: Text(
         text,
-        style: TextStyle(
-          fontWeight: FontWeight.w800,
-          color: c,
-          fontSize: 12,
-        ),
+        style: TextStyle(fontWeight: FontWeight.w800, color: c, fontSize: 12),
       ),
     );
   }
