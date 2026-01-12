@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/widgets/glass.dart';
 import '../../../core/widgets/glass_scaffold.dart';
-import '../../leagues/data/leagues_repository_mock.dart';
+import "../../leagues/data/leagues_repository_local.dart"';
 
 class JoinMatchScreen extends StatefulWidget {
   const JoinMatchScreen({super.key});
@@ -14,7 +14,7 @@ class JoinMatchScreen extends StatefulWidget {
 class _JoinMatchScreenState extends State<JoinMatchScreen> {
   final _id = TextEditingController();
   final _formKey = GlobalKey<FormState>();
-  final _repo = LeaguesRepositoryMock();
+  final _repo = LocalLeaguesRepository();
 
   @override
   void dispose() {

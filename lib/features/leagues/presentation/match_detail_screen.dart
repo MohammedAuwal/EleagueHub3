@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/widgets/glass.dart';
 import '../../../core/widgets/glass_scaffold.dart';
 import '../../../core/widgets/status_badge.dart';
-import '../data/leagues_repository_mock.dart';
+import "../data/leagues_repository_local.dart"';
 import '../domain/models.dart';
 
 class MatchDetailScreen extends StatefulWidget {
@@ -18,14 +18,14 @@ class MatchDetailScreen extends StatefulWidget {
   final String matchId;
 
   /// Allows future backend injection
-  final LeaguesRepositoryMock? repository;
+  final LocalLeaguesRepository? repository;
 
   @override
   State<MatchDetailScreen> createState() => _MatchDetailScreenState();
 }
 
 class _MatchDetailScreenState extends State<MatchDetailScreen> {
-  late final LeaguesRepositoryMock _repo;
+  late final LocalLeaguesRepository _repo;
 
   final _note = TextEditingController();
   final _reason = TextEditingController();
@@ -38,7 +38,7 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
   @override
   void initState() {
     super.initState();
-    _repo = widget.repository ?? LeaguesRepositoryMock();
+    _repo = widget.repository ?? LocalLeaguesRepository();
   }
 
   @override
