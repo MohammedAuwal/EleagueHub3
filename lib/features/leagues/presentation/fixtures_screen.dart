@@ -134,7 +134,7 @@ class _FixturesScreenState extends ConsumerState<FixturesScreen> {
                     color: Colors.white.withOpacity(0.03),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.TableChartOutlined, size: 48, color: Colors.white24),
+                  child: const Icon(Icons.table_chart_outlined, size: 48, color: Colors.white24),
                 ),
                 const SizedBox(height: 16),
                 const Text(
