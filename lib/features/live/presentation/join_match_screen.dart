@@ -1,40 +1,37 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/persistence/prefs_service.dart';
 import '../../../core/widgets/glass.dart';
 import '../../../core/widgets/glass_scaffold.dart';
 import "../../leagues/data/leagues_repository_local.dart";
 
-class JoinMatchScreen extends StatefulWidget {
+class JoinMatchScreen extends ConsumerStatefulWidget {
   const JoinMatchScreen({super.key});
 
   @override
-  State<JoinMatchScreen> createState() => _JoinMatchScreenState();
+  ConsumerState<JoinMatchScreen> createState() => _JoinMatchScreenState();
 }
 
-class _JoinMatchScreenState extends State<JoinMatchScreen> {
-  final _id = TextEditingController();
+class _JoinMatchScreenState extends ConsumerState<JoinMatchScreen> {
+  final _idController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
-  final _repo = LocalLeaguesRepository(ref.read(prefsServiceProvider));
 
   @override
   void dispose() {
-    _id.dispose();
+    _idController.dispose();
     super.dispose();
   }
 
-  void _join() {
-    final input = _id.text.trim();
-    // Check if match exists
-    final exists = _repo.fixtures('').any((f) => f.id == input);
-    if (!exists) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Invalid Match ID')),
-      );
-      return;
-    }
-
-    // Navigate to match view
-    context.push('/live/view/$input');
+  Future<void> _join() async {
+    final inputId = _idController.text.trim();
+    final repo = LocalLeaguesRepository(ref.read(prefsServiceProvider));
+    
+    // We don't have a global search yet, so this is a placeholder
+    // for future logic. For now, we'll just show a message.
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Searching for match: $inputId')),
+    );
   }
 
   @override
@@ -42,38 +39,33 @@ class _JoinMatchScreenState extends State<JoinMatchScreen> {
     return GlassScaffold(
       appBar: AppBar(title: const Text('Join via Match ID')),
       body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 560),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Glass(
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextFormField(
-                      controller: _id,
-                      decoration: const InputDecoration(
-                        labelText: 'Match ID',
-                        hintText: 'e.g. M-L-3307-0',
-                      ),
-                      validator: (v) => (v == null || v.trim().isEmpty)
-                          ? 'Enter a match ID'
-                          : null,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Glass(
+            child: Form(
+              key: _formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextFormField(
+                    controller: _idController,
+                    decoration: const InputDecoration(
+                      labelText: 'Match ID',
+                      hintText: 'e.g. M-L-3307-0',
                     ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton(
-                        onPressed: () {
-                          if (_formKey.currentState!.validate()) _join();
-                        },
-                        child: const Text('Join'),
-                      ),
+                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Enter a match ID' : null,
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: () {
+                        if (_formKey.currentState!.validate()) _join();
+                      },
+                      child: const Text('Join'),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),

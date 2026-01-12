@@ -1,210 +1,77 @@
 import 'package:flutter/material.dart';
-
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/persistence/prefs_service.dart';
 import '../../../core/widgets/glass.dart';
 import '../../../core/widgets/glass_scaffold.dart';
 import '../../../core/widgets/status_badge.dart';
 import "../data/leagues_repository_local.dart";
-import '../domain/models.dart';
+import '../models/fixture_match.dart';
 
-class MatchDetailScreen extends StatefulWidget {
+class MatchDetailScreen extends ConsumerStatefulWidget {
   const MatchDetailScreen({
     super.key,
     required this.leagueId,
     required this.matchId,
-    this.repository,
   });
 
   final String leagueId;
   final String matchId;
 
-  /// Allows future backend injection
-  final LocalLeaguesRepository? repository;
-
   @override
-  State<MatchDetailScreen> createState() => _MatchDetailScreenState();
+  ConsumerState<MatchDetailScreen> createState() => _MatchDetailScreenState();
 }
 
-class _MatchDetailScreenState extends State<MatchDetailScreen> {
-  late final LocalLeaguesRepository _repo;
-
-  final _note = TextEditingController();
-  final _reason = TextEditingController();
-
-  bool _busy = false;
-
-  /// TEMP: will come from Match model later
-  String _status = 'Pending Proof';
+class _MatchDetailScreenState extends ConsumerState<MatchDetailScreen> {
+  late LocalLeaguesRepository _repo;
+  FixtureMatch? _match;
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _repo = widget.repository ?? LocalLeaguesRepository(ref.read(prefsServiceProvider));
+    _repo = LocalLeaguesRepository(ref.read(prefsServiceProvider));
+    _loadData();
   }
 
-  @override
-  void dispose() {
-    _note.dispose();
-    _reason.dispose();
-    super.dispose();
+  Future<void> _loadData() async {
+    final matches = await _repo.getMatches(widget.leagueId);
+    if (mounted) {
+      setState(() {
+        try {
+          _match = matches.firstWhere((m) => m.id == widget.matchId);
+        } catch (_) {
+          _match = null;
+        }
+        _isLoading = false;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) return const GlassScaffold(body: Center(child: CircularProgressIndicator()));
+    if (_match == null) return const GlassScaffold(body: Center(child: Text("Match not found")));
+
     return GlassScaffold(
       appBar: AppBar(title: const Text('Match Details')),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+        padding: const EdgeInsets.all(16),
         children: [
-          _buildHeader(context),
-          const SizedBox(height: 12),
-          _buildProofUpload(context),
-          const SizedBox(height: 12),
-          _buildOrganizerReview(context),
+          Glass(
+            child: Column(
+              children: [
+                Text("${_match!.homeTeamId} vs ${_match!.awayTeamId}", 
+                  style: Theme.of(context).textTheme.titleLarge),
+                const SizedBox(height: 10),
+                StatusBadge(_match!.status.name),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+          const Center(child: Text("Score updates are managed in Admin Panel", 
+            style: TextStyle(color: Colors.white38))),
         ],
       ),
     );
-  }
-
-  Widget _buildHeader(BuildContext context) {
-    return Glass(
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              widget.matchId, // TODO: replace with "Home vs Away"
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w900,
-                  ),
-            ),
-          ),
-          StatusBadge(_status),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProofUpload(BuildContext context) {
-    return Glass(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Upload proof',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _note,
-            decoration: const InputDecoration(
-              labelText: 'Note',
-              hintText: 'Optional details for the organizer',
-            ),
-          ),
-          const SizedBox(height: 10),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: _busy ? null : () => _uploadProof(context),
-              icon: const Icon(Icons.upload_file),
-              label: const Text('Upload Proof'),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'MVP: This simulates proof upload and moves match to "Under Review".',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildOrganizerReview(BuildContext context) {
-    return Glass(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Organizer review',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _reason,
-            decoration: const InputDecoration(
-              labelText: 'Reason (optional)',
-            ),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: _busy ? null : () => _review(false),
-                  child: const Text('Reject'),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: FilledButton(
-                  onPressed: _busy ? null : () => _review(true),
-                  child: const Text('Approve'),
-                ),
-              ),
-            ],
-          ),
-          if (_busy) ...[
-            const SizedBox(height: 12),
-            const LinearProgressIndicator(),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Future<void> _uploadProof(BuildContext context) async {
-    setState(() => _busy = true);
-    try {
-      await _repo.uploadProofPlaceholder(
-        leagueId: widget.leagueId,
-        matchId: widget.matchId,
-        note: _note.text.trim(),
-      );
-      if (!mounted) return;
-
-      setState(() => _status = 'Under Review');
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Proof uploaded.')),
-      );
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  Future<void> _review(bool approve) async {
-    setState(() => _busy = true);
-    try {
-      await _repo.organizerReviewDecision(
-        leagueId: widget.leagueId,
-        matchId: widget.matchId,
-        decision: approve ? MatchReviewDecision.approve : MatchReviewDecision.reject,
-      );
-      if (!mounted) return;
-
-      setState(() {
-        _status = approve ? 'Completed' : 'Pending Proof';
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(approve ? 'Approved.' : 'Rejected.')),
-      );
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
   }
 }
