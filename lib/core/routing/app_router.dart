@@ -11,7 +11,6 @@ import '../../features/leagues/presentation/leagues_list_screen.dart';
 import '../../features/leagues/presentation/match_detail_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 
-/// Auth state provider (simple example)
 final authStateProvider = StateProvider<bool>((ref) => false);
 
 final appRouter = GoRouter(
@@ -49,8 +48,6 @@ final appRouter = GoRouter(
                 );
               },
             ),
-
-            /// League details: /leagues/:leagueId
             GoRoute(
               path: ':leagueId',
               builder: (context, state) {
@@ -58,8 +55,6 @@ final appRouter = GoRouter(
                 return LeagueDetailScreen(leagueId: leagueId);
               },
             ),
-
-            /// Match details: /leagues/:leagueId/matches/:matchId
             GoRoute(
               path: ':leagueId/matches/:matchId',
               builder: (context, state) {

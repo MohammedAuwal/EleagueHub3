@@ -28,6 +28,13 @@ class LeaguesListScreen extends StatelessWidget {
           ),
         ],
       ),
+      // FAB added for quick access when list is not empty
+      floatingActionButton: leagues.isNotEmpty 
+          ? FloatingActionButton(
+              onPressed: () => _showOptions(context),
+              child: const Icon(Icons.add),
+            )
+          : null,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -49,7 +56,6 @@ class LeaguesListScreen extends StatelessWidget {
       itemCount: leagues.length,
       itemBuilder: (context, index) {
         final league = leagues[index];
-
         return Padding(
           padding: const EdgeInsets.only(bottom: 16),
           child: GestureDetector(
@@ -69,48 +75,55 @@ class LeaguesListScreen extends StatelessWidget {
     final t = Theme.of(context).textTheme;
 
     return Center(
-      child: Glass(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.emoji_events_outlined,
-                size: 72,
-                color: Theme.of(context).hintColor,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'No active leagues',
-                style: t.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Create or join a league to get started',
-                style: t.bodySmall,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _actionButton(
-                    context,
-                    label: 'Create',
-                    icon: Icons.add_circle_outline,
-                    onTap: () => context.push('/leagues/create'),
-                  ),
-                  const SizedBox(width: 12),
-                  _actionButton(
-                    context,
-                    label: 'Join',
-                    icon: Icons.qr_code_scanner,
-                    onTap: () => context.push('/leagues/join'),
-                  ),
-                ],
-              ),
-            ],
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Glass(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.emoji_events_outlined,
+                  size: 72,
+                  color: Theme.of(context).hintColor.withOpacity(0.5),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'No active leagues',
+                  style: t.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Create or join a league to get started',
+                  style: t.bodySmall,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                Column(
+                  children: [
+                    SizedBox(
+                      width: double.infinity,
+                      child: _actionButton(
+                        context,
+                        label: 'Create League',
+                        icon: Icons.add_circle_outline,
+                        onTap: () => context.push('/leagues/create'),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () => context.push('/leagues/join'),
+                        icon: const Icon(Icons.qr_code_scanner),
+                        label: const Text('Join League'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -127,6 +140,37 @@ class LeaguesListScreen extends StatelessWidget {
       onPressed: onTap,
       icon: Icon(icon),
       label: Text(label),
+    );
+  }
+
+  void _showOptions(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Glass(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.add_circle_outline),
+              title: const Text('Create New League'),
+              onTap: () {
+                context.pop();
+                context.push('/leagues/create');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.qr_code_scanner),
+              title: const Text('Join Existing League'),
+              onTap: () {
+                context.pop();
+                context.push('/leagues/join');
+              },
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
     );
   }
 }
