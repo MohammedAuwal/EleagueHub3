@@ -187,7 +187,11 @@ class _AddTeamsScreenState extends ConsumerState<AddTeamsScreen> {
       ),
       child: Column(
         children: [
-          const SectionHeader(title: 'Team Preview'),
+          // Fixed the SectionHeader call to use positional parameter
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16),
+            child: SectionHeader('Team Preview'),
+          ),
           Expanded(
             child: ListView.builder(
               itemCount: _tempTeams.length,
