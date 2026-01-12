@@ -16,6 +16,13 @@ class PreferencesService {
     return PreferencesService._(sp);
   }
 
+  /// Standard String helpers
+  String? getString(String key) => _sp.getString(key);
+  
+  Future<void> setString(String key, String value) async {
+    await _sp.setString(key, value);
+  }
+
   /// Generic List helpers used by repositories
   List<String> getStringList(String key) => _sp.getStringList(key) ?? [];
   
