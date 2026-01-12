@@ -1,5 +1,3 @@
-import "league_format.dart";
-import "league_format.dart";
 /// Defines whether a match is waiting to be played or finished.
     return MatchStatus.values[v];
   }
