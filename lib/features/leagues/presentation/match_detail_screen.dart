@@ -1,4 +1,3 @@
-import '../../domain/models.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/widgets/glass.dart';
@@ -72,11 +71,10 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
         children: [
           Expanded(
             child: Text(
-              widget.matchId, // TODO: replace with "PlayerA vs PlayerB"
-              style: Theme.of(context)
-                  .textTheme
-                  .titleLarge
-                  ?.copyWith(fontWeight: FontWeight.w900),
+              widget.matchId, // TODO: replace with "Home vs Away"
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
             ),
           ),
           StatusBadge(_status),
@@ -92,10 +90,9 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
         children: [
           Text(
             'Upload proof',
-            style: Theme.of(context)
-                .textTheme
-                .titleMedium
-                ?.copyWith(fontWeight: FontWeight.w800),
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
           ),
           const SizedBox(height: 8),
           TextField(
@@ -130,11 +127,10 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Organizer review (mock)',
-            style: Theme.of(context)
-                .textTheme
-                .titleMedium
-                ?.copyWith(fontWeight: FontWeight.w800),
+            'Organizer review',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
           ),
           const SizedBox(height: 8),
           TextField(
@@ -183,7 +179,7 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
       setState(() => _status = 'Under Review');
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Proof uploaded (mock).')),
+        const SnackBar(content: Text('Proof uploaded.')),
       );
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -196,10 +192,7 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
       await _repo.organizerReviewDecision(
         leagueId: widget.leagueId,
         matchId: widget.matchId,
-        decision: MatchReviewDecision.approve
-          approved: approve,
-          reason: _reason.text.trim(),
-        ),
+        decision: approve ? MatchReviewDecision.approve : MatchReviewDecision.reject,
       );
       if (!mounted) return;
 
@@ -208,9 +201,7 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(approve ? 'Approved (mock).' : 'Rejected (mock).'),
-        ),
+        SnackBar(content: Text(approve ? 'Approved.' : 'Rejected.')),
       );
     } finally {
       if (mounted) setState(() => _busy = false);

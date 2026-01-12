@@ -1,10 +1,28 @@
 import '../models/league_format.dart';
 
-
 /// Organizer match review decision
 enum MatchReviewDecision {
   approve,
   reject,
+}
+
+/// Domain model representing a match proof review record.
+class MatchReview {
+  final String leagueId;
+  final String matchId;
+  final bool approved;
+  final String reason;
+  final String reviewedBy;
+  final DateTime reviewedAt;
+
+  const MatchReview({
+    required this.leagueId,
+    required this.matchId,
+    required this.approved,
+    this.reason = '',
+    required this.reviewedBy,
+    required this.reviewedAt,
+  });
 }
 
 class Fixture {
@@ -17,9 +35,6 @@ class Fixture {
     required this.matchId,
   });
 
-
-/// Organizer match review decision
-
   final String id;
   final String homeTeam;
   final String awayTeam;
@@ -27,22 +42,13 @@ class Fixture {
   final MatchStatus status;
   final String matchId;
 
-
-/// Organizer match review decision
-
   // These getters fix the LeagueDetailScreen errors
   String get home => homeTeam;
   String get away => awayTeam;
 
-
-/// Organizer match review decision
-
-// bool get canUploadProof => status == MatchStatus.pendingProof;
-// bool get isReviewable => status == MatchStatus.underReview;
+  bool get canUploadProof => status == MatchStatus.pendingProof;
+  bool get isReviewable => status == MatchStatus.underReview;
 }
-
-
-/// Organizer match review decision
 
 class StandingRow {
   const StandingRow({
@@ -56,9 +62,6 @@ class StandingRow {
     required this.ga,
   });
 
-
-/// Organizer match review decision
-
   final String teamId;
   final String teamName;
   final int played;
@@ -68,22 +71,6 @@ class StandingRow {
   final int gf;
   final int ga;
 
-
-/// Organizer match review decision
-
   int get points => (wins * 3) + draws;
   int get gd => gf - ga;
-}
-
-
-/// Organizer match review decision
-
-
-
-/// Organizer match review decision
-
-  final bool approved;
-  final String reason;
-  final String reviewedBy;
-  final DateTime reviewedAt;
 }

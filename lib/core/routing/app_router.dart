@@ -1,31 +1,26 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-// Screens
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/home/presentation/home_shell.dart';
-import '../../features/leagues/presentation/leagues_list_screen.dart';
-import '../../features/profile/presentation/profile_screen.dart';
-import '../../features/leagues/presentation/league_detail_screen.dart';
-import '../../features/leagues/presentation/match_detail_screen.dart';
-import '../../features/leagues/presentation/league_create_wizard.dart';
-import '../../features/leagues/presentation/add_teams_screen.dart';
 import '../../features/leagues/models/league_format.dart';
+import '../../features/leagues/presentation/add_teams_screen.dart';
+import '../../features/leagues/presentation/league_create_wizard.dart';
+import '../../features/leagues/presentation/league_detail_screen.dart';
+import '../../features/leagues/presentation/leagues_list_screen.dart';
+import '../../features/leagues/presentation/match_detail_screen.dart';
+import '../../features/profile/presentation/profile_screen.dart';
 
 /// Auth state provider (simple example)
 final authStateProvider = StateProvider<bool>((ref) => false);
 
-/// App router configuration
 final appRouter = GoRouter(
-  initialLocation: '/', 
+  initialLocation: '/',
   routes: [
-    /// Login Route
     GoRoute(
       path: '/login',
       builder: (context, state) => const LoginScreen(),
     ),
-
-    /// HomeShell with nested routes
     GoRoute(
       path: '/',
       builder: (context, state) => const HomeShell(),
@@ -54,13 +49,27 @@ final appRouter = GoRouter(
                 );
               },
             ),
+
+            /// League details: /leagues/:leagueId
             GoRoute(
-              path: 'detail',
-              builder: (context, state) => const LeagueDetailScreen(leagueId: 'mock-id'),
+              path: ':leagueId',
+              builder: (context, state) {
+                final leagueId = state.pathParameters['leagueId']!;
+                return LeagueDetailScreen(leagueId: leagueId);
+              },
             ),
+
+            /// Match details: /leagues/:leagueId/matches/:matchId
             GoRoute(
-              path: 'match',
-              builder: (context, state) => const MatchDetailScreen(),
+              path: ':leagueId/matches/:matchId',
+              builder: (context, state) {
+                final leagueId = state.pathParameters['leagueId']!;
+                final matchId = state.pathParameters['matchId']!;
+                return MatchDetailScreen(
+                  leagueId: leagueId,
+                  matchId: matchId,
+                );
+              },
             ),
           ],
         ),

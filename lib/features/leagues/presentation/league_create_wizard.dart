@@ -7,7 +7,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../../core/widgets/glass.dart';
 import '../../../core/widgets/glass_scaffold.dart';
-import '../../models/league_format.dart';
+import '../models/league_format.dart';
 
 class LeagueCreateWizard extends StatefulWidget {
   const LeagueCreateWizard({super.key});
