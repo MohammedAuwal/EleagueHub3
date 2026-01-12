@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/widgets/glass.dart';
 import '../../../core/widgets/glass_scaffold.dart';
 import '../../../core/widgets/status_badge.dart';
-import "../data/leagues_repository_local.dart"';
+import "../data/leagues_repository_local.dart";
 import '../domain/models.dart';
 
 class MatchDetailScreen extends StatefulWidget {
@@ -38,7 +38,7 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
   @override
   void initState() {
     super.initState();
-    _repo = widget.repository ?? LocalLeaguesRepository();
+    _repo = widget.repository ?? LocalLeaguesRepository(ref.read(prefsServiceProvider));
   }
 
   @override
