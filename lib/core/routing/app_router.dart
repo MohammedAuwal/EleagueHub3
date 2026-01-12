@@ -11,6 +11,7 @@ import '../../features/leagues/presentation/leagues_list_screen.dart';
 import '../../features/leagues/presentation/match_detail_screen.dart';
 import '../../features/leagues/presentation/qr_scanner_screen.dart';
 import '../../features/leagues/presentation/fixtures_screen.dart';
+import '../../features/leagues/presentation/admin_score_mgmt_screen.dart';
 import '../../features/live/presentation/join_match_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 
@@ -31,12 +32,10 @@ final appRouter = GoRouter(
           path: 'profile',
           builder: (context, state) => const ProfileScreen(),
         ),
-        // Live Tab Routes
         GoRoute(
           path: 'live/join',
           builder: (context, state) => const JoinMatchScreen(),
         ),
-        // League Tab Routes
         GoRoute(
           path: 'leagues',
           builder: (context, state) => const LeaguesListScreen(),
@@ -73,6 +72,13 @@ final appRouter = GoRouter(
               builder: (context, state) {
                 final leagueId = state.pathParameters['leagueId']!;
                 return FixturesScreen(leagueId: leagueId);
+              },
+            ),
+            GoRoute(
+              path: ':leagueId/admin-scores',
+              builder: (context, state) {
+                final leagueId = state.pathParameters['leagueId']!;
+                return AdminScoreMgmtScreen(leagueId: leagueId);
               },
             ),
             GoRoute(

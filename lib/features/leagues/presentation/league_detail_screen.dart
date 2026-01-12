@@ -112,7 +112,7 @@ class LeagueDetailScreen extends StatelessWidget {
                   onPressed: () => context.push('/leagues/$leagueId/fixtures'),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
               Expanded(
                 child: OutlinedButton.icon(
                   icon: const Icon(Icons.leaderboard),
@@ -121,6 +121,19 @@ class LeagueDetailScreen extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.cyanAccent.withOpacity(0.1),
+                foregroundColor: Colors.cyanAccent,
+              ),
+              icon: const Icon(Icons.edit_note),
+              label: const Text('Manage Scores (Admin)'),
+              onPressed: () => context.push('/leagues/$leagueId/admin-scores'),
+            ),
           ),
         ],
       ),
@@ -160,9 +173,7 @@ class LeagueDetailScreen extends StatelessWidget {
             alignment: Alignment.centerRight,
             child: TextButton(
               onPressed: fixture != null
-                  ? () => GoRouter.of(context).push(
-                        '/leagues/$leagueId/matches/${fixture.id}',
-                      )
+                  ? () => context.push('/leagues/$leagueId/matches/${fixture.id}')
                   : null,
               child: const Text('View match'),
             ),
