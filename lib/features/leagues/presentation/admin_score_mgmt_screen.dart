@@ -30,9 +30,10 @@ class _AdminScoreMgmtScreenState extends ConsumerState<AdminScoreMgmtScreen> {
   }
 
   Future<void> _loadMatches() async {
+    if (!mounted) return;
     setState(() => _isLoading = true);
-    // Fetch real fixtures from your local storage
     final matches = await _repo.getMatches(widget.leagueId);
+    if (!mounted) return;
     setState(() {
       _matches = matches;
       _isLoading = false;
@@ -51,7 +52,10 @@ class _AdminScoreMgmtScreenState extends ConsumerState<AdminScoreMgmtScreen> {
     
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Score Updated Locally")),
+        const SnackBar(
+          content: Text("Score Updated Locally"),
+          backgroundColor: Colors.cyan,
+        ),
       );
       _loadMatches();
     }
@@ -82,6 +86,7 @@ class _AdminScoreMgmtScreenState extends ConsumerState<AdminScoreMgmtScreen> {
                           itemBuilder: (context, index) {
                             final match = _matches[index];
                             return _ScoreEntryTile(
+                              key: ValueKey(match.id),
                               match: match,
                               onSave: (h, a) => _updateScore(match, h, a),
                             );
@@ -98,7 +103,7 @@ class _ScoreEntryTile extends StatefulWidget {
   final FixtureMatch match;
   final Function(int, int) onSave;
 
-  const _ScoreEntryTile({required this.match, required this.onSave});
+  const _ScoreEntryTile({super.key, required this.match, required this.onSave});
 
   @override
   State<_ScoreEntryTile> createState() => _ScoreEntryTileState();
@@ -113,6 +118,13 @@ class _ScoreEntryTileState extends State<_ScoreEntryTile> {
     super.initState();
     _hController = TextEditingController(text: widget.match.homeScore?.toString() ?? '0');
     _aController = TextEditingController(text: widget.match.awayScore?.toString() ?? '0');
+  }
+
+  @override
+  void dispose() {
+    _hController.dispose();
+    _aController.dispose();
+    super.dispose();
   }
 
   @override
@@ -146,6 +158,7 @@ class _ScoreEntryTileState extends State<_ScoreEntryTile> {
                     final h = int.tryParse(_hController.text) ?? 0;
                     final a = int.tryParse(_aController.text) ?? 0;
                     widget.onSave(h, a);
+                    FocusScope.of(context).unfocus();
                   },
                   icon: const Icon(Icons.check_circle, color: Colors.cyanAccent, size: 32),
                 )

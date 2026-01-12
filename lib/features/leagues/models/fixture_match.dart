@@ -1,94 +1,57 @@
 import 'enums.dart';
 
-/// Represents a single match fixture.
-///
-/// Supports:
-/// - Classic Round Robin
-/// - UCL Group Stage
-/// - UCL Swiss Model
-/// - Offline-first syncing
 class FixtureMatch {
   final String id;
   final String leagueId;
-
-  /// Used only for UCL Group Stage (e.g. Group A, Group B).
-  /// Null for Classic & Swiss formats.
   final String? groupId;
-
-  /// Round number (Week 1, Matchday 2, etc.)
   final int roundNumber;
-
   final String homeTeamId;
   final String awayTeamId;
-
   final int? homeScore;
   final int? awayScore;
-
   final MatchStatus status;
-
-  /// Sorting within the same round (UI consistency)
   final int sortIndex;
-
-  /// Offline sync metadata
   final int updatedAtMs;
   final int version;
 
-  const FixtureMatch({
+  FixtureMatch({
     required this.id,
     required this.leagueId,
-    required this.groupId,
+    this.groupId,
     required this.roundNumber,
     required this.homeTeamId,
     required this.awayTeamId,
-    required this.homeScore,
-    required this.awayScore,
+    this.homeScore,
+    this.awayScore,
     required this.status,
     required this.sortIndex,
     required this.updatedAtMs,
     required this.version,
   });
 
-  /// True only when the match has a valid recorded result.
-  bool get isPlayed =>
-      (status == MatchStatus.played || status == MatchStatus.completed) &&
-      homeScore != null &&
-      awayScore != null;
-
-  /// Safe goal values (used by standings engine)
-  int get safeHomeScore => homeScore ?? 0;
-  int get safeAwayScore => awayScore ?? 0;
-
   FixtureMatch copyWith({
-    String? id,
-    String? leagueId,
-    String? groupId,
-    int? roundNumber,
-    String? homeTeamId,
-    String? awayTeamId,
     int? homeScore,
     int? awayScore,
     MatchStatus? status,
-    int? sortIndex,
     int? updatedAtMs,
-    int? version,
   }) {
     return FixtureMatch(
-      id: id ?? this.id,
-      leagueId: leagueId ?? this.leagueId,
-      groupId: groupId ?? this.groupId,
-      roundNumber: roundNumber ?? this.roundNumber,
-      homeTeamId: homeTeamId ?? this.homeTeamId,
-      awayTeamId: awayTeamId ?? this.awayTeamId,
+      id: id,
+      leagueId: leagueId,
+      groupId: groupId,
+      roundNumber: roundNumber,
+      homeTeamId: homeTeamId,
+      awayTeamId: awayTeamId,
       homeScore: homeScore ?? this.homeScore,
       awayScore: awayScore ?? this.awayScore,
       status: status ?? this.status,
-      sortIndex: sortIndex ?? this.sortIndex,
+      sortIndex: sortIndex,
       updatedAtMs: updatedAtMs ?? this.updatedAtMs,
-      version: version ?? this.version,
+      version: version,
     );
   }
 
-  Map<String, dynamic> toRemoteMap() => {
+  Map<String, dynamic> toJson() => {
         'id': id,
         'leagueId': leagueId,
         'groupId': groupId,
@@ -97,26 +60,27 @@ class FixtureMatch {
         'awayTeamId': awayTeamId,
         'homeScore': homeScore,
         'awayScore': awayScore,
-        'status': status.index,
+        'status': status.name,
         'sortIndex': sortIndex,
         'updatedAtMs': updatedAtMs,
         'version': version,
       };
 
-  static FixtureMatch fromRemoteMap(Map<String, dynamic> map) {
-    return FixtureMatch(
-      id: map['id'] as String,
-      leagueId: map['leagueId'] as String,
-      groupId: map['groupId'] as String?,
-      roundNumber: (map['roundNumber'] as num).toInt(),
-      homeTeamId: map['homeTeamId'] as String,
-      awayTeamId: map['awayTeamId'] as String,
-      homeScore: (map['homeScore'] as num?)?.toInt(),
-      awayScore: (map['awayScore'] as num?)?.toInt(),
-      status: MatchStatusX.fromInt((map['status'] as num).toInt()),
-      sortIndex: (map['sortIndex'] as num).toInt(),
-      updatedAtMs: (map['updatedAtMs'] as num).toInt(),
-      version: (map['version'] as num).toInt(),
-    );
-  }
+  factory FixtureMatch.fromJson(Map<String, dynamic> json) => FixtureMatch(
+        id: json['id'] as String,
+        leagueId: json['leagueId'] as String,
+        groupId: json['groupId'] as String?,
+        roundNumber: (json['roundNumber'] as num).toInt(),
+        homeTeamId: json['homeTeamId'] as String,
+        awayTeamId: json['awayTeamId'] as String,
+        homeScore: json['homeScore'] as int?,
+        awayScore: json['awayScore'] as int?,
+        status: MatchStatus.values.firstWhere(
+          (e) => e.name == json['status'],
+          orElse: () => MatchStatus.scheduled,
+        ),
+        sortIndex: (json['sortIndex'] as num).toInt(),
+        updatedAtMs: (json['updatedAtMs'] as num).toInt(),
+        version: (json['version'] as num).toInt(),
+      );
 }
