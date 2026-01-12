@@ -1,19 +1,38 @@
 enum LeagueFormat {
   classic,
   uclGroup,
-  uclSwiss,
+  uclSwiss;
+
+  String get displayName {
+    switch (this) {
+      case LeagueFormat.classic: return 'Classic League';
+      case LeagueFormat.uclGroup: return 'UCL Group Stage';
+      case LeagueFormat.uclSwiss: return 'UCL Swiss Model';
+    }
+  }
 }
 
-enum LeaguePrivacy {
-  public,
-  private,
-}
+enum LeaguePrivacy { public, private }
 
-enum MatchStatus {
-  scheduled,
-  pendingProof,
-  underReview,
+enum MatchStatus { 
+  scheduled, 
+  pendingProof, 
+  underReview, 
   completed,
+  played // Added to match FixtureMatch logic
+}
+
+class MatchReviewDecision {
+  final bool approved;
+  final String reason;
+  MatchReviewDecision({required this.approved, required this.reason});
+}
+
+extension MatchStatusX on MatchStatus {
+  static MatchStatus fromInt(int v) {
+    if (v < 0 || v >= MatchStatus.values.length) return MatchStatus.scheduled;
+    return MatchStatus.values[v];
+  }
 }
 
 extension LeagueFormatX on LeagueFormat {
@@ -21,16 +40,4 @@ extension LeagueFormatX on LeagueFormat {
     if (v < 0 || v >= LeagueFormat.values.length) return LeagueFormat.classic;
     return LeagueFormat.values[v];
   }
-}
-
-class MatchReviewDecision {
-  final bool approved;
-  final String reason;
-  MatchReviewDecision({required this.approved, required this.reason});
-}
-
-class MatchReviewDecision {
-  final bool approved;
-  final String reason;
-  MatchReviewDecision({required this.approved, required this.reason});
 }
