@@ -16,6 +16,10 @@ final authStateProvider = StateProvider<bool>((ref) => false);
 final appRouter = GoRouter(
   initialLocation: '/',
   routes: [
+            GoRoute(
+              path: 'join-scanner',
+              builder: (context, state) => const QRScannerScreen(),
+            ),
     GoRoute(
       path: '/login',
       builder: (context, state) => const LoginScreen(),
@@ -24,6 +28,10 @@ final appRouter = GoRouter(
       path: '/',
       builder: (context, state) => const HomeShell(),
       routes: [
+            GoRoute(
+              path: 'join-scanner',
+              builder: (context, state) => const QRScannerScreen(),
+            ),
         GoRoute(
           path: 'profile',
           builder: (context, state) => const ProfileScreen(),
@@ -32,6 +40,10 @@ final appRouter = GoRouter(
           path: 'leagues',
           builder: (context, state) => const LeaguesListScreen(),
           routes: [
+            GoRoute(
+              path: 'join-scanner',
+              builder: (context, state) => const QRScannerScreen(),
+            ),
             GoRoute(
               path: 'create',
               builder: (context, state) => const LeagueCreateWizard(),

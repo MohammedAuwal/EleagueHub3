@@ -1,5 +1,6 @@
-import 'package:flutter/material.dart';
 import 'dart:ui';
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 class QRScannerScreen extends StatefulWidget {
@@ -10,7 +11,7 @@ class QRScannerScreen extends StatefulWidget {
 }
 
 class _QRScannerScreenState extends State<QRScannerScreen> {
-  bool _isScanned = false; // prevent multiple scans
+  bool _isScanned = false;
 
   void _onDetect(BarcodeCapture capture) {
     if (_isScanned) return;
@@ -19,9 +20,9 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
     if (barcode == null) return;
 
     _isScanned = true;
-
-    // Return scanned value to previous screen
-    Navigator.pop(context, barcode);
+    
+    // Using GoRouter's pop to return the value
+    context.pop(barcode);
   }
 
   @override
@@ -30,37 +31,73 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // Real camera feed
+          // 1. Camera Feed
           MobileScanner(
-            allowDuplicates: false,
             onDetect: _onDetect,
           ),
 
-          // Glass overlay
-          _buildGlassOverlay(),
+          // 2. The Glass "Hole" Overlay
+          // We use BackdropFilter for the blur, but we must exclude the center
+          Positioned.fill(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+              child: Container(
+                color: Colors.black.withOpacity(0.3),
+              ),
+            ),
+          ),
 
-          // Back button
+          // 3. Punching a hole in the blur for the scanner view
+          Center(
+            child: Container(
+              height: 260,
+              width: 260,
+              decoration: BoxDecoration(
+                color: Colors.black,
+                backgroundBlendMode: BlendMode.dstOut,
+                borderRadius: BorderRadius.circular(40),
+              ),
+            ),
+          ),
+
+          // 4. Scanner Frame Decoration
+          Center(
+            child: Container(
+              height: 260,
+              width: 260,
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.white70, width: 2),
+                borderRadius: BorderRadius.circular(40),
+              ),
+              child: Stack(
+                children: [
+                  _buildCorner(Alignment.topLeft),
+                  _buildCorner(Alignment.topRight),
+                  _buildCorner(Alignment.bottomLeft),
+                  _buildCorner(Alignment.bottomRight),
+                ],
+              ),
+            ),
+          ),
+
+          // 5. UI Controls
           Positioned(
             top: 50,
             left: 20,
             child: IconButton(
               icon: const Icon(Icons.close, color: Colors.white, size: 30),
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => context.pop(),
             ),
           ),
 
-          // Optional: Simulate QR (can remove in production)
-          Positioned(
-            bottom: 150,
+          const Positioned(
+            bottom: 100,
             left: 0,
             right: 0,
             child: Center(
-              child: FilledButton(
-                onPressed: () {
-                  const scannedId = 'M-L-3307-0'; // mock QR result
-                  Navigator.pop(context, scannedId); // return to previous screen
-                },
-                child: const Text('Simulate QR Scan'),
+              child: Text(
+                'Center the QR code within the frame',
+                style: TextStyle(color: Colors.white70, fontSize: 16),
               ),
             ),
           ),
@@ -69,52 +106,22 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
     );
   }
 
-  Widget _buildGlassOverlay() {
-    return Stack(
-      children: [
-        ColorFiltered(
-          colorFilter: ColorFilter.mode(
-            Colors.black.withOpacity(0.5),
-            BlendMode.srcOut,
-          ),
-          child: Stack(
-            children: [
-              Container(
-                decoration: const BoxDecoration(
-                  color: Colors.black,
-                  backgroundBlendMode: BlendMode.dstOut,
-                ),
-              ),
-              Align(
-                alignment: Alignment.center,
-                child: Container(
-                  height: 250,
-                  width: 250,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(30),
-                  ),
-                ),
-              ),
-            ],
+  Widget _buildCorner(Alignment alignment) {
+    return Align(
+      alignment: alignment,
+      child: Container(
+        height: 20,
+        width: 20,
+        decoration: BoxDecoration(
+          color: Colors.blueAccent,
+          borderRadius: BorderRadius.only(
+            topLeft: alignment == Alignment.topLeft ? const Radius.circular(10) : Radius.zero,
+            topRight: alignment == Alignment.topRight ? const Radius.circular(10) : Radius.zero,
+            bottomLeft: alignment == Alignment.bottomLeft ? const Radius.circular(10) : Radius.zero,
+            bottomRight: alignment == Alignment.bottomRight ? const Radius.circular(10) : Radius.zero,
           ),
         ),
-        BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-          child: Container(color: Colors.transparent),
-        ),
-        Align(
-          alignment: Alignment.center,
-          child: Container(
-            height: 250,
-            width: 250,
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.blueAccent, width: 2),
-              borderRadius: BorderRadius.circular(30),
-            ),
-          ),
-        ),
-      ],
+      ),
     );
   }
 }
