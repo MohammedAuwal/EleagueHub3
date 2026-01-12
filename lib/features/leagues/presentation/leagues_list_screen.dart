@@ -15,7 +15,7 @@ class LeaguesListScreen extends StatefulWidget {
 }
 
 class _LeaguesListScreenState extends State<LeaguesListScreen> {
-  final _localRepo = LocalLeaguesRepository();
+  final _localRepo = LocalLeaguesRepository(ref.read(prefsServiceProvider));
   List<League> _leagues = [];
   bool _isLoading = true;
 

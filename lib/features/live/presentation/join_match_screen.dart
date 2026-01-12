@@ -25,7 +25,7 @@ class _JoinMatchScreenState extends State<JoinMatchScreen> {
   void _join() {
     final input = _id.text.trim();
     // Check if match exists
-    final exists = _repo.fixtures('').any((f) => f.matchId == input);
+    final exists = _repo.fixtures('').any((f) => f.id == input);
     if (!exists) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Invalid Match ID')),

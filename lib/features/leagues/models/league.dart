@@ -10,7 +10,7 @@ class League {
   final String region;
   final int maxTeams;
   final String season;
-  final String organizerUserId; // Renamed from ownerId to fix repo error
+  final String organizerUserId;
   final String code;
   final LeagueSettings settings;
   final int updatedAtMs;
@@ -32,6 +32,25 @@ class League {
   });
 
   bool get isPrivate => privacy == LeaguePrivacy.private;
+
+  // Repository expects toJson
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'format': format.index, // Using index for safer enum storage
+    'isPrivate': isPrivate ? 1 : 0,
+    'region': region,
+    'maxTeams': maxTeams,
+    'season': season,
+    'organizerUserId': organizerUserId,
+    'code': code,
+    'settings': settings.toMap(), 
+    'updatedAtMs': updatedAtMs,
+    'version': version,
+  };
+
+  // Repository expects fromJson
+  factory League.fromJson(Map<String, dynamic> json) => fromRemoteMap(json);
 
   static League fromRemoteMap(Map<String, dynamic> map) {
     return League(
