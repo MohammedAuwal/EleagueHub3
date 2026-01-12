@@ -21,8 +21,8 @@ class Fixture {
   String get home => homeTeam;
   String get away => awayTeam;
 
-  bool get canUploadProof => status == MatchStatus.pendingProof;
-  bool get isReviewable => status == MatchStatus.underReview;
+// bool get canUploadProof => status == MatchStatus.pendingProof;
+// bool get isReviewable => status == MatchStatus.underReview;
 }
 
 class StandingRow {
