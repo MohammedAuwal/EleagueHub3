@@ -8,50 +8,6 @@ import '../models/league_settings.dart';
 class LeaguesRepositoryMock {
   final Map<String, List<Team>> _joinedTeams = {};
 
-  List<League> listLeagues() {
-    final now = DateTime.now().millisecondsSinceEpoch;
-
-    return [
-      League(
-        id: 'L-1',
-        name: 'EleagueHub Open',
-        format: LeagueFormat.uclSwiss,
-        privacy: LeaguePrivacy.public,
-        region: 'Global',
-        season: '2026',
-        organizerUserId: 'admin-1',
-        code: 'ELEAGUE1',
-        settings: LeagueSettings.defaultSettings(),
-        updatedAtMs: now,
-        version: 1,
-      ),
-      League(
-        id: 'L-2',
-        name: 'Night Ops Invitational',
-        format: LeagueFormat.uclGroup,
-        privacy: LeaguePrivacy.private,
-        region: 'Nigeria',
-        season: '2026',
-        organizerUserId: 'admin-2',
-        code: 'UCLGROUP',
-        settings: LeagueSettings.defaultSettings(),
-        updatedAtMs: now,
-        version: 1,
-      ),
-      League(
-        id: 'L-3',
-        name: 'Weekend Round Robin',
-        format: LeagueFormat.classic,
-        privacy: LeaguePrivacy.public,
-        region: 'Global',
-        season: '2026',
-        organizerUserId: 'admin-3',
-        code: 'CLASSIC1',
-        settings: LeagueSettings.defaultSettings(),
-        updatedAtMs: now,
-        version: 1,
-      ),
-    ];
   }
 
   List<Team> teams(String leagueId) {

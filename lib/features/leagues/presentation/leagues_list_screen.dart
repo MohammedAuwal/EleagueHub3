@@ -21,46 +21,46 @@ class LeaguesListScreen extends StatelessWidget {
 
     return GlassScaffold(
       appBar: AppBar(
-        title: const Text('Leagues'),
+        title: const Text('Leagues')),
         backgroundColor: Colors.transparent,
         elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: () => context.push('/settings'),
-          ),
+            icon: const Icon(Icons.settings_outlined)),
+            onPressed: () => context.push('/settings')),
+          )),
         ],
-      ),
+      )),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const GlassSearchBar(),
-          const SizedBox(height: 12),
+          const GlassSearchBar()),
+          const SizedBox(height: 12)),
           Expanded(
             child: leagues.isEmpty
                 ? _buildEmptyState(context)
-                : _buildLeagueList(context, leagues),
-          ),
+                : _buildLeagueList(context, leagues)),
+          )),
         ],
-      ),
+      )),
     );
   }
 
   Widget _buildLeagueList(BuildContext context, List leagues) {
     return ListView.builder(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16)),
       itemCount: leagues.length,
       itemBuilder: (context, index) {
         final league = leagues[index];
 
         return Padding(
-          padding: const EdgeInsets.only(bottom: 16),
+          padding: const EdgeInsets.only(bottom: 16)),
           child: LeagueFlipCard(
             leagueName: league.name,
             leagueCode: league.id,
             distribution: league.format,
-            onTap: () => context.push('/leagues/${league.id}'),
-          ),
+            onTap: () => context.push('/leagues/${league.id}')),
+          )),
         );
       },
     );
@@ -71,7 +71,7 @@ class LeaguesListScreen extends StatelessWidget {
 
     return Center(
       child: Glass(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(24)),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -79,19 +79,19 @@ class LeaguesListScreen extends StatelessWidget {
               Icons.emoji_events_outlined,
               size: 72,
               color: Theme.of(context).hintColor,
-            ),
-            const SizedBox(height: 16),
+            )),
+            const SizedBox(height: 16)),
             Text(
               'No active leagues',
-              style: t.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 6),
+              style: t.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+            )),
+            const SizedBox(height: 6)),
             Text(
               'Create or join a league to get started',
               style: t.bodySmall,
               textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 20),
+            )),
+            const SizedBox(height: 20)),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -99,20 +99,20 @@ class LeaguesListScreen extends StatelessWidget {
                   context,
                   label: 'Create',
                   icon: Icons.add_circle_outline,
-                  onTap: () => context.push('/leagues/create'),
-                ),
-                const SizedBox(width: 12),
+                  onTap: () => context.push('/leagues/create')),
+                )),
+                const SizedBox(width: 12)),
                 _actionButton(
                   context,
                   label: 'Join',
                   icon: Icons.qr_code_scanner,
-                  onTap: () => context.push('/leagues/join'),
-                ),
+                  onTap: () => context.push('/leagues/join')),
+                )),
               ],
-            ),
+            )),
           ],
-        ),
-      ),
+        )),
+      )),
     );
   }
 
@@ -124,8 +124,8 @@ class LeaguesListScreen extends StatelessWidget {
   }) {
     return FilledButton.icon(
       onPressed: onTap,
-      icon: Icon(icon),
-      label: Text(label),
+      icon: Icon(icon)),
+      label: Text(label)),
     );
   }
 }

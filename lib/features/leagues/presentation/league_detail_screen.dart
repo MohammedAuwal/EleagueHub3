@@ -6,7 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/widgets/glass.dart';
 import '../../../core/widgets/glass_scaffold.dart';
 import '../data/leagues_repository_mock.dart';
-import '../domain/models.dart';
+import ../../models/fixture_match.dart';
 
 class LeagueDetailScreen extends StatelessWidget {
   final String leagueId;
@@ -58,7 +58,6 @@ class LeagueDetailScreen extends StatelessWidget {
         privacy: 'Public',
         region: 'N/A',
         maxTeams: 0,
-        isPrivate: false,
       ),
     );
 
@@ -130,7 +129,7 @@ class LeagueDetailScreen extends StatelessWidget {
   /// -------------------------------
   /// Next fixture
   /// -------------------------------
-  Widget _nextFixture(BuildContext context, Fixture? fixture) {
+  Widget _nextFixture(BuildContext context, FixtureMatch? fixture) {
     return Glass(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
