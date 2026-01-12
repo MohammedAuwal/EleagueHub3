@@ -185,7 +185,7 @@ class _LeagueCreateWizardState extends State<LeagueCreateWizard> {
     if (!context.mounted) return;
 
     context.push(
-      '/add-teams',
+      '/leagues/add-teams',
       extra: {
         'leagueId': leagueId,
         'format': _format,
