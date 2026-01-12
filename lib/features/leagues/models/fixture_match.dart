@@ -1,12 +1,5 @@
+import "league_format.dart";
 /// Defines whether a match is waiting to be played or finished.
-enum MatchStatus { scheduled, played }
-
-/// Extension to handle conversion from integer (database) to MatchStatus.
-extension MatchStatusX on MatchStatus {
-  static MatchStatus fromInt(int v) {
-    if (v < 0 || v >= MatchStatus.values.length) {
-      return MatchStatus.scheduled;
-    }
     return MatchStatus.values[v];
   }
 }
