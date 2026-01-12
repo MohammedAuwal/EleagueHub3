@@ -28,13 +28,15 @@ class LeaguesListScreen extends StatelessWidget {
           ),
         ],
       ),
-      // FAB added for quick access when list is not empty
-      floatingActionButton: leagues.isNotEmpty 
-          ? FloatingActionButton(
-              onPressed: () => _showOptions(context),
-              child: const Icon(Icons.add),
-            )
-          : null,
+      // Lift the FAB up by 80 logical pixels to clear the bottom navigation bar
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 80.0),
+        child: FloatingActionButton(
+          onPressed: () => _showOptions(context),
+          child: const Icon(Icons.add),
+        ),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -52,7 +54,8 @@ class LeaguesListScreen extends StatelessWidget {
 
   Widget _buildLeagueList(BuildContext context, List<League> leagues) {
     return ListView.builder(
-      padding: const EdgeInsets.all(16),
+      // Bottom padding of 120 ensures the last card scrolls above the FAB/Nav bar
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
       itemCount: leagues.length,
       itemBuilder: (context, index) {
         final league = leagues[index];
@@ -76,7 +79,8 @@ class LeaguesListScreen extends StatelessWidget {
 
     return Center(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
+        // Shift content slightly up so it feels balanced with the lifted FAB
+        padding: const EdgeInsets.only(left: 24, right: 24, bottom: 40),
         child: Glass(
           child: Padding(
             padding: const EdgeInsets.all(24),
@@ -95,51 +99,16 @@ class LeaguesListScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Create or join a league to get started',
+                  'Your leagues will appear here.\nTap + to get started.',
                   style: t.bodySmall,
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 24),
-                Column(
-                  children: [
-                    SizedBox(
-                      width: double.infinity,
-                      child: _actionButton(
-                        context,
-                        label: 'Create League',
-                        icon: Icons.add_circle_outline,
-                        onTap: () => context.push('/leagues/create'),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: () => context.push('/leagues/join'),
-                        icon: const Icon(Icons.qr_code_scanner),
-                        label: const Text('Join League'),
-                      ),
-                    ),
-                  ],
-                ),
+                const SizedBox(height: 10),
               ],
             ),
           ),
         ),
       ),
-    );
-  }
-
-  Widget _actionButton(
-    BuildContext context, {
-    required String label,
-    required IconData icon,
-    required VoidCallback onTap,
-  }) {
-    return FilledButton.icon(
-      onPressed: onTap,
-      icon: Icon(icon),
-      label: Text(label),
     );
   }
 
@@ -167,7 +136,7 @@ class LeaguesListScreen extends StatelessWidget {
                 context.push('/leagues/join');
               },
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 40), // Space to clear system gesture bar
           ],
         ),
       ),
