@@ -55,7 +55,7 @@ class FixtureMatch {
 
   /// True only when the match has a valid recorded result.
   bool get isPlayed =>
-      status == MatchStatus.completed &&
+      status == MatchStatus.played &&
       homeScore != null &&
       awayScore != null;
 
