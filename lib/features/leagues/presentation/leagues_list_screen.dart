@@ -21,14 +21,7 @@ class LeaguesListScreen extends StatelessWidget {
         title: const Text('Leagues'),
         backgroundColor: Colors.transparent,
         elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: () => context.push('/settings'),
-          ),
-        ],
       ),
-      // FAB lifted to clear the navigation bar
       floatingActionButton: Padding(
         padding: const EdgeInsets.only(bottom: 80.0),
         child: FloatingActionButton(
@@ -52,6 +45,7 @@ class LeaguesListScreen extends StatelessWidget {
     );
   }
 
+  // ... (keep _buildLeagueList and _buildEmptyState same as your previous version)
   Widget _buildLeagueList(BuildContext context, List<League> leagues) {
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 140),
@@ -74,8 +68,6 @@ class LeaguesListScreen extends StatelessWidget {
   }
 
   Widget _buildEmptyState(BuildContext context) {
-    final t = Theme.of(context).textTheme;
-
     return Center(
       child: Padding(
         padding: const EdgeInsets.only(left: 24, right: 24, bottom: 40),
@@ -85,22 +77,9 @@ class LeaguesListScreen extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  Icons.emoji_events_outlined,
-                  size: 72,
-                  color: Theme.of(context).hintColor.withOpacity(0.5),
-                ),
+                Icon(Icons.emoji_events_outlined, size: 72, color: Theme.of(context).hintColor.withOpacity(0.5)),
                 const SizedBox(height: 16),
-                Text(
-                  'No active leagues',
-                  style: t.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Your leagues will appear here.\nTap + to get started.',
-                  style: t.bodySmall,
-                  textAlign: TextAlign.center,
-                ),
+                const Text('No active leagues', style: TextStyle(fontWeight: FontWeight.w800)),
                 const SizedBox(height: 10),
               ],
             ),
@@ -129,9 +108,14 @@ class LeaguesListScreen extends StatelessWidget {
             ListTile(
               leading: const Icon(Icons.qr_code_scanner),
               title: const Text('Join Existing League'),
-              onTap: () {
-                context.pop();
-                context.push('/leagues/join');
+              onTap: () async {
+                context.pop(); // Close bottom sheet
+                final result = await context.push<String>('/leagues/join');
+                if (result != null && context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Joining league: $result')),
+                  );
+                }
               },
             ),
             const SizedBox(height: 40),

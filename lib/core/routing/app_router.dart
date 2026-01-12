@@ -10,6 +10,7 @@ import '../../features/leagues/presentation/league_detail_screen.dart';
 import '../../features/leagues/presentation/leagues_list_screen.dart';
 import '../../features/leagues/presentation/match_detail_screen.dart';
 import '../../features/leagues/presentation/qr_scanner_screen.dart';
+import '../../features/live/presentation/join_match_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 
 final authStateProvider = StateProvider<bool>((ref) => false);
@@ -29,6 +30,12 @@ final appRouter = GoRouter(
           path: 'profile',
           builder: (context, state) => const ProfileScreen(),
         ),
+        // Live Tab Routes
+        GoRoute(
+          path: 'live/join',
+          builder: (context, state) => const JoinMatchScreen(),
+        ),
+        // League Tab Routes
         GoRoute(
           path: 'leagues',
           builder: (context, state) => const LeaguesListScreen(),
