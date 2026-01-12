@@ -10,6 +10,7 @@ import '../../features/leagues/presentation/league_detail_screen.dart';
 import '../../features/leagues/presentation/leagues_list_screen.dart';
 import '../../features/leagues/presentation/match_detail_screen.dart';
 import '../../features/leagues/presentation/qr_scanner_screen.dart';
+import '../../features/leagues/presentation/fixtures_screen.dart';
 import '../../features/live/presentation/join_match_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 
@@ -65,6 +66,13 @@ final appRouter = GoRouter(
               builder: (context, state) {
                 final leagueId = state.pathParameters['leagueId']!;
                 return LeagueDetailScreen(leagueId: leagueId);
+              },
+            ),
+            GoRoute(
+              path: ':leagueId/fixtures',
+              builder: (context, state) {
+                final leagueId = state.pathParameters['leagueId']!;
+                return FixturesScreen(leagueId: leagueId);
               },
             ),
             GoRoute(
