@@ -1,21 +1,42 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-
+import '../data/leagues_repository_local.dart';
+import '../models/league.dart';
 import '../../../core/widgets/glass.dart';
 import '../../../core/widgets/glass_scaffold.dart';
 import '../../../core/widgets/glass_search_bar.dart';
 import '../../../widgets/league_flip_card.dart';
-import '../data/leagues_repository_mock.dart';
-import '../models/league.dart';
 
-class LeaguesListScreen extends StatelessWidget {
+class LeaguesListScreen extends StatefulWidget {
   const LeaguesListScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final repo = LeaguesRepositoryMock();
-    final List<League> leagues = repo.listLeagues();
+  State<LeaguesListScreen> createState() => _LeaguesListScreenState();
+}
 
+class _LeaguesListScreenState extends State<LeaguesListScreen> {
+  final _localRepo = LocalLeaguesRepository();
+  List<League> _leagues = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshLeagues();
+  }
+
+  Future<void> _refreshLeagues() async {
+    final data = await _localRepo.listLeagues();
+    if (mounted) {
+      setState(() {
+        _leagues = data;
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return GlassScaffold(
       appBar: AppBar(
         title: const Text('Leagues'),
@@ -36,16 +57,17 @@ class LeaguesListScreen extends StatelessWidget {
           const GlassSearchBar(),
           const SizedBox(height: 12),
           Expanded(
-            child: leagues.isEmpty
-                ? _buildEmptyState(context)
-                : _buildLeagueList(context, leagues),
+            child: _isLoading 
+                ? const Center(child: CircularProgressIndicator())
+                : _leagues.isEmpty
+                    ? _buildEmptyState(context)
+                    : _buildLeagueList(context, _leagues),
           ),
         ],
       ),
     );
   }
 
-  // ... (keep _buildLeagueList and _buildEmptyState same as your previous version)
   Widget _buildLeagueList(BuildContext context, List<League> leagues) {
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 140),
@@ -68,19 +90,21 @@ class LeaguesListScreen extends StatelessWidget {
   }
 
   Widget _buildEmptyState(BuildContext context) {
+    final t = Theme.of(context).textTheme;
     return Center(
       child: Padding(
-        padding: const EdgeInsets.only(left: 24, right: 24, bottom: 40),
+        padding: const EdgeInsets.symmetric(horizontal: 24),
         child: Glass(
           child: Padding(
             padding: const EdgeInsets.all(24),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.emoji_events_outlined, size: 72, color: Theme.of(context).hintColor.withOpacity(0.5)),
+                Icon(Icons.emoji_events_outlined, size: 72, color: Colors.white.withOpacity(0.3)),
                 const SizedBox(height: 16),
-                const Text('No active leagues', style: TextStyle(fontWeight: FontWeight.w800)),
-                const SizedBox(height: 10),
+                Text('No active leagues', style: t.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+                const SizedBox(height: 6),
+                const Text('Tap + to create your first league offline.', textAlign: TextAlign.center),
               ],
             ),
           ),
@@ -100,21 +124,20 @@ class LeaguesListScreen extends StatelessWidget {
             ListTile(
               leading: const Icon(Icons.add_circle_outline),
               title: const Text('Create New League'),
-              onTap: () {
+              onTap: () async {
                 context.pop();
-                context.push('/leagues/create');
+                await context.push('/leagues/create');
+                _refreshLeagues(); // Reload from storage when coming back
               },
             ),
             ListTile(
               leading: const Icon(Icons.qr_code_scanner),
               title: const Text('Join Existing League'),
               onTap: () async {
-                context.pop(); // Close bottom sheet
-                final result = await context.push<String>('/leagues/join');
+                context.pop();
+                final result = await context.push<String>('/leagues/join-scanner');
                 if (result != null && context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Joining league: $result')),
-                  );
+                   // logic to save joined league id could go here
                 }
               },
             ),
