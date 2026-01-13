@@ -64,7 +64,8 @@ class _LeaguesListScreenState extends ConsumerState<LeaguesListScreen> {
         foregroundColor: Colors.black,
         child: const Icon(Icons.add),
       ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      // Move FAB up so it doesn't hide behind bottom navigation
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
@@ -92,17 +93,13 @@ class _LeaguesListScreenState extends ConsumerState<LeaguesListScreen> {
     );
   }
 
-  Widget _buildLeagueList(
-    BuildContext context,
-    List<League> leagues,
-    bool isTablet,
-  ) {
+  Widget _buildLeagueList(BuildContext context, List<League> leagues, bool isTablet) {
     final prefs = ref.read(prefsServiceProvider);
     final String currentUserId = prefs.getCurrentUserId() ?? 'admin_user';
 
     return GridView.builder(
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 140),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: isTablet ? 2 : 1,
         mainAxisSpacing: 20,
@@ -114,7 +111,6 @@ class _LeaguesListScreenState extends ConsumerState<LeaguesListScreen> {
         final league = leagues[index];
         final bool isOwner = league.organizerUserId == currentUserId;
 
-        // TODO later: compute from teams repo if you want live current count
         final subtitle = '0 / ${league.maxTeams} teams';
 
         return Stack(
@@ -126,20 +122,13 @@ class _LeaguesListScreenState extends ConsumerState<LeaguesListScreen> {
               subtitle: subtitle,
               onDoubleTap: () => context.push('/leagues/${league.id}'),
               qrWidget: QrImageView(
-                data: league.qrPayload, // offline-safe QR payload
+                data: league.qrPayload,
                 version: QrVersions.auto,
                 gapless: true,
-                eyeStyle: const QrEyeStyle(
-                  eyeShape: QrEyeShape.square,
-                  color: Colors.black,
-                ),
-                dataModuleStyle: const QrDataModuleStyle(
-                  dataModuleShape: QrDataModuleShape.square,
-                  color: Colors.black,
-                ),
+                eyeStyle: const QrEyeStyle(eyeShape: QrEyeShape.square, color: Colors.black),
+                dataModuleStyle: const QrDataModuleStyle(dataModuleShape: QrDataModuleShape.square, color: Colors.black),
               ),
             ),
-
             if (isOwner)
               Positioned(
                 top: 12,
@@ -282,23 +271,31 @@ class _LeaguesListScreenState extends ConsumerState<LeaguesListScreen> {
                           child: const Icon(Icons.qr_code_scanner, color: Colors.white),
                         ),
                         title: const Text(
-                          'Join via Code',
+                          'Join via QR',
                           style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
                         ),
-                        subtitle: const Text('Enter a code or scan QR', style: TextStyle(color: Colors.white38, fontSize: 12)),
+                        subtitle: const Text('Scan a QR code', style: TextStyle(color: Colors.white38, fontSize: 12)),
                         onTap: () async {
                           context.pop();
-                          final result = await context.push<String>('/leagues/join-scanner');
-                          if (result != null && mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Joined league: $result'),
-                                behavior: SnackBarBehavior.floating,
-                                backgroundColor: Colors.cyan,
-                              ),
-                            );
-                            _refreshLeagues();
-                          }
+                          await context.push('/leagues/join-scanner');
+                          if (mounted) _refreshLeagues();
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: Colors.white.withOpacity(0.1),
+                          child: const Icon(Icons.key, color: Colors.white),
+                        ),
+                        title: const Text(
+                          'Join by ID',
+                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                        ),
+                        subtitle: const Text('Enter Join ID code', style: TextStyle(color: Colors.white38, fontSize: 12)),
+                        onTap: () async {
+                          context.pop();
+                          await _showJoinByIdDialog(context);
+                          if (mounted) _refreshLeagues();
                         },
                       ),
                       const SizedBox(height: 16),
@@ -311,5 +308,72 @@ class _LeaguesListScreenState extends ConsumerState<LeaguesListScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _showJoinByIdDialog(BuildContext context) async {
+    final controller = TextEditingController();
+    final prefs = ref.read(prefsServiceProvider);
+    final repo = LocalLeaguesRepository(prefs);
+    final userId = prefs.getCurrentUserId() ?? 'admin_user';
+
+    try {
+      await showDialog(
+        context: context,
+        builder: (ctx) {
+          return AlertDialog(
+            backgroundColor: const Color(0xFF0A1D37),
+            title: const Text('Join by ID', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            content: TextField(
+              controller: controller,
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(
+                hintText: 'Enter Join ID',
+                hintStyle: TextStyle(color: Colors.white38),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
+              ),
+              FilledButton(
+                onPressed: () async {
+                  final code = controller.text.trim().toUpperCase();
+                  if (code.isEmpty) return;
+
+                  await repo.joinLeagueLocallyByCode(
+                    joinCode: code,
+                    userId: userId,
+                    placeholderBuilder: (generatedLeagueId) {
+                      final now = DateTime.now().millisecondsSinceEpoch;
+                      return League(
+                        id: generatedLeagueId,
+                        name: 'Joined League',
+                        format: LeagueFormat.classic,
+                        privacy: LeaguePrivacy.private,
+                        region: 'Global',
+                        maxTeams: 20,
+                        season: '2026',
+                        organizerUserId: '',
+                        code: code,
+                        qrPayloadOverride: '',
+                        settings: LeagueSettings.defaultsFor(LeagueFormat.classic).copyWith(lastPulledAtMs: now),
+                        updatedAtMs: now,
+                        version: 1,
+                      );
+                    },
+                  );
+
+                  if (ctx.mounted) Navigator.of(ctx).pop();
+                },
+                child: const Text('Join'),
+              ),
+            ],
+          );
+        },
+      );
+    } finally {
+      controller.dispose();
+    }
   }
 }
