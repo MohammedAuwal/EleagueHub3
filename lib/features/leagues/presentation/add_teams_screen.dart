@@ -59,7 +59,8 @@ class _AddTeamsScreenState extends ConsumerState<AddTeamsScreen> {
       });
 
       if (widget.format == LeagueFormat.uclGroup) {
-        final next = (_groups.indexOf(_selectedGroup) + 1) % _groups.length;
+        final next =
+            (_groups.indexOf(_selectedGroup) + 1) % _groups.length;
         _selectedGroup = _groups[next];
       }
     });
@@ -79,7 +80,7 @@ class _AddTeamsScreenState extends ConsumerState<AddTeamsScreen> {
   Future<void> _generateAndSave() async {
     if (_tempTeams.isEmpty) return;
 
-    final List<Team> teamsToSave = _tempTeams.map((t) {
+    final teamsToSave = _tempTeams.map((t) {
       return Team(
         id: const Uuid().v4(),
         leagueId: widget.leagueId,
@@ -104,10 +105,13 @@ class _AddTeamsScreenState extends ConsumerState<AddTeamsScreen> {
     } else if (widget.format == LeagueFormat.uclGroup) {
       for (var groupName in _groups) {
         final groupTeams = teamsToSave
-            .where((t) => _tempTeams.firstWhere((temp) => temp['name'] == t.name)['group'] == groupName)
+            .where((t) =>
+                _tempTeams.firstWhere(
+                    (temp) => temp['name'] == t.name)['group'] ==
+                groupName)
             .map((t) => t.id)
             .toList();
-        
+
         if (groupTeams.isNotEmpty) {
           generatedFixtures.addAll(
             RoundRobinGenerator.generate(
@@ -133,26 +137,32 @@ class _AddTeamsScreenState extends ConsumerState<AddTeamsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isWide = screenWidth > 600;
+    final isWide = MediaQuery.of(context).size.width > 600;
 
     return GlassScaffold(
       appBar: AppBar(
         title: Text('Add Teams · ${widget.format.displayName}'),
-        elevation: 0,
         backgroundColor: Colors.transparent,
+        elevation: 0,
       ),
-      body: Center(
-        child: ConstrainedBox(
-          // Centering the layout and limiting width to stop it from stretching
-          constraints: BoxConstraints(maxWidth: isWide ? 600 : 500),
-          child: Column(
-            children: [
-              if (widget.format == LeagueFormat.uclGroup)
-                _buildGroupSelector(),
-              Expanded(child: _buildBulkEntry()),
-              _buildPreviewPanel(),
-            ],
+      resizeToAvoidBottomInset: true,
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: isWide ? 600 : 500),
+            child: Column(
+              children: [
+                if (widget.format == LeagueFormat.uclGroup)
+                  _buildGroupSelector(),
+                Expanded(
+                  child: _buildBulkEntry(),
+                ),
+                Flexible(
+                  flex: 2,
+                  child: _buildPreviewPanel(),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -163,7 +173,7 @@ class _AddTeamsScreenState extends ConsumerState<AddTeamsScreen> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Glass(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
         child: Row(
           children: [
             const Text('Assign to', style: TextStyle(color: Colors.white70)),
@@ -175,8 +185,12 @@ class _AddTeamsScreenState extends ConsumerState<AddTeamsScreen> {
                   dropdownColor: const Color(0xFF000428),
                   style: const TextStyle(color: Colors.cyanAccent),
                   isExpanded: true,
-                  items: _groups.map((g) => DropdownMenuItem(value: g, child: Text(g))).toList(),
-                  onChanged: (v) => setState(() => _selectedGroup = v!),
+                  items: _groups
+                      .map((g) =>
+                          DropdownMenuItem(value: g, child: Text(g)))
+                      .toList(),
+                  onChanged: (v) =>
+                      setState(() => _selectedGroup = v!),
                 ),
               ),
             ),
@@ -196,24 +210,25 @@ class _AddTeamsScreenState extends ConsumerState<AddTeamsScreen> {
               child: TextField(
                 controller: _bulkController,
                 maxLines: null,
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
                 style: const TextStyle(color: Colors.white),
                 decoration: const InputDecoration(
-                  hintText: 'Paste team names (comma or new line separated)',
+                  hintText:
+                      'Paste team names (comma or new line separated)',
                   hintStyle: TextStyle(color: Colors.white38),
                   border: InputBorder.none,
                 ),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.only(top: 12),
-              child: FilledButton(
-                onPressed: _importBulk,
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 50),
-                  backgroundColor: Colors.white.withOpacity(0.1),
-                ),
-                child: const Text('ADD TEAMS'),
+            const SizedBox(height: 12),
+            FilledButton(
+              onPressed: _importBulk,
+              style: FilledButton.styleFrom(
+                minimumSize: const Size(double.infinity, 50),
+                backgroundColor: Colors.white.withOpacity(0.1),
               ),
+              child: const Text('ADD TEAMS'),
             ),
           ],
         ),
@@ -222,14 +237,9 @@ class _AddTeamsScreenState extends ConsumerState<AddTeamsScreen> {
   }
 
   Widget _buildPreviewPanel() {
-    return Container(
-      height: 320,
-      margin: const EdgeInsets.only(top: 8),
-      decoration: BoxDecoration(
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-        color: Colors.black.withOpacity(0.2),
-        border: Border.all(color: Colors.white10),
-      ),
+    return Glass(
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      borderRadius: 28,
       child: Column(
         children: [
           const Padding(
@@ -246,29 +256,48 @@ class _AddTeamsScreenState extends ConsumerState<AddTeamsScreen> {
                   dense: true,
                   leading: CircleAvatar(
                     radius: 14,
-                    backgroundColor: Colors.cyanAccent.withOpacity(0.15),
-                    child: Text('${i + 1}', style: const TextStyle(color: Colors.cyanAccent, fontSize: 10)),
+                    backgroundColor:
+                        Colors.cyanAccent.withOpacity(0.15),
+                    child: Text(
+                      '${i + 1}',
+                      style: const TextStyle(
+                          color: Colors.cyanAccent, fontSize: 10),
+                    ),
                   ),
-                  title: Text(team['name']!, style: const TextStyle(color: Colors.white, fontSize: 14)),
-                  subtitle: Text(team['group']!, style: const TextStyle(color: Colors.white38, fontSize: 11)),
+                  title: Text(
+                    team['name']!,
+                    style: const TextStyle(
+                        color: Colors.white, fontSize: 14),
+                  ),
+                  subtitle: Text(
+                    team['group']!,
+                    style: const TextStyle(
+                        color: Colors.white38, fontSize: 11),
+                  ),
                   trailing: IconButton(
-                    icon: const Icon(Icons.remove_circle_outline, color: Colors.white24, size: 18),
-                    onPressed: () => setState(() => _tempTeams.removeAt(i)),
+                    icon: const Icon(Icons.remove_circle_outline,
+                        color: Colors.white24, size: 18),
+                    onPressed: () =>
+                        setState(() => _tempTeams.removeAt(i)),
                   ),
                 );
               },
             ),
           ),
           Padding(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(16),
             child: FilledButton(
-              onPressed: _tempTeams.isEmpty ? null : _generateAndSave,
+              onPressed:
+                  _tempTeams.isEmpty ? null : _generateAndSave,
               style: FilledButton.styleFrom(
                 minimumSize: const Size(double.infinity, 56),
                 backgroundColor: Colors.cyanAccent,
                 foregroundColor: Colors.black,
               ),
-              child: const Text('GENERATE FIXTURES', style: TextStyle(fontWeight: FontWeight.bold)),
+              child: const Text(
+                'GENERATE FIXTURES',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
             ),
           ),
         ],
