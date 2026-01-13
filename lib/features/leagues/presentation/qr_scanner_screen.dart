@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../../core/persistence/prefs_service.dart';
 import '../../../core/widgets/glass.dart';
@@ -25,7 +26,6 @@ class QRScannerScreen extends ConsumerStatefulWidget {
 class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
   bool _isScanned = false;
 
-  // After successful join, show the same "wizard result" flip card
   League? _joinedLeague;
   bool _joining = false;
   String? _error;
@@ -39,14 +39,9 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
 
     final prefs = ref.read(prefsServiceProvider);
     final repo = LocalLeaguesRepository(prefs);
-
     final currentUserId = prefs.getCurrentUserId() ?? 'admin_user';
 
-    // Accept:
-    // - our QR payload: eleaguehub://join?code=XXXX&id=YYYY
-    // - or raw join code (scanned from text QR)
     final parsed = _parseJoinPayload(payload);
-
     if (parsed == null) {
       setState(() {
         _joining = false;
@@ -63,7 +58,6 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
         joinCode: joinCode,
         userId: currentUserId,
         placeholderBuilder: (generatedLeagueId) {
-          // Offline join placeholder (until sync fetches real data)
           final now = DateTime.now().millisecondsSinceEpoch;
           return League(
             id: generatedLeagueId,
@@ -73,13 +67,10 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
             region: 'Global',
             maxTeams: 20,
             season: '2026',
-            organizerUserId: '', // unknown when joined by code offline
+            organizerUserId: '',
             code: joinCode,
             qrPayloadOverride: '',
-            settings: LeagueSettings(
-              tiebreakerGoalDiff: true,
-              tiebreakerGoalsFor: false,
-            ),
+            settings: LeagueSettings.defaultsFor(LeagueFormat.classic).copyWith(lastPulledAtMs: now),
             updatedAtMs: now,
             version: 1,
           );
@@ -113,7 +104,6 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Joined result screen (matches "created" UX)
     if (_joinedLeague != null) {
       final league = _joinedLeague!;
       final screenWidth = MediaQuery.of(context).size.width;
@@ -143,11 +133,20 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
                       leagueCode: league.code,
                       distribution: '${league.format.displayName} • ${league.season}',
                       subtitle: '0 / ${league.maxTeams} teams',
-                      // Double tap -> details (requested)
                       onDoubleTap: () => context.push('/leagues/${league.id}'),
-                      // We keep UI: QR can be seen for sharing too (payload stored).
-                      // NOTE: LeagueFlipCard already supports qrWidget; Leagues list + create wizard show QR widget.
-                      // Here we keep it simple; if you want QR shown here too, we can add qr_flutter like in other screens.
+                      qrWidget: QrImageView(
+                        data: league.qrPayload,
+                        version: QrVersions.auto,
+                        gapless: true,
+                        eyeStyle: const QrEyeStyle(
+                          eyeShape: QrEyeShape.square,
+                          color: Colors.black,
+                        ),
+                        dataModuleStyle: const QrDataModuleStyle(
+                          dataModuleShape: QrDataModuleShape.square,
+                          color: Colors.black,
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 16),
                     Glass(
@@ -189,7 +188,6 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
       );
     }
 
-    // Scanner UI (your UI kept)
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
@@ -197,7 +195,6 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
           MobileScanner(
             onDetect: _onDetect,
           ),
-
           Positioned.fill(
             child: BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
@@ -206,7 +203,6 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
               ),
             ),
           ),
-
           Center(
             child: Container(
               height: 260,
@@ -218,7 +214,6 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
               ),
             ),
           ),
-
           Center(
             child: Container(
               height: 260,
@@ -237,7 +232,6 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
               ),
             ),
           ),
-
           Positioned(
             top: 50,
             left: 20,
@@ -246,7 +240,6 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
               onPressed: () => context.pop(),
             ),
           ),
-
           Positioned(
             bottom: 120,
             left: 0,
@@ -264,7 +257,6 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
                     ),
             ),
           ),
-
           if (_error != null)
             Positioned(
               bottom: 70,
@@ -290,7 +282,6 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
     final trimmed = raw.trim();
     if (trimmed.isEmpty) return null;
 
-    // our app deep link format
     if (trimmed.startsWith('eleaguehub://')) {
       try {
         final uri = Uri.parse(trimmed);
@@ -302,8 +293,6 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
       }
     }
 
-    // fallback: treat scanned text as join code
-    // basic validation: 4..16 chars, alnum
     final code = trimmed.toUpperCase();
     final ok = RegExp(r'^[A-Z0-9]{4,16}$').hasMatch(code);
     if (!ok) return null;

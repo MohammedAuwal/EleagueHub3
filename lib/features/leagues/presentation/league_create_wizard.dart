@@ -29,8 +29,7 @@ class _LeagueCreateWizardState extends ConsumerState<LeagueCreateWizard> {
   LeagueFormat _format = LeagueFormat.classic;
   final int _maxTeams = 16;
 
-  bool _tbGoalDiff = true;
-  bool _tbGoalsFor = false;
+  bool _doubleRoundRobin = true;
   bool _submitting = false;
 
   League? _createdLeague;
@@ -244,16 +243,11 @@ class _LeagueCreateWizardState extends ConsumerState<LeagueCreateWizard> {
     return Column(
       children: [
         CheckboxListTile(
-          value: _tbGoalDiff,
+          value: _doubleRoundRobin,
           activeColor: Colors.cyanAccent,
-          onChanged: (v) => setState(() => _tbGoalDiff = v!),
-          title: const Text('Goal Difference Tiebreaker', style: TextStyle(color: Colors.white)),
-        ),
-        CheckboxListTile(
-          value: _tbGoalsFor,
-          activeColor: Colors.cyanAccent,
-          onChanged: (v) => setState(() => _tbGoalsFor = v!),
-          title: const Text('Goals For Tiebreaker', style: TextStyle(color: Colors.white)),
+          onChanged: (v) => setState(() => _doubleRoundRobin = v ?? true),
+          title: const Text('Double Round Robin', style: TextStyle(color: Colors.white)),
+          subtitle: const Text('Home & Away legs (if applicable)', style: TextStyle(color: Colors.white38, fontSize: 12)),
         ),
       ],
     );
@@ -266,6 +260,7 @@ class _LeagueCreateWizardState extends ConsumerState<LeagueCreateWizard> {
         _infoRow(Icons.label, 'Name', _name.text),
         _infoRow(Icons.format_list_bulleted, 'Format', _format.displayName),
         _infoRow(Icons.groups, 'Max Teams', '$_maxTeams'),
+        _infoRow(Icons.repeat, 'Double Round Robin', _doubleRoundRobin ? 'Yes' : 'No'),
       ],
     );
   }
@@ -278,7 +273,7 @@ class _LeagueCreateWizardState extends ConsumerState<LeagueCreateWizard> {
           Icon(icon, size: 18, color: Colors.cyanAccent),
           const SizedBox(width: 12),
           Text('$label: ', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white70)),
-          Text(value, style: const TextStyle(color: Colors.white)),
+          Expanded(child: Text(value, style: const TextStyle(color: Colors.white))),
         ],
       ),
     );
@@ -292,15 +287,16 @@ class _LeagueCreateWizardState extends ConsumerState<LeagueCreateWizard> {
     final prefs = ref.read(prefsServiceProvider);
     final repo = LocalLeaguesRepository(prefs);
 
-    // Replace with real auth provider later.
+    // Replace with auth provider later.
     final organizerUserId = prefs.getCurrentUserId() ?? 'admin_user';
 
     final leagueId = _uuid.v4();
     final now = DateTime.now().millisecondsSinceEpoch;
 
-    final settings = LeagueSettings(
-      tiebreakerGoalDiff: _tbGoalDiff,
-      tiebreakerGoalsFor: _tbGoalsFor,
+    // Use your real LeagueSettings model
+    final settings = LeagueSettings.defaultsFor(_format).copyWith(
+      doubleRoundRobin: _doubleRoundRobin,
+      lastPulledAtMs: 0,
     );
 
     final league = League(
@@ -320,6 +316,7 @@ class _LeagueCreateWizardState extends ConsumerState<LeagueCreateWizard> {
     );
 
     await Future.delayed(const Duration(milliseconds: 250));
+
     final stored = await repo.createLeagueLocally(
       league: league,
       organizerUserId: organizerUserId,
