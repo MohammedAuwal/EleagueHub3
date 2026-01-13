@@ -55,9 +55,10 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
     
     final fixtures = await _repo.getMatches(widget.leagueId);
     
-    // Create the Team Name Map: Map<ID, Name>
+    // FIX: Fetch teams from repository instead of league model getter
+    final teams = await _repo.getTeams(widget.leagueId);
     final Map<String, String> teamNames = {
-      for (var team in league.teams ?? []) team.id: team.name
+      for (var team in teams) team.id: team.name
     };
 
     return {
@@ -187,7 +188,6 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
   }
 
   Widget _nextFixture(BuildContext context, FixtureMatch? fixture, Map<String, String> names) {
-    // Lookup names using the map, fallback to ID if not found
     final homeName = names[fixture?.homeTeamId] ?? fixture?.homeTeamId ?? 'TBD';
     final awayName = names[fixture?.awayTeamId] ?? fixture?.awayTeamId ?? 'TBD';
 

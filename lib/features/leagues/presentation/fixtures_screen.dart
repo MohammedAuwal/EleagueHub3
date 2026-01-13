@@ -37,11 +37,11 @@ class _FixturesScreenState extends ConsumerState<FixturesScreen> {
 
   Future<void> _loadInitialData() async {
     final leagues = await _repo.listLeagues();
-    final league = leagues.firstWhere((l) => l.id == widget.leagueId);
+    
     
     if (mounted) {
       setState(() {
-        _teamNames = { for (var t in league.teams ?? []) t.id : t.name };
+        final teams = await _repo.getTeams(widget.leagueId); _teamNames = { for (var t in teams) t.id : t.name };
         _isLoadingData = false;
       });
     }
