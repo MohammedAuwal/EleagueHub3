@@ -19,7 +19,13 @@ class HomeShell extends StatefulWidget {
 class _HomeShellState extends State<HomeShell> {
   int _index = 0;
 
-  static const _tabTitles = ['Home', 'Leagues', 'Live', 'Marketplace', 'Profile'];
+  static const _tabTitles = [
+    'Home',
+    'Leagues',
+    'Live',
+    'Marketplace',
+    'Profile',
+  ];
 
   static const _tabs = [
     _HomeTab(),
@@ -53,52 +59,57 @@ class _HomeShellState extends State<HomeShell> {
             ),
           ],
         ),
-        body: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 220),
-          child: Padding(
-            key: ValueKey(_index),
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
-            child: _tabs[_index],
+        body: SafeArea(
+          bottom: false,
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 220),
+            child: KeyedSubtree(
+              key: ValueKey(_index),
+              child: _tabs[_index],
+            ),
           ),
         ),
-        bottomNavigationBar: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-          child: Glass(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-            borderRadius: 22,
-            child: NavigationBar(
-              height: 64,
-              backgroundColor: Colors.transparent,
-              indicatorColor: colorScheme.primary.withOpacity(0.2),
-              selectedIndex: _index,
-              onDestinationSelected: (i) => setState(() => _index = i),
-              destinations: const [
-                NavigationDestination(
-                  icon: Icon(Icons.home_outlined),
-                  selectedIcon: Icon(Icons.home),
-                  label: 'Home',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.emoji_events_outlined),
-                  selectedIcon: Icon(Icons.emoji_events),
-                  label: 'Leagues',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.wifi_tethering_outlined),
-                  selectedIcon: Icon(Icons.wifi_tethering),
-                  label: 'Live',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.storefront_outlined),
-                  selectedIcon: Icon(Icons.storefront),
-                  label: 'Market',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.person_outline),
-                  selectedIcon: Icon(Icons.person),
-                  label: 'Profile',
-                ),
-              ],
+        bottomNavigationBar: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+            child: Glass(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              borderRadius: 22,
+              child: NavigationBar(
+                height: 64,
+                backgroundColor: Colors.transparent,
+                indicatorColor: colorScheme.primary.withOpacity(0.2),
+                selectedIndex: _index,
+                onDestinationSelected: (i) => setState(() => _index = i),
+                destinations: const [
+                  NavigationDestination(
+                    icon: Icon(Icons.home_outlined),
+                    selectedIcon: Icon(Icons.home),
+                    label: 'Home',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.emoji_events_outlined),
+                    selectedIcon: Icon(Icons.emoji_events),
+                    label: 'Leagues',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.wifi_tethering_outlined),
+                    selectedIcon: Icon(Icons.wifi_tethering),
+                    label: 'Live',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.storefront_outlined),
+                    selectedIcon: Icon(Icons.storefront),
+                    label: 'Market',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.person_outline),
+                    selectedIcon: Icon(Icons.person),
+                    label: 'Profile',
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -116,6 +127,7 @@ class _HomeTab extends StatelessWidget {
     final t = Theme.of(context).textTheme;
 
     return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
       children: [
         Glass(
           padding: const EdgeInsets.all(16),
@@ -196,10 +208,14 @@ class _QuickCard extends StatelessWidget {
                 children: [
                   Text(
                     title,
-                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                    style: theme.textTheme.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 2),
-                  Text(subtitle, style: theme.textTheme.bodySmall),
+                  Text(
+                    subtitle,
+                    style: theme.textTheme.bodySmall,
+                  ),
                 ],
               ),
             ),
