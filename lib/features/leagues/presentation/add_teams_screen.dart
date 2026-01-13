@@ -210,8 +210,6 @@ class _AddTeamsScreenState extends ConsumerState<AddTeamsScreen> {
               child: TextField(
                 controller: _bulkController,
                 maxLines: null,
-                keyboardDismissBehavior:
-                    ScrollViewKeyboardDismissBehavior.onDrag,
                 style: const TextStyle(color: Colors.white),
                 decoration: const InputDecoration(
                   hintText:
@@ -237,70 +235,72 @@ class _AddTeamsScreenState extends ConsumerState<AddTeamsScreen> {
   }
 
   Widget _buildPreviewPanel() {
-    return Glass(
-      margin: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-      borderRadius: 28,
-      child: Column(
-        children: [
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: SectionHeader('Team Preview'),
-          ),
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              itemCount: _tempTeams.length,
-              itemBuilder: (context, i) {
-                final team = _tempTeams[i];
-                return ListTile(
-                  dense: true,
-                  leading: CircleAvatar(
-                    radius: 14,
-                    backgroundColor:
-                        Colors.cyanAccent.withOpacity(0.15),
-                    child: Text(
-                      '${i + 1}',
-                      style: const TextStyle(
-                          color: Colors.cyanAccent, fontSize: 10),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      child: Glass(
+        borderRadius: 28,
+        child: Column(
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: SectionHeader('Team Preview'),
+            ),
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                itemCount: _tempTeams.length,
+                itemBuilder: (context, i) {
+                  final team = _tempTeams[i];
+                  return ListTile(
+                    dense: true,
+                    leading: CircleAvatar(
+                      radius: 14,
+                      backgroundColor:
+                          Colors.cyanAccent.withOpacity(0.15),
+                      child: Text(
+                        '${i + 1}',
+                        style: const TextStyle(
+                            color: Colors.cyanAccent, fontSize: 10),
+                      ),
                     ),
-                  ),
-                  title: Text(
-                    team['name']!,
-                    style: const TextStyle(
-                        color: Colors.white, fontSize: 14),
-                  ),
-                  subtitle: Text(
-                    team['group']!,
-                    style: const TextStyle(
-                        color: Colors.white38, fontSize: 11),
-                  ),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.remove_circle_outline,
-                        color: Colors.white24, size: 18),
-                    onPressed: () =>
-                        setState(() => _tempTeams.removeAt(i)),
-                  ),
-                );
-              },
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: FilledButton(
-              onPressed:
-                  _tempTeams.isEmpty ? null : _generateAndSave,
-              style: FilledButton.styleFrom(
-                minimumSize: const Size(double.infinity, 56),
-                backgroundColor: Colors.cyanAccent,
-                foregroundColor: Colors.black,
-              ),
-              child: const Text(
-                'GENERATE FIXTURES',
-                style: TextStyle(fontWeight: FontWeight.bold),
+                    title: Text(
+                      team['name']!,
+                      style: const TextStyle(
+                          color: Colors.white, fontSize: 14),
+                    ),
+                    subtitle: Text(
+                      team['group']!,
+                      style: const TextStyle(
+                          color: Colors.white38, fontSize: 11),
+                    ),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.remove_circle_outline,
+                          color: Colors.white24, size: 18),
+                      onPressed: () =>
+                          setState(() => _tempTeams.removeAt(i)),
+                    ),
+                  );
+                },
               ),
             ),
-          ),
-        ],
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: FilledButton(
+                onPressed:
+                    _tempTeams.isEmpty ? null : _generateAndSave,
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 56),
+                  backgroundColor: Colors.cyanAccent,
+                  foregroundColor: Colors.black,
+                ),
+                child: const Text(
+                  'GENERATE FIXTURES',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
