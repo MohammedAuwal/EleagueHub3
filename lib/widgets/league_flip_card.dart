@@ -1,17 +1,43 @@
-import 'package:flutter/material.dart';
-import 'dart:ui';
 import 'dart:math';
+import 'dart:ui';
 
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+/// UI kept the same (glass flip card).
+/// Added:
+/// - optional QR widget (so leagues can show a real QR image instead of the icon)
+/// - copy invite code button works
+/// - optional callbacks: onTap (flip), onDoubleTap (navigate to details)
+/// - optional meta text (type/teams) without breaking existing UI usage
 class LeagueFlipCard extends StatefulWidget {
   final String leagueName;
   final String leagueCode;
-  final String distribution; 
+  final String distribution;
+
+  /// Optional: replace the QR placeholder icon with a real QR widget
+  /// (e.g. from qr_flutter: QrImageView(data: ...)).
+  final Widget? qrWidget;
+
+  /// Optional: onDoubleTap should navigate to league details screen.
+  final VoidCallback? onDoubleTap;
+
+  /// Optional: called when the card is tapped (after flip).
+  final VoidCallback? onTap;
+
+  /// Optional: show extra league details on the front if you want.
+  /// Keep null to preserve current layout.
+  final String? subtitle;
 
   const LeagueFlipCard({
     super.key,
     required this.leagueName,
     required this.leagueCode,
     required this.distribution,
+    this.qrWidget,
+    this.onDoubleTap,
+    this.onTap,
+    this.subtitle,
   });
 
   @override
@@ -23,12 +49,22 @@ class _LeagueFlipCardState extends State<LeagueFlipCard> {
 
   void _flipCard() {
     setState(() => _isFront = !_isFront);
+    widget.onTap?.call();
+  }
+
+  Future<void> _copyCode() async {
+    await Clipboard.setData(ClipboardData(text: widget.leagueCode));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Invite code copied')),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: _flipCard,
+      onDoubleTap: widget.onDoubleTap,
       child: AnimatedSwitcher(
         duration: const Duration(milliseconds: 600),
         transitionBuilder: (Widget child, Animation<double> animation) {
@@ -89,18 +125,40 @@ class _LeagueFlipCardState extends State<LeagueFlipCard> {
               color: Colors.blueAccent.withOpacity(0.2),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.emoji_events_outlined, color: Colors.amber, size: 40),
+            child: const Icon(
+              Icons.emoji_events_outlined,
+              color: Colors.amber,
+              size: 40,
+            ),
           ),
           const SizedBox(height: 16),
           Text(
             widget.leagueName,
-            style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 8),
           Text(
             widget.distribution,
             style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 14),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
           ),
+          if (widget.subtitle != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              widget.subtitle!,
+              style: TextStyle(color: Colors.white.withOpacity(0.55), fontSize: 12),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
           const SizedBox(height: 24),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -109,7 +167,12 @@ class _LeagueFlipCardState extends State<LeagueFlipCard> {
               const SizedBox(width: 8),
               const Text(
                 "TAP TO JOIN / SCAN QR",
-                style: TextStyle(color: Colors.cyanAccent, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.2),
+                style: TextStyle(
+                  color: Colors.cyanAccent,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
+                ),
               ),
             ],
           ),
@@ -135,37 +198,63 @@ class _LeagueFlipCardState extends State<LeagueFlipCard> {
                   color: Colors.white.withOpacity(0.9),
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: const AspectRatio(
+                child: AspectRatio(
                   aspectRatio: 1,
-                  child: Icon(Icons.qr_code_2_rounded, size: 100, color: Colors.black),
+                  child: Center(
+                    child: widget.qrWidget ??
+                        const Icon(
+                          Icons.qr_code_2_rounded,
+                          size: 100,
+                          color: Colors.black,
+                        ),
+                  ),
                 ),
               ),
             ),
             // Code Side
             Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text("INVITE CODE", style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 11, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 4),
-                  Text(
-                    widget.leagueCode,
-                    style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold, letterSpacing: 2),
-                  ),
-                  const SizedBox(height: 24),
-                  ElevatedButton.icon(
-                    onPressed: () {},
-                    icon: const Icon(Icons.copy, size: 16),
-                    label: const Text("COPY"),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blueAccent.withOpacity(0.5),
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              child: Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "INVITE CODE",
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.6),
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  )
-                ],
+                    const SizedBox(height: 4),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        widget.leagueCode,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 2,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    ElevatedButton.icon(
+                      onPressed: _copyCode,
+                      icon: const Icon(Icons.copy, size: 16),
+                      label: const Text("COPY"),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blueAccent.withOpacity(0.5),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    )
+                  ],
+                ),
               ),
             ),
           ],

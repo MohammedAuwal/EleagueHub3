@@ -1,17 +1,105 @@
 import 'dart:ui';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
-class QRScannerScreen extends StatefulWidget {
+import '../../../core/persistence/prefs_service.dart';
+import '../../../core/widgets/glass.dart';
+import '../../../core/widgets/glass_scaffold.dart';
+import '../../../widgets/league_flip_card.dart';
+import '../data/leagues_repository_local.dart';
+import '../models/enums.dart';
+import '../models/league.dart';
+import '../models/league_format.dart';
+import '../models/league_settings.dart';
+
+class QRScannerScreen extends ConsumerStatefulWidget {
   const QRScannerScreen({super.key});
 
   @override
-  State<QRScannerScreen> createState() => _QRScannerScreenState();
+  ConsumerState<QRScannerScreen> createState() => _QRScannerScreenState();
 }
 
-class _QRScannerScreenState extends State<QRScannerScreen> {
+class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
   bool _isScanned = false;
+
+  // After successful join, show the same "wizard result" flip card
+  League? _joinedLeague;
+  bool _joining = false;
+  String? _error;
+
+  Future<void> _handleScan(String payload) async {
+    if (_joining) return;
+    setState(() {
+      _joining = true;
+      _error = null;
+    });
+
+    final prefs = ref.read(prefsServiceProvider);
+    final repo = LocalLeaguesRepository(prefs);
+
+    final currentUserId = prefs.getCurrentUserId() ?? 'admin_user';
+
+    // Accept:
+    // - our QR payload: eleaguehub://join?code=XXXX&id=YYYY
+    // - or raw join code (scanned from text QR)
+    final parsed = _parseJoinPayload(payload);
+
+    if (parsed == null) {
+      setState(() {
+        _joining = false;
+        _error = 'Invalid QR / Join code.';
+        _isScanned = false;
+      });
+      return;
+    }
+
+    final joinCode = parsed.code;
+
+    try {
+      final league = await repo.joinLeagueLocallyByCode(
+        joinCode: joinCode,
+        userId: currentUserId,
+        placeholderBuilder: (generatedLeagueId) {
+          // Offline join placeholder (until sync fetches real data)
+          final now = DateTime.now().millisecondsSinceEpoch;
+          return League(
+            id: generatedLeagueId,
+            name: 'Joined League',
+            format: LeagueFormat.classic,
+            privacy: LeaguePrivacy.private,
+            region: 'Global',
+            maxTeams: 20,
+            season: '2026',
+            organizerUserId: '', // unknown when joined by code offline
+            code: joinCode,
+            qrPayloadOverride: '',
+            settings: LeagueSettings(
+              tiebreakerGoalDiff: true,
+              tiebreakerGoalsFor: false,
+            ),
+            updatedAtMs: now,
+            version: 1,
+          );
+        },
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _joinedLeague = league;
+        _joining = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _joining = false;
+        _error = 'Join failed: $e';
+        _isScanned = false;
+      });
+    }
+  }
 
   void _onDetect(BarcodeCapture capture) {
     if (_isScanned) return;
@@ -20,24 +108,96 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
     if (barcode == null) return;
 
     _isScanned = true;
-    
-    // Using GoRouter's pop to return the value
-    context.pop(barcode);
+    _handleScan(barcode);
   }
 
   @override
   Widget build(BuildContext context) {
+    // Joined result screen (matches "created" UX)
+    if (_joinedLeague != null) {
+      final league = _joinedLeague!;
+      final screenWidth = MediaQuery.of(context).size.width;
+      final isWide = screenWidth > 600;
+
+      return GlassScaffold(
+        appBar: AppBar(
+          title: const Text('League Joined'),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.close),
+            onPressed: () => context.go('/leagues'),
+          ),
+        ),
+        body: SafeArea(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: isWide ? 600 : 450),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    LeagueFlipCard(
+                      leagueName: league.name,
+                      leagueCode: league.code,
+                      distribution: '${league.format.displayName} • ${league.season}',
+                      subtitle: '0 / ${league.maxTeams} teams',
+                      // Double tap -> details (requested)
+                      onDoubleTap: () => context.push('/leagues/${league.id}'),
+                      // We keep UI: QR can be seen for sharing too (payload stored).
+                      // NOTE: LeagueFlipCard already supports qrWidget; Leagues list + create wizard show QR widget.
+                      // Here we keep it simple; if you want QR shown here too, we can add qr_flutter like in other screens.
+                    ),
+                    const SizedBox(height: 16),
+                    Glass(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        children: [
+                          Text(
+                            'You joined this league successfully.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: Colors.white.withOpacity(0.75), height: 1.4),
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: FilledButton(
+                                  onPressed: () => context.go('/leagues'),
+                                  child: const Text('DONE'),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: () => context.push('/leagues/${league.id}'),
+                                  child: const Text('OPEN'),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Scanner UI (your UI kept)
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // 1. Camera Feed
           MobileScanner(
             onDetect: _onDetect,
           ),
 
-          // 2. The Glass "Hole" Overlay
-          // We use BackdropFilter for the blur, but we must exclude the center
           Positioned.fill(
             child: BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
@@ -47,7 +207,6 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
             ),
           ),
 
-          // 3. Punching a hole in the blur for the scanner view
           Center(
             child: Container(
               height: 260,
@@ -60,7 +219,6 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
             ),
           ),
 
-          // 4. Scanner Frame Decoration
           Center(
             child: Container(
               height: 260,
@@ -80,7 +238,6 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
             ),
           ),
 
-          // 5. UI Controls
           Positioned(
             top: 50,
             left: 20,
@@ -90,20 +247,68 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
             ),
           ),
 
-          const Positioned(
-            bottom: 100,
+          Positioned(
+            bottom: 120,
             left: 0,
             right: 0,
             child: Center(
-              child: Text(
-                'Center the QR code within the frame',
-                style: TextStyle(color: Colors.white70, fontSize: 16),
-              ),
+              child: _joining
+                  ? const SizedBox(
+                      width: 26,
+                      height: 26,
+                      child: CircularProgressIndicator(color: Colors.cyanAccent, strokeWidth: 3),
+                    )
+                  : const Text(
+                      'Center the QR code within the frame',
+                      style: TextStyle(color: Colors.white70, fontSize: 16),
+                    ),
             ),
           ),
+
+          if (_error != null)
+            Positioned(
+              bottom: 70,
+              left: 16,
+              right: 16,
+              child: Center(
+                child: Glass(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  child: Text(
+                    _error!,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
+  }
+
+  _JoinParse? _parseJoinPayload(String raw) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return null;
+
+    // our app deep link format
+    if (trimmed.startsWith('eleaguehub://')) {
+      try {
+        final uri = Uri.parse(trimmed);
+        final code = uri.queryParameters['code']?.trim();
+        if (code == null || code.isEmpty) return null;
+        return _JoinParse(code: code.toUpperCase());
+      } catch (_) {
+        return null;
+      }
+    }
+
+    // fallback: treat scanned text as join code
+    // basic validation: 4..16 chars, alnum
+    final code = trimmed.toUpperCase();
+    final ok = RegExp(r'^[A-Z0-9]{4,16}$').hasMatch(code);
+    if (!ok) return null;
+
+    return _JoinParse(code: code);
   }
 
   Widget _buildCorner(Alignment alignment) {
@@ -124,4 +329,9 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
       ),
     );
   }
+}
+
+class _JoinParse {
+  final String code;
+  const _JoinParse({required this.code});
 }

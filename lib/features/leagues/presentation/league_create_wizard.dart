@@ -1,19 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:uuid/uuid.dart';
 
-import "../models/league_format.dart";
+import '../../../core/persistence/prefs_service.dart';
 import '../../../core/widgets/glass.dart';
 import '../../../core/widgets/glass_scaffold.dart';
+import '../../../widgets/league_flip_card.dart';
+import '../data/leagues_repository_local.dart';
+import '../models/enums.dart';
+import '../models/league.dart';
+import '../models/league_format.dart';
+import '../models/league_settings.dart';
 
-class LeagueCreateWizard extends StatefulWidget {
+class LeagueCreateWizard extends ConsumerStatefulWidget {
   const LeagueCreateWizard({super.key});
 
   @override
-  State<LeagueCreateWizard> createState() => _LeagueCreateWizardState();
+  ConsumerState<LeagueCreateWizard> createState() => _LeagueCreateWizardState();
 }
 
-class _LeagueCreateWizardState extends State<LeagueCreateWizard> {
+class _LeagueCreateWizardState extends ConsumerState<LeagueCreateWizard> {
   final _uuid = const Uuid();
   int _step = 0;
 
@@ -25,6 +33,8 @@ class _LeagueCreateWizardState extends State<LeagueCreateWizard> {
   bool _tbGoalsFor = false;
   bool _submitting = false;
 
+  League? _createdLeague;
+
   @override
   void dispose() {
     _name.dispose();
@@ -33,9 +43,96 @@ class _LeagueCreateWizardState extends State<LeagueCreateWizard> {
 
   @override
   Widget build(BuildContext context) {
-    // Determine if we are on a wide screen
     final screenWidth = MediaQuery.of(context).size.width;
     final isWide = screenWidth > 600;
+
+    if (_createdLeague != null) {
+      final league = _createdLeague!;
+      return GlassScaffold(
+        appBar: AppBar(
+          title: const Text('League Created'),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+        ),
+        body: SafeArea(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: isWide ? 600 : 450),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    LeagueFlipCard(
+                      leagueName: league.name,
+                      leagueCode: league.code,
+                      distribution: '${league.format.displayName} • ${league.season}',
+                      subtitle: '0 / ${league.maxTeams} teams',
+                      onDoubleTap: () => context.push('/leagues/${league.id}'),
+                      qrWidget: QrImageView(
+                        data: league.qrPayload,
+                        version: QrVersions.auto,
+                        gapless: true,
+                        eyeStyle: const QrEyeStyle(
+                          eyeShape: QrEyeShape.square,
+                          color: Colors.black,
+                        ),
+                        dataModuleStyle: const QrDataModuleStyle(
+                          dataModuleShape: QrDataModuleShape.square,
+                          color: Colors.black,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Glass(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        children: [
+                          Text(
+                            'Share this Join ID or let others scan the QR on the back of the card.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: Colors.white.withOpacity(0.75), height: 1.4),
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: FilledButton(
+                                  onPressed: () => context.go('/leagues'),
+                                  child: const Text('DONE'),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: () => context.push(
+                                    '/leagues/add-teams',
+                                    extra: {'leagueId': league.id, 'format': league.format},
+                                  ),
+                                  child: const Text('ADD TEAMS'),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          TextButton(
+                            onPressed: () => context.push('/leagues/${league.id}'),
+                            child: const Text(
+                              'OPEN LEAGUE DETAILS',
+                              style: TextStyle(color: Colors.cyanAccent, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
 
     return GlassScaffold(
       appBar: AppBar(
@@ -48,7 +145,6 @@ class _LeagueCreateWizardState extends State<LeagueCreateWizard> {
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
             child: ConstrainedBox(
-              // THIS FIXES THE STRETCHING
               constraints: BoxConstraints(maxWidth: isWide ? 600 : 450),
               child: Glass(
                 child: Stepper(
@@ -62,33 +158,41 @@ class _LeagueCreateWizardState extends State<LeagueCreateWizard> {
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
                           TextButton(
-                            onPressed: _submitting ? null : () {
-                              if (_step == 0) {
-                                context.pop();
-                              } else {
-                                setState(() => _step--);
-                              }
-                            },
+                            onPressed: _submitting
+                                ? null
+                                : () {
+                                    if (_step == 0) {
+                                      context.pop();
+                                    } else {
+                                      setState(() => _step--);
+                                    }
+                                  },
                             child: Text(_step == 0 ? 'Cancel' : 'Back'),
                           ),
                           const SizedBox(width: 12),
                           FilledButton(
-                            onPressed: _submitting ? null : () async {
-                              if (isLast) {
-                                await _create(context);
-                              } else {
-                                if (_step == 0 && _name.text.trim().isEmpty) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('Please enter a league name')),
-                                  );
-                                  return;
-                                }
-                                setState(() => _step++);
-                              }
-                            },
-                            child: _submitting 
-                              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                              : Text(isLast ? 'Create' : 'Next'),
+                            onPressed: _submitting
+                                ? null
+                                : () async {
+                                    if (isLast) {
+                                      await _create(context);
+                                    } else {
+                                      if (_step == 0 && _name.text.trim().isEmpty) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(content: Text('Please enter a league name')),
+                                        );
+                                        return;
+                                      }
+                                      setState(() => _step++);
+                                    }
+                                  },
+                            child: _submitting
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                  )
+                                : Text(isLast ? 'Create' : 'Next'),
                           ),
                         ],
                       ),
@@ -182,11 +286,49 @@ class _LeagueCreateWizardState extends State<LeagueCreateWizard> {
 
   Future<void> _create(BuildContext context) async {
     if (_name.text.trim().isEmpty) return;
+
     setState(() => _submitting = true);
+
+    final prefs = ref.read(prefsServiceProvider);
+    final repo = LocalLeaguesRepository(prefs);
+
+    // Replace with real auth provider later.
+    final organizerUserId = prefs.getCurrentUserId() ?? 'admin_user';
+
     final leagueId = _uuid.v4();
-    await Future.delayed(const Duration(milliseconds: 800));
-    if (!context.mounted) return;
-    context.push('/leagues/add-teams', extra: {'leagueId': leagueId, 'format': _format});
-    setState(() => _submitting = false);
+    final now = DateTime.now().millisecondsSinceEpoch;
+
+    final settings = LeagueSettings(
+      tiebreakerGoalDiff: _tbGoalDiff,
+      tiebreakerGoalsFor: _tbGoalsFor,
+    );
+
+    final league = League(
+      id: leagueId,
+      name: _name.text.trim(),
+      format: _format,
+      privacy: LeaguePrivacy.private,
+      region: 'Global',
+      maxTeams: _maxTeams,
+      season: '2026',
+      organizerUserId: organizerUserId,
+      code: '',
+      qrPayloadOverride: '',
+      settings: settings,
+      updatedAtMs: now,
+      version: 1,
+    );
+
+    await Future.delayed(const Duration(milliseconds: 250));
+    final stored = await repo.createLeagueLocally(
+      league: league,
+      organizerUserId: organizerUserId,
+    );
+
+    if (!mounted) return;
+    setState(() {
+      _createdLeague = stored;
+      _submitting = false;
+    });
   }
 }

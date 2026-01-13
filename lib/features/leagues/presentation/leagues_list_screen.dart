@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../../core/persistence/prefs_service.dart';
 import '../../../core/widgets/glass.dart';
@@ -9,11 +10,6 @@ import '../../../widgets/glass_search_bar.dart';
 import '../../../widgets/league_flip_card.dart';
 import '../data/leagues_repository_local.dart';
 import '../models/league.dart';
-
-// Assuming you have an auth provider to get current user ID
-// If you don't have one yet, we use a placeholder 'current_user_id'
-// Replace 'authProvider' with your actual provider name
-// import '../../auth/providers/auth_provider.dart'; 
 
 class LeaguesListScreen extends ConsumerStatefulWidget {
   const LeaguesListScreen({super.key});
@@ -101,8 +97,8 @@ class _LeaguesListScreenState extends ConsumerState<LeaguesListScreen> {
     List<League> leagues,
     bool isTablet,
   ) {
-    // Placeholder for current user ID - replace with actual auth logic
-    const String currentUserId = 'admin_user'; 
+    final prefs = ref.read(prefsServiceProvider);
+    final String currentUserId = prefs.getCurrentUserId() ?? 'admin_user';
 
     return GridView.builder(
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
@@ -111,56 +107,68 @@ class _LeaguesListScreenState extends ConsumerState<LeaguesListScreen> {
         crossAxisCount: isTablet ? 2 : 1,
         mainAxisSpacing: 20,
         crossAxisSpacing: 16,
-        mainAxisExtent: 220, // Increased height for better flip card spacing
+        mainAxisExtent: 220,
       ),
       itemCount: leagues.length,
       itemBuilder: (context, index) {
         final league = leagues[index];
         final bool isOwner = league.organizerUserId == currentUserId;
 
-        return GestureDetector(
-          onDoubleTap: () {
-            // Navigate to detail screen
-            context.push('/leagues/${league.id}');
-          },
-          child: Stack(
-            children: [
-              LeagueFlipCard(
-                leagueName: league.name,
-                leagueCode: league.code.isNotEmpty ? league.code : league.id.substring(0, 8),
-                distribution: "${league.format.displayName} • ${league.season}",
+        // TODO later: compute from teams repo if you want live current count
+        final subtitle = '0 / ${league.maxTeams} teams';
+
+        return Stack(
+          children: [
+            LeagueFlipCard(
+              leagueName: league.name,
+              leagueCode: league.code.isNotEmpty ? league.code : league.id.substring(0, 8),
+              distribution: "${league.format.displayName} • ${league.season}",
+              subtitle: subtitle,
+              onDoubleTap: () => context.push('/leagues/${league.id}'),
+              qrWidget: QrImageView(
+                data: league.qrPayload, // offline-safe QR payload
+                version: QrVersions.auto,
+                gapless: true,
+                eyeStyle: const QrEyeStyle(
+                  eyeShape: QrEyeShape.square,
+                  color: Colors.black,
+                ),
+                dataModuleStyle: const QrDataModuleStyle(
+                  dataModuleShape: QrDataModuleShape.square,
+                  color: Colors.black,
+                ),
               ),
-              // Owner Badge
-              if (isOwner)
-                Positioned(
-                  top: 12,
-                  right: 12,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.cyanAccent.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.cyanAccent.withOpacity(0.5)),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.admin_panel_settings, size: 12, color: Colors.cyanAccent),
-                        SizedBox(width: 4),
-                        Text(
-                          'OWNER',
-                          style: TextStyle(
-                            color: Colors.cyanAccent,
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold,
-                          ),
+            ),
+
+            if (isOwner)
+              Positioned(
+                top: 12,
+                right: 12,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.cyanAccent.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.cyanAccent.withOpacity(0.5)),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.admin_panel_settings, size: 12, color: Colors.cyanAccent),
+                      SizedBox(width: 4),
+                      Text(
+                        'OWNER',
+                        style: TextStyle(
+                          color: Colors.cyanAccent,
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
-            ],
-          ),
+              ),
+          ],
         );
       },
     );
@@ -247,11 +255,7 @@ class _LeaguesListScreenState extends ConsumerState<LeaguesListScreen> {
                         padding: EdgeInsets.symmetric(vertical: 16),
                         child: Text(
                           'League Options',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold
-                          ),
+                          style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
                         ),
                       ),
                       const Divider(color: Colors.white10),
@@ -284,8 +288,7 @@ class _LeaguesListScreenState extends ConsumerState<LeaguesListScreen> {
                         subtitle: const Text('Enter a code or scan QR', style: TextStyle(color: Colors.white38, fontSize: 12)),
                         onTap: () async {
                           context.pop();
-                          final result =
-                              await context.push<String>('/leagues/join-scanner');
+                          final result = await context.push<String>('/leagues/join-scanner');
                           if (result != null && mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(

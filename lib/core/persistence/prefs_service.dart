@@ -11,6 +11,10 @@ class PreferencesService {
 
   static const _kThemeMode = 'theme_mode';
 
+  /// Logged in user id key (for now).
+  /// Later your auth_provider should set this after login.
+  static const String kCurrentUserIdKey = 'current_user_id';
+
   static Future<PreferencesService> create() async {
     final sp = await SharedPreferences.getInstance();
     return PreferencesService._(sp);
@@ -18,14 +22,21 @@ class PreferencesService {
 
   /// Standard String helpers
   String? getString(String key) => _sp.getString(key);
-  
+
   Future<void> setString(String key, String value) async {
     await _sp.setString(key, value);
   }
 
+  /// Convenience helpers for current user id
+  String? getCurrentUserId() => _sp.getString(kCurrentUserIdKey);
+
+  Future<void> setCurrentUserId(String userId) async {
+    await _sp.setString(kCurrentUserIdKey, userId);
+  }
+
   /// Generic List helpers used by repositories
   List<String> getStringList(String key) => _sp.getStringList(key) ?? [];
-  
+
   Future<void> setStringList(String key, List<String> value) async {
     await _sp.setStringList(key, value);
   }

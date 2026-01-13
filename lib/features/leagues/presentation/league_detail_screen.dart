@@ -8,8 +8,7 @@ import '../../../core/widgets/glass_scaffold.dart';
 import '../data/leagues_repository_local.dart';
 import '../models/fixture_match.dart';
 import '../models/league.dart';
-import '../models/league_format.dart';
-import '../models/enums.dart';
+import '../models/membership.dart';
 
 class LeagueDetailScreen extends ConsumerStatefulWidget {
   final String leagueId;
@@ -40,11 +39,18 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
     final fixtures = await _repo.getMatches(widget.leagueId);
     final teams = await _repo.getTeams(widget.leagueId);
 
-    final Map<String, String> teamNames = { for (var t in teams) t.id: t.name };
+    final prefs = ref.read(prefsServiceProvider);
+    final currentUserId = prefs.getCurrentUserId() ?? prefs.getString(PreferencesService.kCurrentUserIdKey) ?? 'admin_user';
+
+    final membership = await _repo.getMembership(leagueId: widget.leagueId, userId: currentUserId);
+
+    final Map<String, String> teamNames = {for (var t in teams) t.id: t.name};
     return {
       'league': league,
       'fixtures': fixtures,
       'teamNames': teamNames,
+      'currentUserId': currentUserId,
+      'membership': membership,
     };
   }
 
@@ -54,7 +60,6 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
     final primary = theme.colorScheme.primary;
     final screenWidth = MediaQuery.of(context).size.width;
     final isWide = screenWidth > 600;
-    const String currentUserId = 'admin_user';
 
     return GlassScaffold(
       appBar: AppBar(
@@ -101,8 +106,12 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
               final league = snapshot.data!['league'] as League;
               final fixtures = snapshot.data!['fixtures'] as List<FixtureMatch>;
               final teamNames = snapshot.data!['teamNames'] as Map<String, String>;
+              final membership = snapshot.data!['membership'] as Membership?;
               final nextFixture = fixtures.isNotEmpty ? fixtures.first : null;
-              final bool isOwner = league.organizerUserId == currentUserId;
+
+              final bool isOwnerByLeague = membership?.role == LeagueRole.organizer;
+              final bool isOwnerFallback = league.organizerUserId == (snapshot.data!['currentUserId'] as String);
+              final bool isOwner = isOwnerByLeague || isOwnerFallback;
 
               return ConstrainedBox(
                 constraints: BoxConstraints(maxWidth: isWide ? 600 : 500),
@@ -227,6 +236,22 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
                 onPressed: () => context.push('/leagues/${widget.leagueId}/admin-scores'),
               ),
             ),
+          ] else ...[
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white10),
+              ),
+              child: const Text(
+                'View-only: You are a participant in this league.',
+                style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w600),
+                textAlign: TextAlign.center,
+              ),
+            ),
           ],
         ],
       ),
@@ -298,7 +323,10 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
                 ),
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 20),
-                  child: Text('VS', style: TextStyle(color: Colors.cyanAccent, fontWeight: FontWeight.w900, fontSize: 14)),
+                  child: Text(
+                    'VS',
+                    style: TextStyle(color: Colors.cyanAccent, fontWeight: FontWeight.w900, fontSize: 14),
+                  ),
                 ),
                 Expanded(
                   child: Text(
@@ -315,10 +343,11 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
           Align(
             alignment: Alignment.center,
             child: TextButton(
-              onPressed: fixture != null
-                  ? () => context.push('/leagues/${widget.leagueId}/matches/${fixture.id}')
-                  : null,
-              child: const Text('FULL MATCH PREVIEW', style: TextStyle(color: Colors.cyanAccent, fontSize: 12, fontWeight: FontWeight.bold)),
+              onPressed: fixture != null ? () => context.push('/leagues/${widget.leagueId}/matches/${fixture.id}') : null,
+              child: const Text(
+                'FULL MATCH PREVIEW',
+                style: TextStyle(color: Colors.cyanAccent, fontSize: 12, fontWeight: FontWeight.bold),
+              ),
             ),
           ),
         ],
