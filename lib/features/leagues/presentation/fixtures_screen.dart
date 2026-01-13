@@ -26,7 +26,7 @@ class _FixturesScreenState extends ConsumerState<FixturesScreen> {
   int _selectedRound = 1;
   late LocalLeaguesRepository _repo;
   Map<String, String> _teamNames = {};
-  bool _isLoadingData = true;
+  bool _isLoadingNames = true;
 
   @override
   void initState() {
@@ -35,15 +35,18 @@ class _FixturesScreenState extends ConsumerState<FixturesScreen> {
     _loadInitialData();
   }
 
+  // FIXED: Added 'async' to this method
   Future<void> _loadInitialData() async {
-    final leagues = await _repo.listLeagues();
-    
-    
-    if (mounted) {
-      setState(() {
-        final teams = await _repo.getTeams(widget.leagueId); _teamNames = { for (var t in teams) t.id : t.name };
-        _isLoadingData = false;
-      });
+    try {
+      final teams = await _repo.getTeams(widget.leagueId);
+      if (mounted) {
+        setState(() {
+          _teamNames = {for (var t in teams) t.id: t.name};
+          _isLoadingNames = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isLoadingNames = false);
     }
   }
 
@@ -69,7 +72,7 @@ class _FixturesScreenState extends ConsumerState<FixturesScreen> {
         elevation: 0,
         backgroundColor: Colors.transparent,
       ),
-      body: _isLoadingData 
+      body: _isLoadingNames 
         ? const Center(child: CircularProgressIndicator(color: Colors.cyanAccent))
         : Center(
             child: ConstrainedBox(
@@ -163,8 +166,9 @@ class _FixturesScreenState extends ConsumerState<FixturesScreen> {
   }
 
   Widget _buildMatchCard(FixtureMatch match) {
-    final hName = _teamNames[match.homeTeamId] ?? "TBD";
-    final aName = _teamNames[match.awayTeamId] ?? "TBD";
+    // FIXED: Using the name map instead of ID substrings
+    final homeName = _teamNames[match.homeTeamId] ?? 'TBD';
+    final awayName = _teamNames[match.awayTeamId] ?? 'TBD';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -174,7 +178,7 @@ class _FixturesScreenState extends ConsumerState<FixturesScreen> {
           children: [
             Expanded(
               child: Text(
-                hName,
+                homeName,
                 textAlign: TextAlign.right,
                 style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
                 overflow: TextOverflow.ellipsis,
@@ -186,13 +190,20 @@ class _FixturesScreenState extends ConsumerState<FixturesScreen> {
               child: (match.status == MatchStatus.completed || match.status == MatchStatus.played)
                   ? Text(
                       '${match.homeScore} - ${match.awayScore}',
-                      style: const TextStyle(color: Colors.cyanAccent, fontWeight: FontWeight.bold, fontSize: 18),
+                      style: const TextStyle(
+                        color: Colors.cyanAccent,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
                     )
-                  : const Text('VS', style: TextStyle(color: Colors.white24, fontWeight: FontWeight.w900)),
+                  : const Text(
+                      'VS',
+                      style: TextStyle(color: Colors.white24, fontWeight: FontWeight.w900),
+                    ),
             ),
             Expanded(
               child: Text(
-                aName,
+                awayName,
                 textAlign: TextAlign.left,
                 style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
                 overflow: TextOverflow.ellipsis,
