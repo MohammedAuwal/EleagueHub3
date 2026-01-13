@@ -16,18 +16,34 @@ class LocalLeaguesRepository {
   Future<List<League>> listLeagues() async {
     final String? data = _prefs.getString(_leaguesKey);
     if (data == null) return [];
-    final List decoded = jsonDecode(data);
-    return decoded.map((item) => League.fromJson(item as Map<String, dynamic>)).toList();
+    try {
+      final List decoded = jsonDecode(data);
+      return decoded.map((item) => League.fromRemoteMap(item as Map<String, dynamic>)).toList();
+    } catch (e) {
+      debugPrint('Error decoding leagues: $e');
+      return [];
+    }
+  }
+
+  Future<League?> getLeagueById(String leagueId) async {
+    final leagues = await listLeagues();
+    try {
+      return leagues.firstWhere((l) => l.id == leagueId);
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<void> saveLeague(League league) async {
     final List<League> current = await listLeagues();
     final index = current.indexWhere((l) => l.id == league.id);
+    
     if (index != -1) {
       current[index] = league;
     } else {
       current.add(league);
     }
+    
     final String encoded = jsonEncode(current.map((l) => l.toJson()).toList());
     await _prefs.setString(_leaguesKey, encoded);
   }
@@ -40,19 +56,26 @@ class LocalLeaguesRepository {
   Future<List<Team>> getTeams(String leagueId) async {
     final String? data = _prefs.getString('$_teamsKey$leagueId');
     if (data == null) return [];
-    final List decoded = jsonDecode(data);
-    return decoded.map((t) => Team.fromRemoteMap(t as Map<String, dynamic>)).toList();
+    try {
+      final List decoded = jsonDecode(data);
+      return decoded.map((t) => Team.fromRemoteMap(t as Map<String, dynamic>)).toList();
+    } catch (e) {
+      return [];
+    }
   }
 
   Future<List<FixtureMatch>> getMatches(String leagueId) async {
     final String? data = _prefs.getString('$_matchesKey$leagueId');
     if (data == null) return [];
-    final List decoded = jsonDecode(data);
-    // Explicit mapping and casting to List<FixtureMatch>
-    return decoded
-        .map((m) => FixtureMatch.fromJson(m as Map<String, dynamic>))
-        .toList()
-        .cast<FixtureMatch>();
+    try {
+      final List decoded = jsonDecode(data);
+      return decoded
+          .map((m) => FixtureMatch.fromJson(m as Map<String, dynamic>))
+          .toList()
+          .cast<FixtureMatch>();
+    } catch (e) {
+      return [];
+    }
   }
 
   Future<void> saveMatches(String leagueId, List<FixtureMatch> matches) async {

@@ -35,23 +35,16 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
 
   Future<Map<String, dynamic>> _loadData() async {
     final leagues = await _repo.listLeagues();
-    final league = leagues.firstWhere(
-      (l) => l.id == widget.leagueId,
-      orElse: () => League(
-        id: widget.leagueId,
-        name: 'Unknown League',
-        format: LeagueFormat.classic,
-        privacy: LeaguePrivacy.public,
-        region: 'Global',
-        maxTeams: 0,
-        season: '2026',
-        organizerUserId: '',
-        code: '',
-        settings: LeagueSettings.defaultSettings(),
-        updatedAtMs: 0,
-        version: 1,
-      ),
+    
+    // Attempt to find the specific league
+    final league = leagues.cast<League?>().firstWhere(
+      (l) => l?.id == widget.leagueId,
+      orElse: () => null,
     );
+
+    if (league == null) {
+      throw Exception("League not found");
+    }
     
     final fixtures = await _repo.getMatches(widget.leagueId);
     final teams = await _repo.getTeams(widget.leagueId);
@@ -73,6 +66,9 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
     final screenWidth = MediaQuery.of(context).size.width;
     final isWide = screenWidth > 600;
 
+    // TODO: Replace with your actual Auth Provider logic
+    const String currentUserId = 'admin_user'; 
+
     return GlassScaffold(
       appBar: AppBar(
         title: const Text('League Details'),
@@ -87,19 +83,30 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
               return const Center(child: CircularProgressIndicator(color: Colors.cyanAccent));
             }
 
+            if (snapshot.hasError || !snapshot.hasData) {
+              return Center(
+                child: Text(
+                  "Error: ${snapshot.error ?? 'League Data Missing'}",
+                  style: const TextStyle(color: Colors.white70),
+                ),
+              );
+            }
+
             final league = snapshot.data!['league'] as League;
             final fixtures = snapshot.data!['fixtures'] as List<FixtureMatch>;
             final teamNames = snapshot.data!['teamNames'] as Map<String, String>;
             final nextFixture = fixtures.isNotEmpty ? fixtures.first : null;
+
+            final bool isOwner = league.organizerUserId == currentUserId;
 
             return ConstrainedBox(
               constraints: BoxConstraints(maxWidth: isWide ? 600 : 500),
               child: ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
-                  _overviewCard(context, primary, league),
+                  _overviewCard(context, primary, league, isOwner),
                   const SizedBox(height: 16),
-                  _quickActions(context),
+                  _quickActions(context, isOwner),
                   const SizedBox(height: 16),
                   _nextFixture(context, nextFixture, teamNames),
                 ],
@@ -111,20 +118,29 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
     );
   }
 
-  Widget _overviewCard(BuildContext context, Color c, League league) {
+  Widget _overviewCard(BuildContext context, Color c, League league, bool isOwner) {
     return Glass(
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            league.name,
-            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.white),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  league.name, // This strictly calls the name from the model
+                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.white),
+                ),
+              ),
+              if (isOwner)
+                const Icon(Icons.verified_user, color: Colors.cyanAccent, size: 20),
+            ],
           ),
           const SizedBox(height: 4),
           Text(
             '${league.format.displayName} • Auto standings',
-            style: TextStyle(color: Colors.white60, fontSize: 14),
+            style: const TextStyle(color: Colors.white60, fontSize: 14),
           ),
           const SizedBox(height: 18),
           Wrap(
@@ -141,7 +157,7 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
     );
   }
 
-  Widget _quickActions(BuildContext context) {
+  Widget _quickActions(BuildContext context, bool isOwner) {
     return Glass(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -179,20 +195,23 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              style: FilledButton.styleFrom(
-                backgroundColor: Colors.cyanAccent.withOpacity(0.1),
-                foregroundColor: Colors.cyanAccent,
-                padding: const EdgeInsets.symmetric(vertical: 14),
+          
+          if (isOwner) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.cyanAccent.withOpacity(0.1),
+                  foregroundColor: Colors.cyanAccent,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                icon: const Icon(Icons.edit_note),
+                label: const Text('Manage Scores (Admin)'),
+                onPressed: () => context.push('/leagues/${widget.leagueId}/admin-scores'),
               ),
-              icon: const Icon(Icons.edit_note),
-              label: const Text('Manage Scores (Admin)'),
-              onPressed: () => context.push('/leagues/${widget.leagueId}/admin-scores'),
             ),
-          ),
+          ],
         ],
       ),
     );
