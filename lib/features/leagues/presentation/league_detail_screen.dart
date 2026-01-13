@@ -54,8 +54,6 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
     );
     
     final fixtures = await _repo.getMatches(widget.leagueId);
-    
-    // FIX: Fetch teams from repository instead of league model getter
     final teams = await _repo.getTeams(widget.leagueId);
     final Map<String, String> teamNames = {
       for (var team in teams) team.id: team.name
@@ -72,6 +70,8 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final primary = theme.colorScheme.primary;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isWide = screenWidth > 600;
 
     return GlassScaffold(
       appBar: AppBar(
@@ -80,32 +80,32 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
         elevation: 0,
       ),
       body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 800),
-          child: FutureBuilder<Map<String, dynamic>>(
-            future: _loadData(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
+        child: FutureBuilder<Map<String, dynamic>>(
+          future: _loadData(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator(color: Colors.cyanAccent));
+            }
 
-              final league = snapshot.data!['league'] as League;
-              final fixtures = snapshot.data!['fixtures'] as List<FixtureMatch>;
-              final teamNames = snapshot.data!['teamNames'] as Map<String, String>;
-              final nextFixture = fixtures.isNotEmpty ? fixtures.first : null;
+            final league = snapshot.data!['league'] as League;
+            final fixtures = snapshot.data!['fixtures'] as List<FixtureMatch>;
+            final teamNames = snapshot.data!['teamNames'] as Map<String, String>;
+            final nextFixture = fixtures.isNotEmpty ? fixtures.first : null;
 
-              return ListView(
+            return ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: isWide ? 600 : 500),
+              child: ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
                   _overviewCard(context, primary, league),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
                   _quickActions(context),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
                   _nextFixture(context, nextFixture, teamNames),
                 ],
-              );
-            },
-          ),
+              ),
+            );
+          },
         ),
       ),
     );
@@ -113,26 +113,27 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
 
   Widget _overviewCard(BuildContext context, Color c, League league) {
     return Glass(
+      padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             league.name,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.white),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
           Text(
             '${league.format.displayName} • Auto standings',
-            style: TextStyle(color: Theme.of(context).hintColor),
+            style: TextStyle(color: Colors.white60, fontSize: 14),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 18),
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
-              _pill(league.isPrivate ? 'Private' : 'Public', c),
-              _pill('${league.maxTeams} Teams', c),
-              _pill('Region: ${league.region}', c),
+              _pill(league.isPrivate ? 'Private' : 'Public', Colors.cyanAccent),
+              _pill('${league.maxTeams} Teams', Colors.orangeAccent),
+              _pill(league.region, Colors.purpleAccent),
             ],
           ),
         ],
@@ -142,40 +143,50 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
 
   Widget _quickActions(BuildContext context) {
     return Glass(
+      padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
             'Actions',
-            style: TextStyle(fontWeight: FontWeight.w900),
+            style: TextStyle(fontWeight: FontWeight.w900, color: Colors.white, fontSize: 16),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 16),
           Row(
             children: [
               Expanded(
                 child: FilledButton.icon(
-                  icon: const Icon(Icons.list_alt),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.white.withOpacity(0.05),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  icon: const Icon(Icons.list_alt, size: 20),
                   label: const Text('Fixtures'),
                   onPressed: () => context.push('/leagues/${widget.leagueId}/fixtures'),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 12),
               Expanded(
-                child: OutlinedButton.icon(
-                  icon: const Icon(Icons.leaderboard),
+                child: FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.white.withOpacity(0.05),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  icon: const Icon(Icons.leaderboard, size: 20),
                   label: const Text('Standings'),
                   onPressed: () => context.push('/leagues/${widget.leagueId}/standings'),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
               style: FilledButton.styleFrom(
                 backgroundColor: Colors.cyanAccent.withOpacity(0.1),
                 foregroundColor: Colors.cyanAccent,
+                padding: const EdgeInsets.symmetric(vertical: 14),
               ),
               icon: const Icon(Icons.edit_note),
               label: const Text('Manage Scores (Admin)'),
@@ -192,41 +203,47 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
     final awayName = names[fixture?.awayTeamId] ?? fixture?.awayTeamId ?? 'TBD';
 
     return Glass(
+      padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Next Fixture',
-            style: TextStyle(fontWeight: FontWeight.w900),
-          ),
-          const SizedBox(height: 10),
-          if (fixture != null)
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    '$homeName vs $awayName',
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Next Fixture',
+                style: TextStyle(fontWeight: FontWeight.w900, color: Colors.white, fontSize: 16),
+              ),
+              if (fixture != null)
                 Text(
                   'Round ${fixture.roundNumber}',
-                  style: TextStyle(color: Theme.of(context).hintColor),
+                  style: const TextStyle(color: Colors.white38, fontSize: 12),
                 ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          if (fixture != null)
+            Row(
+              children: [
+                Expanded(child: Text(homeName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold), textAlign: TextAlign.right)),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  child: Text('VS', style: TextStyle(color: Colors.cyanAccent, fontWeight: FontWeight.w900, fontSize: 12)),
+                ),
+                Expanded(child: Text(awayName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
               ],
             )
           else
             const Text('No fixtures yet.', style: TextStyle(color: Colors.white38)),
-          const SizedBox(height: 10),
+          const SizedBox(height: 16),
           Align(
             alignment: Alignment.centerRight,
-            child: TextButton(
+            child: TextButton.icon(
               onPressed: fixture != null
                   ? () => context.push('/leagues/${widget.leagueId}/matches/${fixture.id}')
                   : null,
-              child: const Text('View match'),
+              icon: const Icon(Icons.arrow_forward, size: 16),
+              label: const Text('View match details'),
             ),
           ),
         ],
@@ -236,15 +253,15 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
 
   Widget _pill(String text, Color c) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(999),
-        color: c.withOpacity(0.12),
-        border: Border.all(color: c.withOpacity(0.22)),
+        borderRadius: BorderRadius.circular(8),
+        color: c.withOpacity(0.1),
+        border: Border.all(color: c.withOpacity(0.2)),
       ),
       child: Text(
         text,
-        style: TextStyle(fontWeight: FontWeight.w800, color: c, fontSize: 12),
+        style: TextStyle(fontWeight: FontWeight.bold, color: c, fontSize: 11),
       ),
     );
   }

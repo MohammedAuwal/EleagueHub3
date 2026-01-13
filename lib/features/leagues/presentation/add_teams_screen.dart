@@ -79,7 +79,6 @@ class _AddTeamsScreenState extends ConsumerState<AddTeamsScreen> {
   Future<void> _generateAndSave() async {
     if (_tempTeams.isEmpty) return;
 
-    // 1. Create and Save Teams
     final List<Team> teamsToSave = _tempTeams.map((t) {
       return Team(
         id: const Uuid().v4(),
@@ -92,7 +91,6 @@ class _AddTeamsScreenState extends ConsumerState<AddTeamsScreen> {
 
     await _localRepo.saveTeams(widget.leagueId, teamsToSave);
 
-    // 2. Generate Fixtures based on Format
     List<FixtureMatch> generatedFixtures = [];
     final teamIds = teamsToSave.map((t) => t.id).toList();
 
@@ -100,11 +98,10 @@ class _AddTeamsScreenState extends ConsumerState<AddTeamsScreen> {
       generatedFixtures = RoundRobinGenerator.generate(
         leagueId: widget.leagueId,
         teamIds: teamIds,
-        doubleRoundRobin: true, // Classic usually Home & Away
+        doubleRoundRobin: true,
         startRoundNumber: 1,
       );
     } else if (widget.format == LeagueFormat.uclGroup) {
-      // Logic for UCL Group Stage generation
       for (var groupName in _groups) {
         final groupTeams = teamsToSave
             .where((t) => _tempTeams.firstWhere((temp) => temp['name'] == t.name)['group'] == groupName)
@@ -125,7 +122,6 @@ class _AddTeamsScreenState extends ConsumerState<AddTeamsScreen> {
       }
     }
 
-    // 3. Save Fixtures to Repository
     if (generatedFixtures.isNotEmpty) {
       await _localRepo.saveMatches(widget.leagueId, generatedFixtures);
     }
@@ -137,47 +133,54 @@ class _AddTeamsScreenState extends ConsumerState<AddTeamsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isWide = screenWidth > 600;
+
     return GlassScaffold(
       appBar: AppBar(
         title: Text('Add Teams · ${widget.format.displayName}'),
         elevation: 0,
         backgroundColor: Colors.transparent,
       ),
-      body: Column(
-        children: [
-          if (widget.format == LeagueFormat.uclGroup)
-            _buildGroupSelector(),
-          Expanded(child: _buildBulkEntry()),
-          _buildPreviewPanel(),
-        ],
+      body: Center(
+        child: ConstrainedBox(
+          // Centering the layout and limiting width to stop it from stretching
+          constraints: BoxConstraints(maxWidth: isWide ? 600 : 500),
+          child: Column(
+            children: [
+              if (widget.format == LeagueFormat.uclGroup)
+                _buildGroupSelector(),
+              Expanded(child: _buildBulkEntry()),
+              _buildPreviewPanel(),
+            ],
+          ),
+        ),
       ),
     );
   }
 
   Widget _buildGroupSelector() {
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Glass(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Row(
-            children: [
-              const Text('Assign to', style: TextStyle(color: Colors.white70)),
-              const SizedBox(width: 16),
-              Expanded(
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    value: _selectedGroup,
-                    dropdownColor: const Color(0xFF000428),
-                    style: const TextStyle(color: Colors.cyanAccent),
-                    isExpanded: true,
-                    items: _groups.map((g) => DropdownMenuItem(value: g, child: Text(g))).toList(),
-                    onChanged: (v) => setState(() => _selectedGroup = v!),
-                  ),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        child: Row(
+          children: [
+            const Text('Assign to', style: TextStyle(color: Colors.white70)),
+            const SizedBox(width: 16),
+            Expanded(
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: _selectedGroup,
+                  dropdownColor: const Color(0xFF000428),
+                  style: const TextStyle(color: Colors.cyanAccent),
+                  isExpanded: true,
+                  items: _groups.map((g) => DropdownMenuItem(value: g, child: Text(g))).toList(),
+                  onChanged: (v) => setState(() => _selectedGroup = v!),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -198,16 +201,16 @@ class _AddTeamsScreenState extends ConsumerState<AddTeamsScreen> {
                   hintText: 'Paste team names (comma or new line separated)',
                   hintStyle: TextStyle(color: Colors.white38),
                   border: InputBorder.none,
-                  contentPadding: EdgeInsets.all(16),
                 ),
               ),
             ),
             Padding(
-              padding: const EdgeInsets.all(16),
-              child: ElevatedButton(
+              padding: const EdgeInsets.only(top: 12),
+              child: FilledButton(
                 onPressed: _importBulk,
-                style: ElevatedButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 45),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 50),
+                  backgroundColor: Colors.white.withOpacity(0.1),
                 ),
                 child: const Text('ADD TEAMS'),
               ),
@@ -220,32 +223,36 @@ class _AddTeamsScreenState extends ConsumerState<AddTeamsScreen> {
 
   Widget _buildPreviewPanel() {
     return Container(
-      height: 360,
+      height: 320,
+      margin: const EdgeInsets.only(top: 8),
       decoration: BoxDecoration(
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-        color: Colors.white.withOpacity(0.04),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+        color: Colors.black.withOpacity(0.2),
         border: Border.all(color: Colors.white10),
       ),
       child: Column(
         children: [
           const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16),
+            padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
             child: SectionHeader('Team Preview'),
           ),
           Expanded(
             child: ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
               itemCount: _tempTeams.length,
               itemBuilder: (context, i) {
                 final team = _tempTeams[i];
                 return ListTile(
+                  dense: true,
                   leading: CircleAvatar(
+                    radius: 14,
                     backgroundColor: Colors.cyanAccent.withOpacity(0.15),
-                    child: Text('${i + 1}', style: const TextStyle(color: Colors.cyanAccent, fontSize: 12)),
+                    child: Text('${i + 1}', style: const TextStyle(color: Colors.cyanAccent, fontSize: 10)),
                   ),
                   title: Text(team['name']!, style: const TextStyle(color: Colors.white, fontSize: 14)),
-                  subtitle: Text(team['group']!, style: const TextStyle(color: Colors.white38, fontSize: 12)),
+                  subtitle: Text(team['group']!, style: const TextStyle(color: Colors.white38, fontSize: 11)),
                   trailing: IconButton(
-                    icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
+                    icon: const Icon(Icons.remove_circle_outline, color: Colors.white24, size: 18),
                     onPressed: () => setState(() => _tempTeams.removeAt(i)),
                   ),
                 );
@@ -253,17 +260,15 @@ class _AddTeamsScreenState extends ConsumerState<AddTeamsScreen> {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.all(16),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(18),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
-                child: ElevatedButton(
-                  onPressed: _tempTeams.isEmpty ? null : _generateAndSave,
-                  style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 56)),
-                  child: const Text('GENERATE FIXTURES', style: TextStyle(fontWeight: FontWeight.bold)),
-                ),
+            padding: const EdgeInsets.all(20),
+            child: FilledButton(
+              onPressed: _tempTeams.isEmpty ? null : _generateAndSave,
+              style: FilledButton.styleFrom(
+                minimumSize: const Size(double.infinity, 56),
+                backgroundColor: Colors.cyanAccent,
+                foregroundColor: Colors.black,
               ),
+              child: const Text('GENERATE FIXTURES', style: TextStyle(fontWeight: FontWeight.bold)),
             ),
           ),
         ],

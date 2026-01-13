@@ -20,22 +20,28 @@ class AdminScoreMgmtScreen extends ConsumerStatefulWidget {
 class _AdminScoreMgmtScreenState extends ConsumerState<AdminScoreMgmtScreen> {
   late LocalLeaguesRepository _repo;
   List<FixtureMatch> _matches = [];
+  Map<String, String> _teamNames = {};
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
     _repo = LocalLeaguesRepository(ref.read(prefsServiceProvider));
-    _loadMatches();
+    _loadData();
   }
 
-  Future<void> _loadMatches() async {
+  Future<void> _loadData() async {
     if (!mounted) return;
     setState(() => _isLoading = true);
+    
+    // Fetch both matches and teams to resolve names
     final matches = await _repo.getMatches(widget.leagueId);
+    final teams = await _repo.getTeams(widget.leagueId);
+    
     if (!mounted) return;
     setState(() {
       _matches = matches;
+      _teamNames = { for (var t in teams) t.id: t.name };
       _isLoading = false;
     });
   }
@@ -52,9 +58,13 @@ class _AdminScoreMgmtScreenState extends ConsumerState<AdminScoreMgmtScreen> {
     
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Score Updated Locally"), backgroundColor: Colors.cyan),
+        const SnackBar(
+          content: Text("Score Updated Successfully"), 
+          backgroundColor: Colors.cyan,
+          behavior: SnackBarBehavior.floating,
+        ),
       );
-      _loadMatches();
+      _loadData();
     }
   }
 
@@ -73,7 +83,8 @@ class _AdminScoreMgmtScreenState extends ConsumerState<AdminScoreMgmtScreen> {
           ? const Center(child: CircularProgressIndicator(color: Colors.cyanAccent))
           : Center(
               child: ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: isTablet ? 1000 : 600),
+                // Limit width to 500 on phones to prevent the "stretched" look from your screenshot
+                constraints: BoxConstraints(maxWidth: isTablet ? 1000 : 500),
                 child: Column(
                   children: [
                     const Padding(
@@ -83,21 +94,20 @@ class _AdminScoreMgmtScreenState extends ConsumerState<AdminScoreMgmtScreen> {
                     Expanded(
                       child: _matches.isEmpty
                           ? const Center(child: Text("No matches to manage", style: TextStyle(color: Colors.white38)))
-                          : GridView.builder(
+                          : ListView.builder(
                               padding: const EdgeInsets.all(16),
-                              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: isTablet ? 2 : 1,
-                                mainAxisSpacing: 12,
-                                crossAxisSpacing: 12,
-                                mainAxisExtent: 180,
-                              ),
                               itemCount: _matches.length,
                               itemBuilder: (context, index) {
                                 final match = _matches[index];
-                                return _ScoreEntryTile(
-                                  key: ValueKey(match.id),
-                                  match: match,
-                                  onSave: (h, a) => _updateScore(match, h, a),
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 12),
+                                  child: _ScoreEntryTile(
+                                    key: ValueKey(match.id),
+                                    match: match,
+                                    homeName: _teamNames[match.homeTeamId] ?? "Home",
+                                    awayName: _teamNames[match.awayTeamId] ?? "Away",
+                                    onSave: (h, a) => _updateScore(match, h, a),
+                                  ),
                                 );
                               },
                             ),
@@ -112,9 +122,17 @@ class _AdminScoreMgmtScreenState extends ConsumerState<AdminScoreMgmtScreen> {
 
 class _ScoreEntryTile extends StatefulWidget {
   final FixtureMatch match;
+  final String homeName;
+  final String awayName;
   final Function(int, int) onSave;
 
-  const _ScoreEntryTile({super.key, required this.match, required this.onSave});
+  const _ScoreEntryTile({
+    super.key, 
+    required this.match, 
+    required this.homeName,
+    required this.awayName,
+    required this.onSave
+  });
 
   @override
   State<_ScoreEntryTile> createState() => _ScoreEntryTileState();
@@ -141,35 +159,55 @@ class _ScoreEntryTileState extends State<_ScoreEntryTile> {
   @override
   Widget build(BuildContext context) {
     return Glass(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       child: Column(
         children: [
           Row(
             children: [
-              Expanded(child: Text(widget.match.homeTeamId, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
-              const Text(" VS ", style: TextStyle(color: Colors.white24)),
-              Expanded(child: Text(widget.match.awayTeamId, textAlign: TextAlign.end, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
+              Expanded(
+                child: Text(
+                  widget.homeName, 
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold), 
+                  overflow: TextOverflow.ellipsis
+                )
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 8),
+                child: Text("VS", style: TextStyle(color: Colors.white24, fontSize: 12, fontWeight: FontWeight.w900)),
+              ),
+              Expanded(
+                child: Text(
+                  widget.awayName, 
+                  textAlign: TextAlign.end, 
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold), 
+                  overflow: TextOverflow.ellipsis
+                )
+              ),
             ],
           ),
-          const Divider(color: Colors.white10, height: 24),
+          const SizedBox(height: 20),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               _scoreField(_hController),
               const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20),
-                child: Text("-", style: TextStyle(color: Colors.white, fontSize: 24)),
+                padding: EdgeInsets.symmetric(horizontal: 24),
+                child: Text(":", style: TextStyle(color: Colors.white38, fontSize: 24)),
               ),
               _scoreField(_aController),
-              const SizedBox(width: 20),
-              IconButton(
+              const SizedBox(width: 24),
+              IconButton.filled(
                 onPressed: () {
                   final h = int.tryParse(_hController.text) ?? 0;
                   final a = int.tryParse(_aController.text) ?? 0;
                   widget.onSave(h, a);
                   FocusScope.of(context).unfocus();
                 },
-                icon: const Icon(Icons.check_circle, color: Colors.cyanAccent, size: 32),
+                style: IconButton.styleFrom(
+                  backgroundColor: Colors.cyanAccent.withOpacity(0.2),
+                  foregroundColor: Colors.cyanAccent,
+                ),
+                icon: const Icon(Icons.done_all, size: 24),
               )
             ],
           )
@@ -180,15 +218,24 @@ class _ScoreEntryTileState extends State<_ScoreEntryTile> {
 
   Widget _scoreField(TextEditingController controller) {
     return SizedBox(
-      width: 50,
+      width: 60,
       child: TextField(
         controller: controller,
         keyboardType: TextInputType.number,
         textAlign: TextAlign.center,
-        style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-        decoration: const InputDecoration(
-          enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
-          focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.cyanAccent)),
+        style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900),
+        decoration: InputDecoration(
+          contentPadding: const EdgeInsets.symmetric(vertical: 8),
+          filled: true,
+          fillColor: Colors.white.withOpacity(0.05),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: Colors.white10),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: Colors.cyanAccent),
+          ),
         ),
       ),
     );
