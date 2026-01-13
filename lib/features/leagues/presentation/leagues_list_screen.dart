@@ -18,7 +18,6 @@ class LeaguesListScreen extends ConsumerStatefulWidget {
 }
 
 class _LeaguesListScreenState extends ConsumerState<LeaguesListScreen> {
-  // Use late to initialize once ref is available in initState
   late LocalLeaguesRepository _localRepo;
   List<League> _leagues = [];
   bool _isLoading = true;
@@ -26,7 +25,6 @@ class _LeaguesListScreenState extends ConsumerState<LeaguesListScreen> {
   @override
   void initState() {
     super.initState();
-    // Initialize repo using the shared PreferencesService
     _localRepo = LocalLeaguesRepository(ref.read(prefsServiceProvider));
     _refreshLeagues();
   }
@@ -43,6 +41,9 @@ class _LeaguesListScreenState extends ConsumerState<LeaguesListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isTablet = screenWidth > 600;
+
     return GlassScaffold(
       appBar: AppBar(
         title: const Text('Leagues'),
@@ -57,38 +58,46 @@ class _LeaguesListScreenState extends ConsumerState<LeaguesListScreen> {
         ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const GlassSearchBar(),
-          const SizedBox(height: 12),
-          Expanded(
-            child: _isLoading 
-                ? const Center(child: CircularProgressIndicator(color: Colors.white))
-                : _leagues.isEmpty
-                    ? _buildEmptyState(context)
-                    : _buildLeagueList(context, _leagues),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: isTablet ? 900 : 600),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const GlassSearchBar(),
+              const SizedBox(height: 12),
+              Expanded(
+                child: _isLoading 
+                    ? const Center(child: CircularProgressIndicator(color: Colors.white))
+                    : _leagues.isEmpty
+                        ? _buildEmptyState(context)
+                        : _buildLeagueList(context, _leagues, isTablet),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildLeagueList(BuildContext context, List<League> leagues) {
-    return ListView.builder(
+  Widget _buildLeagueList(BuildContext context, List<League> leagues, bool isTablet) {
+    return GridView.builder(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 140),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: isTablet ? 2 : 1,
+        mainAxisSpacing: 16,
+        crossAxisSpacing: 16,
+        mainAxisExtent: 180, // Keeps the flip card height consistent
+      ),
       itemCount: leagues.length,
       itemBuilder: (context, index) {
         final league = leagues[index];
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 16),
-          child: GestureDetector(
-            onDoubleTap: () => context.push('/leagues/${league.id}'),
-            child: LeagueFlipCard(
-              leagueName: league.name,
-              leagueCode: league.id,
-              distribution: league.format.displayName,
-            ),
+        return GestureDetector(
+          onDoubleTap: () => context.push('/leagues/${league.id}'),
+          child: LeagueFlipCard(
+            leagueName: league.name,
+            leagueCode: league.id,
+            distribution: league.format.displayName,
           ),
         );
       },
@@ -96,34 +105,23 @@ class _LeaguesListScreenState extends ConsumerState<LeaguesListScreen> {
   }
 
   Widget _buildEmptyState(BuildContext context) {
-    final t = Theme.of(context).textTheme;
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        child: Glass(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.emoji_events_outlined, 
-                  size: 72, 
-                  color: Colors.white.withOpacity(0.3)
-                ),
-                const SizedBox(height: 16),
-                Text('No active leagues', 
-                  style: t.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800, 
-                    color: Colors.white
-                  )
-                ),
-                const SizedBox(height: 6),
-                const Text(
-                  'Tap + to create your first league offline.', 
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.white70),
-                ),
-              ],
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Glass(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.emoji_events_outlined, size: 72, color: Colors.white.withOpacity(0.3)),
+                  const SizedBox(height: 16),
+                  const Text('No active leagues', style: TextStyle(fontWeight: FontWeight.w800, color: Colors.white, fontSize: 18)),
+                  const SizedBox(height: 6),
+                  const Text('Tap + to create your first league offline.', textAlign: TextAlign.center, style: TextStyle(color: Colors.white70)),
+                ],
+              ),
             ),
           ),
         ),
@@ -135,42 +133,38 @@ class _LeaguesListScreenState extends ConsumerState<LeaguesListScreen> {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (context) => Glass(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.add_circle_outline, color: Colors.white),
-              title: const Text('Create New League', 
-                style: TextStyle(color: Colors.white)
-              ),
-              onTap: () async {
-                context.pop();
-                await context.push('/leagues/create');
-                _refreshLeagues(); // Refresh data on return
-              },
+      builder: (context) => Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 600),
+          child: Glass(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.add_circle_outline, color: Colors.white),
+                  title: const Text('Create New League', style: TextStyle(color: Colors.white)),
+                  onTap: () async {
+                    context.pop();
+                    await context.push('/leagues/create');
+                    _refreshLeagues();
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.qr_code_scanner, color: Colors.white),
+                  title: const Text('Join Existing League', style: TextStyle(color: Colors.white)),
+                  onTap: () async {
+                    context.pop();
+                    final result = await context.push<String>('/leagues/join-scanner');
+                    if (result != null && mounted) {
+                       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Joined: $result'), behavior: SnackBarBehavior.floating));
+                      _refreshLeagues();
+                    }
+                  },
+                ),
+                const SizedBox(height: 40),
+              ],
             ),
-            ListTile(
-              leading: const Icon(Icons.qr_code_scanner, color: Colors.white),
-              title: const Text('Join Existing League', 
-                style: TextStyle(color: Colors.white)
-              ),
-              onTap: () async {
-                context.pop();
-                final result = await context.push<String>('/leagues/join-scanner');
-                if (result != null && mounted) {
-                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Joined: $result'), 
-                      behavior: SnackBarBehavior.floating
-                    ),
-                  );
-                  _refreshLeagues();
-                }
-              },
-            ),
-            const SizedBox(height: 40),
-          ],
+          ),
         ),
       ),
     );

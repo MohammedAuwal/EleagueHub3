@@ -67,7 +67,7 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
-      body: FutureBuilder<Map<String, dynamic>>(
+      body: Center(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 800), child: FutureBuilder<Map<String, dynamic>>(
         future: _loadData(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -88,7 +88,7 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
               _nextFixture(context, nextFixture),
             ],
           );
-        },
+        })),
       ),
     );
   }

@@ -44,7 +44,7 @@ class GlassScaffold extends StatelessWidget {
           SafeArea(
             top: appBar == null,
             bottom: true,
-            child: body,
+            child: Center(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 800), child: body)),
           ),
         ],
       ),

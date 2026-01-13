@@ -52,10 +52,7 @@ class _AdminScoreMgmtScreenState extends ConsumerState<AdminScoreMgmtScreen> {
     
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Score Updated Locally"),
-          backgroundColor: Colors.cyan,
-        ),
+        const SnackBar(content: Text("Score Updated Locally"), backgroundColor: Colors.cyan),
       );
       _loadMatches();
     }
@@ -63,6 +60,9 @@ class _AdminScoreMgmtScreenState extends ConsumerState<AdminScoreMgmtScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    final isTablet = width > 700;
+
     return GlassScaffold(
       appBar: AppBar(
         title: const Text("Score Management"),
@@ -71,29 +71,40 @@ class _AdminScoreMgmtScreenState extends ConsumerState<AdminScoreMgmtScreen> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: Colors.cyanAccent))
-          : Column(
-              children: [
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16),
-                  child: SectionHeader('Update Match Results'),
+          : Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: isTablet ? 1000 : 600),
+                child: Column(
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16),
+                      child: SectionHeader('Update Match Results'),
+                    ),
+                    Expanded(
+                      child: _matches.isEmpty
+                          ? const Center(child: Text("No matches to manage", style: TextStyle(color: Colors.white38)))
+                          : GridView.builder(
+                              padding: const EdgeInsets.all(16),
+                              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: isTablet ? 2 : 1,
+                                mainAxisSpacing: 12,
+                                crossAxisSpacing: 12,
+                                mainAxisExtent: 180,
+                              ),
+                              itemCount: _matches.length,
+                              itemBuilder: (context, index) {
+                                final match = _matches[index];
+                                return _ScoreEntryTile(
+                                  key: ValueKey(match.id),
+                                  match: match,
+                                  onSave: (h, a) => _updateScore(match, h, a),
+                                );
+                              },
+                            ),
+                    ),
+                  ],
                 ),
-                Expanded(
-                  child: _matches.isEmpty
-                      ? const Center(child: Text("No matches to manage", style: TextStyle(color: Colors.white38)))
-                      : ListView.builder(
-                          padding: const EdgeInsets.all(16),
-                          itemCount: _matches.length,
-                          itemBuilder: (context, index) {
-                            final match = _matches[index];
-                            return _ScoreEntryTile(
-                              key: ValueKey(match.id),
-                              match: match,
-                              onSave: (h, a) => _updateScore(match, h, a),
-                            );
-                          },
-                        ),
-                ),
-              ],
+              ),
             ),
     );
   }
@@ -129,43 +140,40 @@ class _ScoreEntryTileState extends State<_ScoreEntryTile> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Glass(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                Expanded(child: Text(widget.match.homeTeamId, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
-                const Text(" VS ", style: TextStyle(color: Colors.white24)),
-                Expanded(child: Text(widget.match.awayTeamId, textAlign: TextAlign.end, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
-              ],
-            ),
-            const Divider(color: Colors.white10, height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _scoreField(_hController),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 20),
-                  child: Text("-", style: TextStyle(color: Colors.white, fontSize: 24)),
-                ),
-                _scoreField(_aController),
-                const SizedBox(width: 20),
-                IconButton(
-                  onPressed: () {
-                    final h = int.tryParse(_hController.text) ?? 0;
-                    final a = int.tryParse(_aController.text) ?? 0;
-                    widget.onSave(h, a);
-                    FocusScope.of(context).unfocus();
-                  },
-                  icon: const Icon(Icons.check_circle, color: Colors.cyanAccent, size: 32),
-                )
-              ],
-            )
-          ],
-        ),
+    return Glass(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(child: Text(widget.match.homeTeamId, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
+              const Text(" VS ", style: TextStyle(color: Colors.white24)),
+              Expanded(child: Text(widget.match.awayTeamId, textAlign: TextAlign.end, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
+            ],
+          ),
+          const Divider(color: Colors.white10, height: 24),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _scoreField(_hController),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20),
+                child: Text("-", style: TextStyle(color: Colors.white, fontSize: 24)),
+              ),
+              _scoreField(_aController),
+              const SizedBox(width: 20),
+              IconButton(
+                onPressed: () {
+                  final h = int.tryParse(_hController.text) ?? 0;
+                  final a = int.tryParse(_aController.text) ?? 0;
+                  widget.onSave(h, a);
+                  FocusScope.of(context).unfocus();
+                },
+                icon: const Icon(Icons.check_circle, color: Colors.cyanAccent, size: 32),
+              )
+            ],
+          )
+        ],
       ),
     );
   }
