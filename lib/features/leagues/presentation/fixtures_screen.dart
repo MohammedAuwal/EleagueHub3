@@ -25,16 +25,30 @@ class FixturesScreen extends ConsumerStatefulWidget {
 class _FixturesScreenState extends ConsumerState<FixturesScreen> {
   int _selectedRound = 1;
   late LocalLeaguesRepository _repo;
+  Map<String, String> _teamNames = {};
+  bool _isLoadingData = true;
 
   @override
   void initState() {
     super.initState();
     _repo = LocalLeaguesRepository(ref.read(prefsServiceProvider));
+    _loadInitialData();
+  }
+
+  Future<void> _loadInitialData() async {
+    final leagues = await _repo.listLeagues();
+    final league = leagues.firstWhere((l) => l.id == widget.leagueId);
+    
+    if (mounted) {
+      setState(() {
+        _teamNames = { for (var t in league.teams ?? []) t.id : t.name };
+        _isLoadingData = false;
+      });
+    }
   }
 
   Future<List<FixtureMatch>> _getMatches() async {
     final allMatches = await _repo.getMatches(widget.leagueId);
-    // Filter matches by the selected round
     return allMatches.where((m) => m.roundNumber == _selectedRound).toList();
   }
 
@@ -46,31 +60,41 @@ class _FixturesScreenState extends ConsumerState<FixturesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    final isTablet = width > 700;
+
     return GlassScaffold(
       appBar: AppBar(
         title: const Text('Fixtures & Results'),
         elevation: 0,
         backgroundColor: Colors.transparent,
       ),
-      body: FutureBuilder<int>(
-        future: _getTotalRounds(),
-        builder: (context, snapshot) {
-          final totalRounds = snapshot.data ?? 0;
-          
-          return Column(
-            children: [
-              if (totalRounds > 0) _buildRoundSelector(totalRounds),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16),
-                child: SectionHeader('Matchday Schedule'),
+      body: _isLoadingData 
+        ? const Center(child: CircularProgressIndicator(color: Colors.cyanAccent))
+        : Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: isTablet ? 800 : 600),
+              child: FutureBuilder<int>(
+                future: _getTotalRounds(),
+                builder: (context, snapshot) {
+                  final totalRounds = snapshot.data ?? 0;
+                  
+                  return Column(
+                    children: [
+                      if (totalRounds > 0) _buildRoundSelector(totalRounds),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 16),
+                        child: SectionHeader('Matchday Schedule'),
+                      ),
+                      Expanded(
+                        child: _buildMatchesList(),
+                      ),
+                    ],
+                  );
+                },
               ),
-              Expanded(
-                child: _buildMatchesList(),
-              ),
-            ],
-          );
-        },
-      ),
+            ),
+          ),
     );
   }
 
@@ -124,40 +148,24 @@ class _FixturesScreenState extends ConsumerState<FixturesScreen> {
         final matches = snapshot.data ?? [];
 
         if (matches.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.03),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.table_chart_outlined, size: 48, color: Colors.white24),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'No matches generated yet',
-                  style: TextStyle(color: Colors.white38, fontSize: 14),
-                ),
-              ],
-            ),
+          return const Center(
+            child: Text('No matches generated yet', style: TextStyle(color: Colors.white38)),
           );
         }
 
         return ListView.builder(
           padding: const EdgeInsets.all(16),
           itemCount: matches.length,
-          itemBuilder: (context, index) {
-            return _buildMatchCard(matches[index]);
-          },
+          itemBuilder: (context, index) => _buildMatchCard(matches[index]),
         );
       },
     );
   }
 
   Widget _buildMatchCard(FixtureMatch match) {
+    final hName = _teamNames[match.homeTeamId] ?? "TBD";
+    final aName = _teamNames[match.awayTeamId] ?? "TBD";
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       child: Glass(
@@ -166,33 +174,28 @@ class _FixturesScreenState extends ConsumerState<FixturesScreen> {
           children: [
             Expanded(
               child: Text(
-                match.homeTeamId.length > 8 ? match.homeTeamId.substring(0, 8) : match.homeTeamId,
+                hName,
                 textAlign: TextAlign.right,
                 style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                overflow: TextOverflow.ellipsis,
               ),
             ),
             Container(
               width: 80,
               alignment: Alignment.center,
-              child: match.status == MatchStatus.completed || match.status == MatchStatus.played
+              child: (match.status == MatchStatus.completed || match.status == MatchStatus.played)
                   ? Text(
                       '${match.homeScore} - ${match.awayScore}',
-                      style: const TextStyle(
-                        color: Colors.cyanAccent,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                      ),
+                      style: const TextStyle(color: Colors.cyanAccent, fontWeight: FontWeight.bold, fontSize: 18),
                     )
-                  : const Text(
-                      'VS',
-                      style: TextStyle(color: Colors.white24, fontWeight: FontWeight.w900),
-                    ),
+                  : const Text('VS', style: TextStyle(color: Colors.white24, fontWeight: FontWeight.w900)),
             ),
             Expanded(
               child: Text(
-                match.awayTeamId.length > 8 ? match.awayTeamId.substring(0, 8) : match.awayTeamId,
+                aName,
                 textAlign: TextAlign.left,
                 style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           ],

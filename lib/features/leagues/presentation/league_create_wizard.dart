@@ -39,9 +39,9 @@ class _LeagueCreateWizardState extends State<LeagueCreateWizard> {
     return GlassScaffold(
       appBar: AppBar(
         title: const Text('Create League'),
-        backgroundColor: _format == LeagueFormat.classic 
-            ? Colors.green.withOpacity(0.3) 
-            : Colors.indigo.withOpacity(0.3),
+        // Fixed: Removed dynamic colors, using transparent to show main app theme
+        backgroundColor: Colors.transparent,
+        elevation: 0,
       ),
       body: Center(
         child: SingleChildScrollView(
@@ -55,7 +55,6 @@ class _LeagueCreateWizardState extends State<LeagueCreateWizard> {
               child: Glass(
                 padding: EdgeInsets.all(isTablet ? 32 : 16),
                 child: Stepper(
-                  // Switches to Horizontal on Tablets for better use of width
                   type: isTablet ? StepperType.horizontal : StepperType.vertical,
                   physics: const ClampingScrollPhysics(),
                   currentStep: _step,
@@ -141,7 +140,7 @@ class _LeagueCreateWizardState extends State<LeagueCreateWizard> {
         const SizedBox(height: 20),
         DropdownButtonFormField<LeagueFormat>(
           value: _format,
-          dropdownColor: Colors.indigo.shade900,
+          dropdownColor: const Color(0xFF0A1D37), // Matches navyBg
           style: const TextStyle(color: Colors.white),
           decoration: const InputDecoration(labelText: 'Tournament Format'),
           items: const [

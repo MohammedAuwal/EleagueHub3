@@ -52,8 +52,19 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
         version: 1,
       ),
     );
+    
     final fixtures = await _repo.getMatches(widget.leagueId);
-    return {'league': league, 'fixtures': fixtures};
+    
+    // Create the Team Name Map: Map<ID, Name>
+    final Map<String, String> teamNames = {
+      for (var team in league.teams ?? []) team.id: team.name
+    };
+
+    return {
+      'league': league, 
+      'fixtures': fixtures,
+      'teamNames': teamNames,
+    };
   }
 
   @override
@@ -67,28 +78,34 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
-      body: Center(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 800), child: FutureBuilder<Map<String, dynamic>>(
-        future: _loadData(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 800),
+          child: FutureBuilder<Map<String, dynamic>>(
+            future: _loadData(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
 
-          final league = snapshot.data!['league'] as League;
-          final fixtures = snapshot.data!['fixtures'] as List<FixtureMatch>;
-          final nextFixture = fixtures.isNotEmpty ? fixtures.first : null;
+              final league = snapshot.data!['league'] as League;
+              final fixtures = snapshot.data!['fixtures'] as List<FixtureMatch>;
+              final teamNames = snapshot.data!['teamNames'] as Map<String, String>;
+              final nextFixture = fixtures.isNotEmpty ? fixtures.first : null;
 
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              _overviewCard(context, primary, league),
-              const SizedBox(height: 12),
-              _quickActions(context),
-              const SizedBox(height: 12),
-              _nextFixture(context, nextFixture),
-            ],
-          );
-        })),
+              return ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  _overviewCard(context, primary, league),
+                  const SizedBox(height: 12),
+                  _quickActions(context),
+                  const SizedBox(height: 12),
+                  _nextFixture(context, nextFixture, teamNames),
+                ],
+              );
+            },
+          ),
+        ),
       ),
     );
   }
@@ -169,7 +186,11 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
     );
   }
 
-  Widget _nextFixture(BuildContext context, FixtureMatch? fixture) {
+  Widget _nextFixture(BuildContext context, FixtureMatch? fixture, Map<String, String> names) {
+    // Lookup names using the map, fallback to ID if not found
+    final homeName = names[fixture?.homeTeamId] ?? fixture?.homeTeamId ?? 'TBD';
+    final awayName = names[fixture?.awayTeamId] ?? fixture?.awayTeamId ?? 'TBD';
+
     return Glass(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -185,8 +206,9 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
               children: [
                 Expanded(
                   child: Text(
-                    '${fixture.homeTeamId} vs ${fixture.awayTeamId}',
+                    '$homeName vs $awayName',
                     overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),
                 Text(
