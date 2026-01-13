@@ -53,79 +53,77 @@ class _LeagueCreateWizardState extends ConsumerState<LeagueCreateWizard> {
           backgroundColor: Colors.transparent,
           elevation: 0,
         ),
-        body: SafeArea(
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: isWide ? 600 : 450),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    LeagueFlipCard(
-                      leagueName: league.name,
-                      leagueCode: league.code,
-                      distribution: '${league.format.displayName} • ${league.season}',
-                      subtitle: '0 / ${league.maxTeams} teams',
-                      onDoubleTap: () => context.push('/leagues/${league.id}'),
-                      qrWidget: QrImageView(
-                        data: league.qrPayload,
-                        version: QrVersions.auto,
-                        gapless: true,
-                        eyeStyle: const QrEyeStyle(
-                          eyeShape: QrEyeShape.square,
-                          color: Colors.black,
-                        ),
-                        dataModuleStyle: const QrDataModuleStyle(
-                          dataModuleShape: QrDataModuleShape.square,
-                          color: Colors.black,
-                        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: isWide ? 600 : 450),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  LeagueFlipCard(
+                    leagueName: league.name,
+                    leagueCode: league.code,
+                    distribution: '${league.format.displayName} • ${league.season}',
+                    subtitle: '0 / ${league.maxTeams} teams',
+                    onDoubleTap: () => context.push('/leagues/${league.id}'),
+                    qrWidget: QrImageView(
+                      data: league.qrPayload,
+                      version: QrVersions.auto,
+                      gapless: true,
+                      eyeStyle: const QrEyeStyle(
+                        eyeShape: QrEyeShape.square,
+                        color: Colors.black,
+                      ),
+                      dataModuleStyle: const QrDataModuleStyle(
+                        dataModuleShape: QrDataModuleShape.square,
+                        color: Colors.black,
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    Glass(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        children: [
-                          Text(
-                            'Share this Join ID or let others scan the QR on the back of the card.',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(color: Colors.white.withOpacity(0.75), height: 1.4),
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: FilledButton(
-                                  onPressed: () => context.go('/leagues'),
-                                  child: const Text('DONE'),
-                                ),
+                  ),
+                  const SizedBox(height: 16),
+                  Glass(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      children: [
+                        Text(
+                          'Share this Join ID or let others scan the QR on the back of the card.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.white.withOpacity(0.75), height: 1.4),
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: FilledButton(
+                                onPressed: () => context.go('/leagues'),
+                                child: const Text('DONE'),
                               ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: OutlinedButton(
-                                  onPressed: () => context.push(
-                                    '/leagues/add-teams',
-                                    extra: {'leagueId': league.id, 'format': league.format},
-                                  ),
-                                  child: const Text('ADD TEAMS'),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          TextButton(
-                            onPressed: () => context.push('/leagues/${league.id}'),
-                            child: const Text(
-                              'OPEN LEAGUE DETAILS',
-                              style: TextStyle(color: Colors.cyanAccent, fontWeight: FontWeight.bold),
                             ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () => context.push(
+                                  '/leagues/add-teams',
+                                  extra: {'leagueId': league.id, 'format': league.format},
+                                ),
+                                child: const Text('ADD TEAMS'),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        TextButton(
+                          onPressed: () => context.push('/leagues/${league.id}'),
+                          child: const Text(
+                            'OPEN LEAGUE DETAILS',
+                            style: TextStyle(color: Colors.cyanAccent, fontWeight: FontWeight.bold),
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -146,62 +144,71 @@ class _LeagueCreateWizardState extends ConsumerState<LeagueCreateWizard> {
             child: ConstrainedBox(
               constraints: BoxConstraints(maxWidth: isWide ? 600 : 450),
               child: Glass(
-                child: Stepper(
-                  physics: const NeverScrollableScrollPhysics(),
-                  currentStep: _step,
-                  controlsBuilder: (context, details) {
-                    final isLast = _step == 2;
-                    return Padding(
-                      padding: const EdgeInsets.only(top: 16),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          TextButton(
-                            onPressed: _submitting
-                                ? null
-                                : () {
-                                    if (_step == 0) {
-                                      context.pop();
-                                    } else {
-                                      setState(() => _step--);
-                                    }
-                                  },
-                            child: Text(_step == 0 ? 'Cancel' : 'Back'),
-                          ),
-                          const SizedBox(width: 12),
-                          FilledButton(
-                            onPressed: _submitting
-                                ? null
-                                : () async {
-                                    if (isLast) {
-                                      await _create(context);
-                                    } else {
-                                      if (_step == 0 && _name.text.trim().isEmpty) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(content: Text('Please enter a league name')),
-                                        );
-                                        return;
+                child: Theme(
+                  data: Theme.of(context).copyWith(
+                    colorScheme: Theme.of(context).colorScheme.copyWith(
+                          onSurface: Colors.white,
+                          primary: Colors.cyanAccent,
+                        ),
+                    dividerColor: Colors.white24,
+                  ),
+                  child: Stepper(
+                    physics: const NeverScrollableScrollPhysics(),
+                    currentStep: _step,
+                    controlsBuilder: (context, details) {
+                      final isLast = _step == 2;
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 16),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            TextButton(
+                              onPressed: _submitting
+                                  ? null
+                                  : () {
+                                      if (_step == 0) {
+                                        context.pop();
+                                      } else {
+                                        setState(() => _step--);
                                       }
-                                      setState(() => _step++);
-                                    }
-                                  },
-                            child: _submitting
-                                ? const SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                                  )
-                                : Text(isLast ? 'Create' : 'Next'),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                  steps: [
-                    Step(title: const Text('Basics'), content: _basicsStep(), isActive: _step >= 0),
-                    Step(title: const Text('Rules'), content: _rulesStep(), isActive: _step >= 1),
-                    Step(title: const Text('Review'), content: _reviewStep(), isActive: _step >= 2),
-                  ],
+                                    },
+                              child: Text(_step == 0 ? 'Cancel' : 'Back'),
+                            ),
+                            const SizedBox(width: 12),
+                            FilledButton(
+                              onPressed: _submitting
+                                  ? null
+                                  : () async {
+                                      if (isLast) {
+                                        await _create(context);
+                                      } else {
+                                        if (_step == 0 && _name.text.trim().isEmpty) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            const SnackBar(content: Text('Please enter a league name')),
+                                          );
+                                          return;
+                                        }
+                                        setState(() => _step++);
+                                      }
+                                    },
+                              child: _submitting
+                                  ? const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                    )
+                                  : Text(isLast ? 'Create' : 'Next'),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                    steps: [
+                      Step(title: const Text('Basics'), content: _basicsStep(), isActive: _step >= 0),
+                      Step(title: const Text('Rules'), content: _rulesStep(), isActive: _step >= 1),
+                      Step(title: const Text('Review'), content: _reviewStep(), isActive: _step >= 2),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -247,7 +254,10 @@ class _LeagueCreateWizardState extends ConsumerState<LeagueCreateWizard> {
           activeColor: Colors.cyanAccent,
           onChanged: (v) => setState(() => _doubleRoundRobin = v ?? true),
           title: const Text('Double Round Robin', style: TextStyle(color: Colors.white)),
-          subtitle: const Text('Home & Away legs (if applicable)', style: TextStyle(color: Colors.white38, fontSize: 12)),
+          subtitle: const Text(
+            'Home & Away legs (if applicable)',
+            style: TextStyle(color: Colors.white38, fontSize: 12),
+          ),
         ),
       ],
     );
@@ -287,13 +297,11 @@ class _LeagueCreateWizardState extends ConsumerState<LeagueCreateWizard> {
     final prefs = ref.read(prefsServiceProvider);
     final repo = LocalLeaguesRepository(prefs);
 
-    // Replace with auth provider later.
     final organizerUserId = prefs.getCurrentUserId() ?? 'admin_user';
 
     final leagueId = _uuid.v4();
     final now = DateTime.now().millisecondsSinceEpoch;
 
-    // Use your real LeagueSettings model
     final settings = LeagueSettings.defaultsFor(_format).copyWith(
       doubleRoundRobin: _doubleRoundRobin,
       lastPulledAtMs: 0,

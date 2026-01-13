@@ -36,15 +36,21 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
     if (league == null) {
       throw Exception("League not found in local storage");
     }
+
     final fixtures = await _repo.getMatches(widget.leagueId);
     final teams = await _repo.getTeams(widget.leagueId);
 
     final prefs = ref.read(prefsServiceProvider);
-    final currentUserId = prefs.getCurrentUserId() ?? prefs.getString(PreferencesService.kCurrentUserIdKey) ?? 'admin_user';
+    final currentUserId =
+        prefs.getCurrentUserId() ??
+        prefs.getString(PreferencesService.kCurrentUserIdKey) ??
+        'admin_user';
 
-    final membership = await _repo.getMembership(leagueId: widget.leagueId, userId: currentUserId);
+    final membership =
+        await _repo.getMembership(leagueId: widget.leagueId, userId: currentUserId);
 
     final Map<String, String> teamNames = {for (var t in teams) t.id: t.name};
+
     return {
       'league': league,
       'fixtures': fixtures,
@@ -56,8 +62,7 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final primary = theme.colorScheme.primary;
+    final primary = Theme.of(context).colorScheme.primary;
     final screenWidth = MediaQuery.of(context).size.width;
     final isWide = screenWidth > 600;
 
@@ -67,67 +72,74 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
-      body: SafeArea(
-        child: Center(
-          child: FutureBuilder<Map<String, dynamic>>(
-            future: _loadData(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator(color: Colors.cyanAccent));
-              }
+      body: Center(
+        child: FutureBuilder<Map<String, dynamic>>(
+          future: _loadData(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(
+                child: CircularProgressIndicator(color: Colors.cyanAccent),
+              );
+            }
 
-              if (snapshot.hasError) {
-                return Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.error_outline, color: Colors.redAccent, size: 48),
-                        const SizedBox(height: 16),
-                        Text(
-                          "Error: ${snapshot.error}",
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(color: Colors.white70),
+            if (snapshot.hasError) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.error_outline, color: Colors.redAccent, size: 48),
+                      const SizedBox(height: 16),
+                      Text(
+                        "Error: ${snapshot.error}",
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: Colors.white70),
+                      ),
+                      const SizedBox(height: 16),
+                      TextButton(
+                        onPressed: () => setState(() {}),
+                        child: const Text(
+                          'Retry',
+                          style: TextStyle(color: Colors.cyanAccent),
                         ),
-                        const SizedBox(height: 16),
-                        TextButton(
-                          onPressed: () => setState(() {}),
-                          child: const Text('Retry', style: TextStyle(color: Colors.cyanAccent)),
-                        )
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                );
-              }
-
-              if (!snapshot.hasData) return const SizedBox.shrink();
-
-              final league = snapshot.data!['league'] as League;
-              final fixtures = snapshot.data!['fixtures'] as List<FixtureMatch>;
-              final teamNames = snapshot.data!['teamNames'] as Map<String, String>;
-              final membership = snapshot.data!['membership'] as Membership?;
-              final nextFixture = fixtures.isNotEmpty ? fixtures.first : null;
-
-              final bool isOwnerByLeague = membership?.role == LeagueRole.organizer;
-              final bool isOwnerFallback = league.organizerUserId == (snapshot.data!['currentUserId'] as String);
-              final bool isOwner = isOwnerByLeague || isOwnerFallback;
-
-              return ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: isWide ? 600 : 500),
-                child: ListView(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  children: [
-                    _overviewCard(context, primary, league, isOwner),
-                    const SizedBox(height: 16),
-                    _quickActions(context, isOwner),
-                    const SizedBox(height: 16),
-                    _nextFixture(context, nextFixture, teamNames),
-                  ],
                 ),
               );
-            },
-          ),
+            }
+
+            if (!snapshot.hasData) return const SizedBox.shrink();
+
+            final league = snapshot.data!['league'] as League;
+            final fixtures = snapshot.data!['fixtures'] as List<FixtureMatch>;
+            final teamNames = snapshot.data!['teamNames'] as Map<String, String>;
+            final membership = snapshot.data!['membership'] as Membership?;
+
+            final nextFixture = fixtures.isNotEmpty ? fixtures.first : null;
+
+            final bool isOwnerByLeague = membership?.role == LeagueRole.organizer;
+            final bool isOwnerFallback =
+                league.organizerUserId ==
+                (snapshot.data!['currentUserId'] as String);
+
+            final bool isOwner = isOwnerByLeague || isOwnerFallback;
+
+            return ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: isWide ? 600 : 500),
+              child: ListView(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                children: [
+                  _overviewCard(context, primary, league, isOwner),
+                  const SizedBox(height: 16),
+                  _quickActions(context, isOwner),
+                  const SizedBox(height: 16),
+                  _nextFixture(context, nextFixture, teamNames),
+                ],
+              ),
+            );
+          },
         ),
       ),
     );
@@ -149,7 +161,6 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
                     fontSize: 24,
                     fontWeight: FontWeight.w900,
                     color: Colors.white,
-                    letterSpacing: -0.5,
                   ),
                 ),
               ),
@@ -162,7 +173,11 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
                       color: Colors.cyanAccent.withOpacity(0.1),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.verified_user, color: Colors.cyanAccent, size: 20),
+                    child: const Icon(
+                      Icons.verified_user,
+                      color: Colors.cyanAccent,
+                      size: 20,
+                    ),
                   ),
                 ),
             ],
@@ -233,7 +248,8 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
                   'MANAGE LEAGUE SCORES',
                   style: TextStyle(fontWeight: FontWeight.bold),
                 ),
-                onPressed: () => context.push('/leagues/${widget.leagueId}/admin-scores'),
+                onPressed: () =>
+                    context.push('/leagues/${widget.leagueId}/admin-scores'),
               ),
             ),
           ] else ...[
@@ -258,7 +274,11 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
     );
   }
 
-  Widget _actionButton({required IconData icon, required String label, required VoidCallback onTap}) {
+  Widget _actionButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
@@ -280,9 +300,15 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
     );
   }
 
-  Widget _nextFixture(BuildContext context, FixtureMatch? fixture, Map<String, String> names) {
-    final homeName = names[fixture?.homeTeamId] ?? fixture?.homeTeamId ?? 'TBD';
-    final awayName = names[fixture?.awayTeamId] ?? fixture?.awayTeamId ?? 'TBD';
+  Widget _nextFixture(
+    BuildContext context,
+    FixtureMatch? fixture,
+    Map<String, String> names,
+  ) {
+    final homeName =
+        names[fixture?.homeTeamId] ?? fixture?.homeTeamId ?? 'TBD';
+    final awayName =
+        names[fixture?.awayTeamId] ?? fixture?.awayTeamId ?? 'TBD';
 
     return Glass(
       padding: const EdgeInsets.all(20),
@@ -305,7 +331,11 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
                   ),
                   child: Text(
                     'Round ${fixture.roundNumber}',
-                    style: const TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      color: Colors.white38,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
             ],
@@ -317,7 +347,11 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
                 Expanded(
                   child: Text(
                     homeName,
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                    ),
                     textAlign: TextAlign.right,
                   ),
                 ),
@@ -325,28 +359,49 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
                   padding: EdgeInsets.symmetric(horizontal: 20),
                   child: Text(
                     'VS',
-                    style: TextStyle(color: Colors.cyanAccent, fontWeight: FontWeight.w900, fontSize: 14),
+                    style: TextStyle(
+                      color: Colors.cyanAccent,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 14,
+                    ),
                   ),
                 ),
                 Expanded(
                   child: Text(
                     awayName,
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                    ),
                   ),
                 ),
               ],
             )
           else
-            const Center(child: Text('No upcoming fixtures.', style: TextStyle(color: Colors.white38))),
+            const Center(
+              child: Text(
+                'No upcoming fixtures.',
+                style: TextStyle(color: Colors.white38),
+              ),
+            ),
           const SizedBox(height: 20),
           const Divider(color: Colors.white10),
           Align(
             alignment: Alignment.center,
             child: TextButton(
-              onPressed: fixture != null ? () => context.push('/leagues/${widget.leagueId}/matches/${fixture.id}') : null,
+              onPressed: fixture != null
+                  ? () => context.push(
+                        '/leagues/${widget.leagueId}/matches/${fixture.id}',
+                      )
+                  : null,
               child: const Text(
                 'FULL MATCH PREVIEW',
-                style: TextStyle(color: Colors.cyanAccent, fontSize: 12, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  color: Colors.cyanAccent,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ),
@@ -365,7 +420,11 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
       ),
       child: Text(
         text,
-        style: TextStyle(fontWeight: FontWeight.bold, color: c, fontSize: 11),
+        style: TextStyle(
+          fontWeight: FontWeight.bold,
+          color: c,
+          fontSize: 11,
+        ),
       ),
     );
   }

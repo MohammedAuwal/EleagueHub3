@@ -166,13 +166,10 @@ class _LeagueFlipCardState extends State<LeagueFlipCard> {
   }
 
   Widget _buildBack() {
-    // IMPORTANT FIX: remove the extra rotateY(pi) that caused mirrored content.
-    // The AnimatedSwitcher rotation already flips the face.
     return _buildGlassContainer(
       key: const ValueKey(false),
       child: Row(
         children: [
-          // QR Side
           Expanded(
             child: Container(
               margin: const EdgeInsets.all(20),
@@ -190,7 +187,6 @@ class _LeagueFlipCardState extends State<LeagueFlipCard> {
               ),
             ),
           ),
-          // Code Side
           Expanded(
             child: Padding(
               padding: const EdgeInsets.only(right: 12),
