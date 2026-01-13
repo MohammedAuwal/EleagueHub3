@@ -7,30 +7,32 @@ class GlassScaffold extends StatelessWidget {
     this.appBar,
     required this.body,
     this.floatingActionButton,
-    this.floatingActionButtonLocation, // Added this
+    this.floatingActionButtonLocation,
     this.bottomNavigationBar,
     this.extendBody = true,
+    this.resizeToAvoidBottomInset = true,
   });
 
   final PreferredSizeWidget? appBar;
   final Widget body;
   final Widget? floatingActionButton;
-  final FloatingActionButtonLocation? floatingActionButtonLocation; // Added this
+  final FloatingActionButtonLocation? floatingActionButtonLocation;
   final Widget? bottomNavigationBar;
   final bool extendBody;
+  final bool resizeToAvoidBottomInset;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final brightness = theme.brightness;
+    final brightness = Theme.of(context).brightness;
 
     return Scaffold(
       extendBody: extendBody,
-      extendBodyBehindAppBar: true,
+      extendBodyBehindAppBar: appBar != null,
+      resizeToAvoidBottomInset: resizeToAvoidBottomInset,
       backgroundColor: Colors.transparent,
       appBar: appBar,
       floatingActionButton: floatingActionButton,
-      floatingActionButtonLocation: floatingActionButtonLocation, // Pass it here
+      floatingActionButtonLocation: floatingActionButtonLocation,
       bottomNavigationBar: bottomNavigationBar,
       body: Stack(
         children: [
@@ -41,11 +43,7 @@ class GlassScaffold extends StatelessWidget {
               ),
             ),
           ),
-          SafeArea(
-            top: appBar == null,
-            bottom: true,
-            child: Center(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 800), child: body)),
-          ),
+          body,
         ],
       ),
     );
