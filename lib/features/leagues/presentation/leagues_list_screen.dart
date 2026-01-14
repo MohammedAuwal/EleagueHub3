@@ -380,3 +380,4 @@ class _LeaguesListScreenState extends ConsumerState<LeaguesListScreen> {
     }
   }
 }
+// sync-fix
