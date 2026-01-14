@@ -12,6 +12,7 @@ import '../../features/leagues/presentation/match_detail_screen.dart';
 import '../../features/leagues/presentation/qr_scanner_screen.dart';
 import '../../features/leagues/presentation/fixtures_screen.dart';
 import '../../features/leagues/presentation/admin_score_mgmt_screen.dart';
+import '../../features/leagues/presentation/league_standings_screen.dart';
 import '../../features/live/presentation/join_match_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 
@@ -60,16 +61,24 @@ final appRouter = GoRouter(
                 );
               },
             ),
+
+            // -------- DUPLICATE DETAIL ROUTE (INTENTIONAL) --------
             GoRoute(
               path: ':id',
-              builder: (context, state) => LeagueDetailScreen(id: state.pathParameters['id']!),
+              builder: (context, state) =>
+                  LeagueDetailScreen(leagueId: state.pathParameters['id']!),
               routes: [
                 GoRoute(
                   path: 'standings',
-                  builder: (context, state) => LeagueStandingsScreen(id: state.pathParameters['id']!),
-                ),,
+                  builder: (context, state) =>
+                      LeagueStandingsScreen(
+                        leagueId: state.pathParameters['id']!,
+                      ),
+                ),
               ],
-            )
+            ),
+
+            // -------- SECOND DUPLICATE DETAIL ROUTE --------
             GoRoute(
               path: ':leagueId',
               builder: (context, state) {
@@ -77,6 +86,7 @@ final appRouter = GoRouter(
                 return LeagueDetailScreen(leagueId: leagueId);
               },
             ),
+
             GoRoute(
               path: ':leagueId/fixtures',
               builder: (context, state) {
