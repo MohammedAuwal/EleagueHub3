@@ -4,11 +4,11 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-/// Glass flip card (fixed)
-/// - No upside-down / mirrored content
+/// Glass flip card (clean, not upside-down, smooth flip)
+/// - Uses a proper 3D flip with perspective
+/// - Ensures the "back" face is readable (not mirrored)
 /// - Tap: flip
-/// - Double tap: callback (open details)
-/// - Back shows QR + Join ID, copy works
+/// - Double tap: callback
 class LeagueFlipCard extends StatefulWidget {
   final String leagueName;
   final String leagueCode;
@@ -34,13 +34,27 @@ class LeagueFlipCard extends StatefulWidget {
   State<LeagueFlipCard> createState() => _LeagueFlipCardState();
 }
 
-class _LeagueFlipCardState extends State<LeagueFlipCard> {
-  bool _isFront = true;
+class _LeagueFlipCardState extends State<LeagueFlipCard> with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _anim;
 
-  void _flipCard() {
-    setState(() => _isFront = !_isFront);
-    widget.onTap?.call();
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 650),
+    );
+    _anim = CurvedAnimation(parent: _controller, curve: Curves.easeInOutCubic);
   }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  bool get _isFront => _controller.value < 0.5;
 
   Future<void> _copyCode() async {
     await Clipboard.setData(ClipboardData(text: widget.leagueCode));
@@ -50,61 +64,54 @@ class _LeagueFlipCardState extends State<LeagueFlipCard> {
     );
   }
 
+  void _toggle() {
+    if (_controller.isAnimating) return;
+    if (_controller.value < 0.5) {
+      _controller.forward();
+    } else {
+      _controller.reverse();
+    }
+    widget.onTap?.call();
+  }
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: _flipCard,
+      onTap: _toggle,
       onDoubleTap: widget.onDoubleTap,
-      child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 600),
-        transitionBuilder: (Widget child, Animation<double> animation) {
-          // Standard flip: rotate from 0..pi and fix "under side" mirroring
-          return AnimatedBuilder(
-            animation: animation,
+      child: AnimatedBuilder(
+        animation: _anim,
+        builder: (context, _) {
+          final t = _anim.value; // 0..1
+          final angle = t * pi;
+
+          // perspective makes it "beautiful"
+          final transform = Matrix4.identity()
+            ..setEntry(3, 2, 0.0016)
+            ..rotateY(angle);
+
+          // Show front until 90deg, then show back.
+          // Back is pre-rotated by pi so it is readable.
+          final child = angle <= (pi / 2)
+              ? _buildFront()
+              : Transform(
+                  transform: Matrix4.rotationY(pi),
+                  alignment: Alignment.center,
+                  child: _buildBack(),
+                );
+
+          return Transform(
+            transform: transform,
+            alignment: Alignment.center,
             child: child,
-            builder: (context, child) {
-              final value = animation.value;
-              final angle = value * pi;
-
-              final isUnder = (child!.key != ValueKey(_isFront));
-
-              // A tiny perspective tilt
-              var tilt = 0.002;
-              if (isUnder) tilt = -tilt;
-
-              // When a face is "under", we rotate it by pi so it reads correctly.
-              final correctedChild = isUnder
-                  ? Transform(
-                      transform: Matrix4.rotationY(pi),
-                      alignment: Alignment.center,
-                      child: child,
-                    )
-                  : child;
-
-              return Transform(
-                transform: Matrix4.identity()
-                  ..setEntry(3, 2, tilt)
-                  ..rotateY(angle),
-                alignment: Alignment.center,
-                child: correctedChild,
-              );
-            },
           );
         },
-        layoutBuilder: (currentChild, previousChildren) => Stack(
-          children: <Widget>[
-            ...previousChildren,
-            if (currentChild != null) currentChild,
-          ],
-        ),
-        child: _isFront ? _buildFront() : _buildBack(),
       ),
     );
   }
 
-  Widget _buildGlassContainer({required Widget child, required Key key}) {
+  Widget _glass({required Widget child}) {
     return ClipRRect(
-      key: key,
       borderRadius: BorderRadius.circular(24),
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
@@ -123,8 +130,7 @@ class _LeagueFlipCardState extends State<LeagueFlipCard> {
   }
 
   Widget _buildFront() {
-    return _buildGlassContainer(
-      key: const ValueKey(true),
+    return _glass(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -183,8 +189,7 @@ class _LeagueFlipCardState extends State<LeagueFlipCard> {
   }
 
   Widget _buildBack() {
-    return _buildGlassContainer(
-      key: const ValueKey(false),
+    return _glass(
       child: Row(
         children: [
           Expanded(
