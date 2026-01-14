@@ -3,10 +3,10 @@ import 'package:flutter/material.dart';
 import '../../../../core/widgets/glass.dart';
 import '../../domain/standings/standings.dart';
 
-/// A sortable standings table rendered using the [StandingsRow] domain model.
+/// A sortable, scrollable standings table rendered using the [StandingsRow] model.
 ///
 /// - Horizontally scrollable for narrow screens.
-/// - Vertically scrollable for long tables.
+/// - Vertically scrollable when there are many teams.
 /// - Sortable by tapping column headers.
 class StandingsTable extends StatefulWidget {
   const StandingsTable({
@@ -71,29 +71,32 @@ class _StandingsTableState extends State<StandingsTable> {
   @override
   Widget build(BuildContext context) {
     final rows = _sorted;
+    final screenHeight = MediaQuery.of(context).size.height;
+    // The table area will use at most 60% of the screen height.
+    final maxTableHeight = screenHeight * 0.6;
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return Glass(
-          // Glass.borderRadius is a double, so pass a radius, not a BorderRadius.
-          borderRadius: 20,
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.all(12),
-            child: ConstrainedBox(
-              // Make the table at least as wide as the available width,
-              // so it doesn't look cramped on tablets.
-              constraints: BoxConstraints(minWidth: constraints.maxWidth),
+    return Glass(
+      // Glass.borderRadius is a double, so pass a radius, not a BorderRadius.
+      borderRadius: 20,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return ConstrainedBox(
+            constraints: BoxConstraints(
+              // Let the table be at least as wide as the available width,
+              // so it looks good on tablets too.
+              minWidth: constraints.maxWidth,
+              // Limit the height so vertical scrolling becomes possible.
+              maxHeight: maxTableHeight,
+            ),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.all(12),
               child: SingleChildScrollView(
-                // This scrolls vertically when there are many teams.
                 scrollDirection: Axis.vertical,
                 child: DataTable(
                   sortAscending: _asc,
                   sortColumnIndex: _sortCol,
                   columnSpacing: 18,
-                  // You can tweak row heights if needed:
-                  // dataRowMinHeight: 40,
-                  // dataRowMaxHeight: 52,
                   columns: [
                     _col('Team', 0),
                     _col('P', 1, numeric: true),
@@ -111,9 +114,9 @@ class _StandingsTableState extends State<StandingsTable> {
                 ),
               ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 
@@ -152,7 +155,7 @@ class _StandingsTableState extends State<StandingsTable> {
       color: WidgetStatePropertyAll(zoneColor),
       cells: [
         DataCell(
-          // Show position number before the team name for clarity.
+          // Show position before the team name for clarity.
           Text(
             '${i + 1}. ${r.teamName}',
             style: const TextStyle(fontWeight: FontWeight.w700),
