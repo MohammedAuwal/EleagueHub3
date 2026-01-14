@@ -14,10 +14,12 @@ class AdminScoreMgmtScreen extends ConsumerStatefulWidget {
   const AdminScoreMgmtScreen({super.key, required this.leagueId});
 
   @override
-  ConsumerState<AdminScoreMgmtScreen> createState() => _AdminScoreMgmtScreenState();
+  ConsumerState<AdminScoreMgmtScreen> createState() =>
+      _AdminScoreMgmtScreenState();
 }
 
-class _AdminScoreMgmtScreenState extends ConsumerState<AdminScoreMgmtScreen> {
+class _AdminScoreMgmtScreenState
+    extends ConsumerState<AdminScoreMgmtScreen> {
   late LocalLeaguesRepository _repo;
   List<FixtureMatch> _matches = [];
   Map<String, String> _teamNames = {};
@@ -33,20 +35,38 @@ class _AdminScoreMgmtScreenState extends ConsumerState<AdminScoreMgmtScreen> {
   Future<void> _loadData() async {
     if (!mounted) return;
     setState(() => _isLoading = true);
-    
+
     // Fetch both matches and teams to resolve names
     final matches = await _repo.getMatches(widget.leagueId);
     final teams = await _repo.getTeams(widget.leagueId);
-    
+
+    // Sort so that pending/unplayed matches come first, completed go to bottom.
+    matches.sort((a, b) {
+      final aPlayed = a.status == MatchStatus.completed;
+      final bPlayed = b.status == MatchStatus.completed;
+
+      if (aPlayed != bPlayed) {
+        // false (pending) before true (completed)
+        return aPlayed ? 1 : -1;
+      }
+
+      // Secondary sort: by id for deterministic ordering
+      return a.id.compareTo(b.id);
+    });
+
     if (!mounted) return;
     setState(() {
       _matches = matches;
-      _teamNames = { for (var t in teams) t.id: t.name };
+      _teamNames = {for (var t in teams) t.id: t.name};
       _isLoading = false;
     });
   }
 
-  Future<void> _updateScore(FixtureMatch match, int hScore, int aScore) async {
+  Future<void> _updateScore(
+    FixtureMatch match,
+    int hScore,
+    int aScore,
+  ) async {
     final updatedMatch = match.copyWith(
       homeScore: hScore,
       awayScore: aScore,
@@ -55,11 +75,11 @@ class _AdminScoreMgmtScreenState extends ConsumerState<AdminScoreMgmtScreen> {
     );
 
     await _repo.saveMatches(widget.leagueId, [updatedMatch]);
-    
+
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("Score Updated Successfully"), 
+          content: Text("Score Updated Successfully"),
           backgroundColor: Colors.cyan,
           behavior: SnackBarBehavior.floating,
         ),
@@ -80,34 +100,61 @@ class _AdminScoreMgmtScreenState extends ConsumerState<AdminScoreMgmtScreen> {
         elevation: 0,
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Colors.cyanAccent))
+          ? const Center(
+              child:
+                  CircularProgressIndicator(color: Colors.cyanAccent),
+            )
           : Center(
               child: ConstrainedBox(
-                // Limit width to 500 on phones to prevent the "stretched" look from your screenshot
-                constraints: BoxConstraints(maxWidth: isTablet ? 1000 : 500),
+                // Limit width on phones to prevent a "stretched" look
+                constraints: BoxConstraints(
+                  maxWidth: isTablet ? 1000 : 500,
+                ),
                 child: Column(
                   children: [
                     const Padding(
                       padding: EdgeInsets.symmetric(horizontal: 16),
                       child: SectionHeader('Update Match Results'),
                     ),
+                    const SizedBox(height: 4),
+                    const Padding(
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                      child: Text(
+                        'Tap + / - to adjust each team\'s score.\n'
+                        'Pending matches are listed first; completed go to the bottom.',
+                        style: TextStyle(
+                          color: Colors.white30,
+                          fontSize: 12,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
                     Expanded(
                       child: _matches.isEmpty
-                          ? const Center(child: Text("No matches to manage", style: TextStyle(color: Colors.white38)))
-                          : ListView.builder(
+                          ? const Center(
+                              child: Text(
+                                "No matches to manage",
+                                style: TextStyle(color: Colors.white38),
+                              ),
+                            )
+                          : ListView.separated(
                               padding: const EdgeInsets.all(16),
                               itemCount: _matches.length,
+                              separatorBuilder: (_, __) =>
+                                  const SizedBox(height: 12),
                               itemBuilder: (context, index) {
                                 final match = _matches[index];
-                                return Padding(
-                                  padding: const EdgeInsets.only(bottom: 12),
-                                  child: _ScoreEntryTile(
-                                    key: ValueKey(match.id),
-                                    match: match,
-                                    homeName: _teamNames[match.homeTeamId] ?? "Home",
-                                    awayName: _teamNames[match.awayTeamId] ?? "Away",
-                                    onSave: (h, a) => _updateScore(match, h, a),
-                                  ),
+                                return _ScoreEntryTile(
+                                  key: ValueKey(match.id),
+                                  match: match,
+                                  homeName: _teamNames[match.homeTeamId] ??
+                                      "Home",
+                                  awayName: _teamNames[match.awayTeamId] ??
+                                      "Away",
+                                  onSave: (h, a) =>
+                                      _updateScore(match, h, a),
                                 );
                               },
                             ),
@@ -127,11 +174,11 @@ class _ScoreEntryTile extends StatefulWidget {
   final Function(int, int) onSave;
 
   const _ScoreEntryTile({
-    super.key, 
-    required this.match, 
+    super.key,
+    required this.match,
     required this.homeName,
     required this.awayName,
-    required this.onSave
+    required this.onSave,
   });
 
   @override
@@ -139,68 +186,125 @@ class _ScoreEntryTile extends StatefulWidget {
 }
 
 class _ScoreEntryTileState extends State<_ScoreEntryTile> {
-  late TextEditingController _hController;
-  late TextEditingController _aController;
+  late int _homeScore;
+  late int _awayScore;
 
   @override
   void initState() {
     super.initState();
-    _hController = TextEditingController(text: widget.match.homeScore?.toString() ?? '0');
-    _aController = TextEditingController(text: widget.match.awayScore?.toString() ?? '0');
+    _homeScore = widget.match.homeScore ?? 0;
+    _awayScore = widget.match.awayScore ?? 0;
   }
 
-  @override
-  void dispose() {
-    _hController.dispose();
-    _aController.dispose();
-    super.dispose();
-  }
+  bool get _isCompleted =>
+      widget.match.status == MatchStatus.completed;
+
+  void _incHome() => setState(() => _homeScore++);
+  void _decHome() => setState(() {
+        if (_homeScore > 0) _homeScore--;
+      });
+
+  void _incAway() => setState(() => _awayScore++);
+  void _decAway() => setState(() {
+        if (_awayScore > 0) _awayScore--;
+      });
 
   @override
   Widget build(BuildContext context) {
     return Glass(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(18),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // Teams + status pill
           Row(
             children: [
               Expanded(
                 child: Text(
-                  widget.homeName, 
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold), 
-                  overflow: TextOverflow.ellipsis
-                )
+                  widget.homeName,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 8),
-                child: Text("VS", style: TextStyle(color: Colors.white24, fontSize: 12, fontWeight: FontWeight.w900)),
+                child: Text(
+                  "VS",
+                  style: TextStyle(
+                    color: Colors.white24,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
               ),
               Expanded(
                 child: Text(
-                  widget.awayName, 
-                  textAlign: TextAlign.end, 
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold), 
-                  overflow: TextOverflow.ellipsis
-                )
+                  widget.awayName,
+                  textAlign: TextAlign.end,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: _isCompleted
+                      ? Colors.cyanAccent.withOpacity(0.12)
+                      : Colors.white.withOpacity(0.04),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  _isCompleted ? 'Completed' : 'Pending',
+                  style: TextStyle(
+                    color: _isCompleted
+                        ? Colors.cyanAccent
+                        : Colors.white54,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 18),
+          // Score stepper row
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              _scoreField(_hController),
+              _scoreStepper(
+                value: _homeScore,
+                onInc: _incHome,
+                onDec: _decHome,
+              ),
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 24),
-                child: Text(":", style: TextStyle(color: Colors.white38, fontSize: 24)),
+                child: Text(
+                  ":",
+                  style: TextStyle(
+                    color: Colors.white38,
+                    fontSize: 24,
+                  ),
+                ),
               ),
-              _scoreField(_aController),
+              _scoreStepper(
+                value: _awayScore,
+                onInc: _incAway,
+                onDec: _decAway,
+              ),
               const SizedBox(width: 24),
               IconButton.filled(
                 onPressed: () {
-                  final h = int.tryParse(_hController.text) ?? 0;
-                  final a = int.tryParse(_aController.text) ?? 0;
-                  widget.onSave(h, a);
+                  widget.onSave(_homeScore, _awayScore);
                   FocusScope.of(context).unfocus();
                 },
                 style: IconButton.styleFrom(
@@ -208,34 +312,79 @@ class _ScoreEntryTileState extends State<_ScoreEntryTile> {
                   foregroundColor: Colors.cyanAccent,
                 ),
                 icon: const Icon(Icons.done_all, size: 24),
-              )
+              ),
             ],
-          )
+          ),
         ],
       ),
     );
   }
 
-  Widget _scoreField(TextEditingController controller) {
-    return SizedBox(
-      width: 60,
-      child: TextField(
-        controller: controller,
-        keyboardType: TextInputType.number,
-        textAlign: TextAlign.center,
-        style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900),
-        decoration: InputDecoration(
-          contentPadding: const EdgeInsets.symmetric(vertical: 8),
-          filled: true,
-          fillColor: Colors.white.withOpacity(0.05),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Colors.white10),
+  Widget _scoreStepper({
+    required int value,
+    required VoidCallback onInc,
+    required VoidCallback onDec,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: const BorderSide(color: Colors.white10),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _stepperButton(
+            icon: Icons.remove,
+            onPressed: value > 0 ? onDec : null,
+            enabled: value > 0,
           ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Colors.cyanAccent),
+          const SizedBox(width: 6),
+          SizedBox(
+            width: 28,
+            child: Text(
+              '$value',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 22,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
           ),
+          const SizedBox(width: 6),
+          _stepperButton(
+            icon: Icons.add,
+            onPressed: onInc,
+            enabled: true,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _stepperButton({
+    required IconData icon,
+    required VoidCallback? onPressed,
+    required bool enabled,
+  }) {
+    return InkWell(
+      onTap: onPressed,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        width: 28,
+        height: 28,
+        decoration: BoxDecoration(
+          color: enabled
+              ? Colors.cyanAccent.withOpacity(0.08)
+              : Colors.white.withOpacity(0.02),
+          shape: BoxShape.circle,
+        ),
+        child: Icon(
+          icon,
+          size: 18,
+          color: enabled ? Colors.cyanAccent : Colors.white24,
         ),
       ),
     );
