@@ -7,6 +7,7 @@ import '../models/fixture_match.dart';
 import '../models/league.dart';
 import '../models/membership.dart';
 import '../models/team.dart';
+import '../models/knockout_match.dart';
 
 /// Repository responsible for local persistence of League + Membership + Team + Matches data.
 /// Uses SharedPreferences via the PreferencesService.
@@ -25,6 +26,7 @@ class LocalLeaguesRepository {
   static const String _membershipsKey = 'stored_memberships';
   static const String _teamsKey = 'stored_teams_';
   static const String _matchesKey = 'stored_matches_';
+  static const String _knockoutsKey = 'stored_knockouts_';
 
   // -----------------------
   // Leagues
@@ -109,7 +111,8 @@ class LocalLeaguesRepository {
     required League Function(String generatedLeagueId) placeholderBuilder,
   }) async {
     final leagues = await listLeagues();
-    final existing = leagues.where((l) => l.code.toUpperCase() == joinCode.toUpperCase()).toList();
+    final existing =
+        leagues.where((l) => l.code.toUpperCase() == joinCode.toUpperCase()).toList();
     final League league;
 
     if (existing.isNotEmpty) {
@@ -120,7 +123,8 @@ class LocalLeaguesRepository {
       league = _normalizeLeagueJoinArtifacts(
         placeholder.copyWith(
           code: joinCode.toUpperCase(),
-          qrPayloadOverride: 'eleaguehub://join?code=${joinCode.toUpperCase()}&id=$generatedLeagueId',
+          qrPayloadOverride:
+              'eleaguehub://join?code=${joinCode.toUpperCase()}&id=$generatedLeagueId',
         ),
       );
       await saveLeague(league);
@@ -129,7 +133,8 @@ class LocalLeaguesRepository {
     final now = DateTime.now().millisecondsSinceEpoch;
 
     // Ensure membership exists
-    final already = await getMembership(leagueId: league.id, userId: userId);
+    final already =
+        await getMembership(leagueId: league.id, userId: userId);
     if (already == null) {
       await saveMembership(
         Membership(
@@ -156,17 +161,23 @@ class LocalLeaguesRepository {
     if (data == null) return [];
     try {
       final List decoded = jsonDecode(data);
-      return decoded.map((m) => Membership.fromRemoteMap((m as Map).cast<String, dynamic>())).toList();
+      return decoded
+          .map((m) => Membership.fromRemoteMap((m as Map).cast<String, dynamic>()))
+          .toList();
     } catch (e) {
       debugPrint('Error decoding memberships: $e');
       return [];
     }
   }
 
-  Future<Membership?> getMembership({required String leagueId, required String userId}) async {
+  Future<Membership?> getMembership({
+    required String leagueId,
+    required String userId,
+  }) async {
     final all = await listMemberships();
     try {
-      return all.firstWhere((m) => m.leagueId == leagueId && m.userId == userId);
+      return all.firstWhere(
+          (m) => m.leagueId == leagueId && m.userId == userId);
     } catch (_) {
       return null;
     }
@@ -182,7 +193,8 @@ class LocalLeaguesRepository {
       current.add(membership);
     }
 
-    final encoded = jsonEncode(current.map((m) => m.toRemoteMap()).toList());
+    final encoded =
+        jsonEncode(current.map((m) => m.toRemoteMap()).toList());
     await _prefs.setString(_membershipsKey, encoded);
   }
 
@@ -191,7 +203,8 @@ class LocalLeaguesRepository {
   // -----------------------
 
   Future<void> saveTeams(String leagueId, List<Team> teams) async {
-    final String encoded = jsonEncode(teams.map((t) => t.toRemoteMap()).toList());
+    final String encoded =
+        jsonEncode(teams.map((t) => t.toRemoteMap()).toList());
     await _prefs.setString('$_teamsKey$leagueId', encoded);
   }
 
@@ -200,7 +213,9 @@ class LocalLeaguesRepository {
     if (data == null) return [];
     try {
       final List decoded = jsonDecode(data);
-      return decoded.map((t) => Team.fromRemoteMap(t as Map<String, dynamic>)).toList();
+      return decoded
+          .map((t) => Team.fromRemoteMap(t as Map<String, dynamic>))
+          .toList();
     } catch (e) {
       debugPrint('Error decoding teams for $leagueId: $e');
       return [];
@@ -208,7 +223,7 @@ class LocalLeaguesRepository {
   }
 
   // -----------------------
-  // Matches
+  // Matches (League Phase)
   // -----------------------
 
   Future<List<FixtureMatch>> getMatches(String leagueId) async {
@@ -216,7 +231,10 @@ class LocalLeaguesRepository {
     if (data == null) return [];
     try {
       final List decoded = jsonDecode(data);
-      return decoded.map((m) => FixtureMatch.fromJson(m as Map<String, dynamic>)).toList().cast<FixtureMatch>();
+      return decoded
+          .map((m) => FixtureMatch.fromJson(m as Map<String, dynamic>))
+          .toList()
+          .cast<FixtureMatch>();
     } catch (e) {
       debugPrint('Error decoding matches for $leagueId: $e');
       return [];
@@ -225,14 +243,53 @@ class LocalLeaguesRepository {
 
   Future<void> saveMatches(String leagueId, List<FixtureMatch> matches) async {
     final List<FixtureMatch> existing = await getMatches(leagueId);
-    final Map<String, FixtureMatch> matchMap = {for (var m in existing) m.id: m};
+    final Map<String, FixtureMatch> matchMap = {
+      for (var m in existing) m.id: m
+    };
 
     for (var m in matches) {
       matchMap[m.id] = m;
     }
 
-    final String encoded = jsonEncode(matchMap.values.map((m) => m.toJson()).toList());
+    final String encoded =
+        jsonEncode(matchMap.values.map((m) => m.toJson()).toList());
     await _prefs.setString('$_matchesKey$leagueId', encoded);
+  }
+
+  // -----------------------
+  // Knockout Matches (Bracket)
+  // -----------------------
+
+  Future<List<KnockoutMatch>> getKnockoutMatches(String leagueId) async {
+    final String? data = _prefs.getString('$_knockoutsKey$leagueId');
+    if (data == null) return [];
+    try {
+      final List decoded = jsonDecode(data);
+      return decoded
+          .map((m) => KnockoutMatch.fromJson(m as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      debugPrint('Error decoding knockouts for $leagueId: $e');
+      return [];
+    }
+  }
+
+  Future<void> saveKnockoutMatches(
+    String leagueId,
+    List<KnockoutMatch> matches,
+  ) async {
+    final existing = await getKnockoutMatches(leagueId);
+    final map = <String, KnockoutMatch>{
+      for (final m in existing) m.id: m,
+    };
+
+    for (final m in matches) {
+      map[m.id] = m;
+    }
+
+    final encoded =
+        jsonEncode(map.values.map((m) => m.toJson()).toList());
+    await _prefs.setString('$_knockoutsKey$leagueId', encoded);
   }
 
   // -----------------------
@@ -250,7 +307,9 @@ class LocalLeaguesRepository {
       qrPayload = 'eleaguehub://join?code=$code&id=${league.id}';
     }
 
-    if (code == league.code && qrPayload == league.qrPayloadOverride) return league;
+    if (code == league.code && qrPayload == league.qrPayloadOverride) {
+      return league;
+    }
 
     return league.copyWith(
       code: code,
@@ -261,8 +320,12 @@ class LocalLeaguesRepository {
   String _generateJoinCode({required String seed, int length = 8}) {
     const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no O/0 I/1
     final seedHash = seed.hashCode.abs();
-    final rng = Random(seedHash ^ DateTime.now().millisecondsSinceEpoch);
-    return List.generate(length, (_) => alphabet[rng.nextInt(alphabet.length)]).join();
+    final rng =
+        Random(seedHash ^ DateTime.now().millisecondsSinceEpoch);
+    return List.generate(
+      length,
+      (_) => alphabet[rng.nextInt(alphabet.length)],
+    ).join();
   }
 
   String _randomId() {

@@ -6,9 +6,15 @@ import '../../../core/persistence/prefs_service.dart';
 import '../../../core/widgets/glass.dart';
 import '../../../core/widgets/glass_scaffold.dart';
 import '../data/leagues_repository_local.dart';
+import '../domain/standings/standings.dart';
+import '../domain/standings/standings_calculator.dart';
+import '../domain/logic/tournament_controller.dart';
 import '../models/fixture_match.dart';
 import '../models/league.dart';
+import '../models/league_format.dart';
 import '../models/membership.dart';
+import '../models/team.dart';
+import '../models/knockout_match.dart';
 
 class LeagueDetailScreen extends ConsumerStatefulWidget {
   final String leagueId;
@@ -19,10 +25,12 @@ class LeagueDetailScreen extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<LeagueDetailScreen> createState() => _LeagueDetailScreenState();
+  ConsumerState<LeagueDetailScreen> createState() =>
+      _LeagueDetailScreenState();
 }
 
-class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
+class _LeagueDetailScreenState
+    extends ConsumerState<LeagueDetailScreen> {
   late LocalLeaguesRepository _repo;
 
   @override
@@ -46,14 +54,19 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
         prefs.getString(PreferencesService.kCurrentUserIdKey) ??
         'admin_user';
 
-    final membership =
-        await _repo.getMembership(leagueId: widget.leagueId, userId: currentUserId);
+    final membership = await _repo.getMembership(
+      leagueId: widget.leagueId,
+      userId: currentUserId,
+    );
 
-    final Map<String, String> teamNames = {for (var t in teams) t.id: t.name};
+    final Map<String, String> teamNames = {
+      for (var t in teams) t.id: t.name
+    };
 
     return {
       'league': league,
       'fixtures': fixtures,
+      'teams': teams,
       'teamNames': teamNames,
       'currentUserId': currentUserId,
       'membership': membership,
@@ -76,9 +89,12 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
         child: FutureBuilder<Map<String, dynamic>>(
           future: _loadData(),
           builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
+            if (snapshot.connectionState ==
+                ConnectionState.waiting) {
               return const Center(
-                child: CircularProgressIndicator(color: Colors.cyanAccent),
+                child: CircularProgressIndicator(
+                  color: Colors.cyanAccent,
+                ),
               );
             }
 
@@ -87,21 +103,30 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisAlignment:
+                        MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.error_outline, color: Colors.redAccent, size: 48),
+                      const Icon(
+                        Icons.error_outline,
+                        color: Colors.redAccent,
+                        size: 48,
+                      ),
                       const SizedBox(height: 16),
                       Text(
                         "Error: ${snapshot.error}",
                         textAlign: TextAlign.center,
-                        style: const TextStyle(color: Colors.white70),
+                        style: const TextStyle(
+                          color: Colors.white70,
+                        ),
                       ),
                       const SizedBox(height: 16),
                       TextButton(
                         onPressed: () => setState(() {}),
                         child: const Text(
                           'Retry',
-                          style: TextStyle(color: Colors.cyanAccent),
+                          style: TextStyle(
+                            color: Colors.cyanAccent,
+                          ),
                         ),
                       ),
                     ],
@@ -110,32 +135,62 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
               );
             }
 
-            if (!snapshot.hasData) return const SizedBox.shrink();
+            if (!snapshot.hasData) {
+              return const SizedBox.shrink();
+            }
 
             final league = snapshot.data!['league'] as League;
-            final fixtures = snapshot.data!['fixtures'] as List<FixtureMatch>;
-            final teamNames = snapshot.data!['teamNames'] as Map<String, String>;
-            final membership = snapshot.data!['membership'] as Membership?;
+            final fixtures =
+                snapshot.data!['fixtures'] as List<FixtureMatch>;
+            final teams =
+                snapshot.data!['teams'] as List<Team>;
+            final teamNames =
+                snapshot.data!['teamNames'] as Map<String, String>;
+            final membership =
+                snapshot.data!['membership'] as Membership?;
 
-            final nextFixture = fixtures.isNotEmpty ? fixtures.first : null;
+            final nextFixture =
+                fixtures.isNotEmpty ? fixtures.first : null;
 
-            final bool isOwnerByLeague = membership?.role == LeagueRole.organizer;
+            final bool isOwnerByLeague =
+                membership?.role == LeagueRole.organizer;
             final bool isOwnerFallback =
                 league.organizerUserId ==
-                (snapshot.data!['currentUserId'] as String);
+                    (snapshot.data!['currentUserId'] as String);
 
-            final bool isOwner = isOwnerByLeague || isOwnerFallback;
+            final bool isOwner =
+                isOwnerByLeague || isOwnerFallback;
 
             return ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: isWide ? 600 : 500),
+              constraints: BoxConstraints(
+                maxWidth: isWide ? 600 : 500,
+              ),
               child: ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 children: [
-                  _overviewCard(context, primary, league, isOwner),
+                  _overviewCard(
+                    context,
+                    primary,
+                    league,
+                    isOwner,
+                  ),
                   const SizedBox(height: 16),
-                  _quickActions(context, isOwner),
+                  _quickActions(
+                    context,
+                    league,
+                    isOwner,
+                    fixtures,
+                    teams,
+                  ),
                   const SizedBox(height: 16),
-                  _nextFixture(context, nextFixture, teamNames),
+                  _nextFixture(
+                    context,
+                    nextFixture,
+                    teamNames,
+                  ),
                 ],
               ),
             );
@@ -145,14 +200,21 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
     );
   }
 
-  Widget _overviewCard(BuildContext context, Color c, League league, bool isOwner) {
+  Widget _overviewCard(
+    BuildContext context,
+    Color c,
+    League league,
+    bool isOwner,
+  ) {
     return Glass(
       padding: const EdgeInsets.all(20),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            mainAxisAlignment:
+                MainAxisAlignment.spaceBetween,
             children: [
               Expanded(
                 child: Text(
@@ -170,7 +232,8 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
                   child: Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
-                      color: Colors.cyanAccent.withOpacity(0.1),
+                      color: Colors.cyanAccent
+                          .withOpacity(0.1),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
@@ -185,16 +248,28 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
           const SizedBox(height: 4),
           Text(
             '${league.format.displayName} • ${league.season}',
-            style: const TextStyle(color: Colors.white60, fontSize: 14),
+            style: const TextStyle(
+              color: Colors.white60,
+              fontSize: 14,
+            ),
           ),
           const SizedBox(height: 18),
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
-              _pill(league.isPrivate ? 'Private' : 'Public', Colors.cyanAccent),
-              _pill('${league.maxTeams} Teams Max', Colors.orangeAccent),
-              _pill(league.region, Colors.purpleAccent),
+              _pill(
+                league.isPrivate ? 'Private' : 'Public',
+                Colors.cyanAccent,
+              ),
+              _pill(
+                '${league.maxTeams} Teams Max',
+                Colors.orangeAccent,
+              ),
+              _pill(
+                league.region,
+                Colors.purpleAccent,
+              ),
             ],
           ),
         ],
@@ -202,15 +277,28 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
     );
   }
 
-  Widget _quickActions(BuildContext context, bool isOwner) {
+  Widget _quickActions(
+    BuildContext context,
+    League league,
+    bool isOwner,
+    List<FixtureMatch> fixtures,
+    List<Team> teams,
+  ) {
+    final isSwiss = league.format == LeagueFormat.uclSwiss;
+
     return Glass(
       padding: const EdgeInsets.all(20),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
         children: [
           const Text(
             'League Menu',
-            style: TextStyle(fontWeight: FontWeight.w900, color: Colors.white, fontSize: 16),
+            style: TextStyle(
+              fontWeight: FontWeight.w900,
+              color: Colors.white,
+              fontSize: 16,
+            ),
           ),
           const SizedBox(height: 16),
           Row(
@@ -219,7 +307,9 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
                 child: _actionButton(
                   icon: Icons.list_alt,
                   label: 'Fixtures',
-                  onTap: () => context.push('/leagues/${widget.leagueId}/fixtures'),
+                  onTap: () => context.push(
+                    '/leagues/${widget.leagueId}/fixtures',
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -227,7 +317,9 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
                 child: _actionButton(
                   icon: Icons.leaderboard,
                   label: 'Standings',
-                  onTap: () => context.push('/leagues/${widget.leagueId}/standings'),
+                  onTap: () => context.push(
+                    '/leagues/${widget.leagueId}/standings',
+                  ),
                 ),
               ),
             ],
@@ -240,23 +332,67 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
                 style: FilledButton.styleFrom(
                   backgroundColor: Colors.cyanAccent,
                   foregroundColor: Colors.black,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 16,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
                 icon: const Icon(Icons.edit_note),
                 label: const Text(
                   'MANAGE LEAGUE SCORES',
-                  style: TextStyle(fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-                onPressed: () =>
-                    context.push('/leagues/${widget.leagueId}/admin-scores'),
+                onPressed: () => context.push(
+                  '/leagues/${widget.leagueId}/admin-scores',
+                ),
               ),
             ),
+            if (isSwiss) ...[
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(
+                      color: Colors.cyanAccent,
+                    ),
+                    foregroundColor: Colors.cyanAccent,
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 14,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  icon: const Icon(Icons.emoji_events),
+                  label: const Text(
+                    'GENERATE KNOCKOUT BRACKET (SWISS)',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                  onPressed: () => _generateSwissKnockouts(
+                    context,
+                    league,
+                    teams,
+                    fixtures,
+                  ),
+                ),
+              ),
+            ],
           ] else ...[
             const SizedBox(height: 12),
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+              padding: const EdgeInsets.symmetric(
+                vertical: 14,
+                horizontal: 12,
+              ),
               decoration: BoxDecoration(
                 color: Colors.white.withOpacity(0.05),
                 borderRadius: BorderRadius.circular(12),
@@ -264,7 +400,10 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
               ),
               child: const Text(
                 'View-only: You are a participant in this league.',
-                style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w600),
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontWeight: FontWeight.w600,
+                ),
                 textAlign: TextAlign.center,
               ),
             ),
@@ -293,7 +432,13 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
           children: [
             Icon(icon, color: Colors.white70),
             const SizedBox(height: 8),
-            Text(label, style: const TextStyle(color: Colors.white, fontSize: 12)),
+            Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+              ),
+            ),
           ],
         ),
       ),
@@ -313,21 +458,31 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
     return Glass(
       padding: const EdgeInsets.all(20),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            mainAxisAlignment:
+                MainAxisAlignment.spaceBetween,
             children: [
               const Text(
                 'Coming Up Next',
-                style: TextStyle(fontWeight: FontWeight.w900, color: Colors.white, fontSize: 16),
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  color: Colors.white,
+                  fontSize: 16,
+                ),
               ),
               if (fixture != null)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white10,
-                    borderRadius: BorderRadius.circular(4),
+                    borderRadius:
+                        BorderRadius.circular(4),
                   ),
                   child: Text(
                     'Round ${fixture.roundNumber}',
@@ -356,7 +511,9 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
                   ),
                 ),
                 const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 20),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 20,
+                  ),
                   child: Text(
                     'VS',
                     style: TextStyle(
@@ -382,7 +539,9 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
             const Center(
               child: Text(
                 'No upcoming fixtures.',
-                style: TextStyle(color: Colors.white38),
+                style: TextStyle(
+                  color: Colors.white38,
+                ),
               ),
             ),
           const SizedBox(height: 20),
@@ -412,7 +571,10 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
 
   Widget _pill(String text, Color c) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 12,
+        vertical: 6,
+      ),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(8),
         color: c.withOpacity(0.1),
@@ -425,6 +587,89 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
           color: c,
           fontSize: 11,
         ),
+      ),
+    );
+  }
+
+  /// Generate Swiss knockouts:
+  /// - 1–8: direct Round of 16
+  /// - 9–24: Play-off (16 teams -> 8 winners)
+  /// Uses TournamentController.seedSwissKnockouts and saves via saveKnockoutMatches.
+  Future<void> _generateSwissKnockouts(
+    BuildContext context,
+    League league,
+    List<Team> teams,
+    List<FixtureMatch> fixtures,
+  ) async {
+    if (league.format != LeagueFormat.uclSwiss) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('This action is only for Swiss leagues.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    // Do not overwrite existing bracket.
+    final existing =
+        await _repo.getKnockoutMatches(league.id);
+    if (existing.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Knockout bracket already generated.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    // Compute final Swiss standings from current results.
+    final swissStandings = StandingsCalculator.calculate(
+      teams: teams,
+      matches: fixtures,
+    );
+
+    if (swissStandings.length < 16) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'At least 16 teams are required to generate Swiss knockouts.',
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    final koMatches =
+        TournamentController.seedSwissKnockouts(
+      leagueId: league.id,
+      swissStandings: swissStandings,
+    );
+
+    if (koMatches.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content:
+              Text('Failed to seed knockout bracket from Swiss standings.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    await _repo.saveKnockoutMatches(
+      league.id,
+      koMatches,
+    );
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Knockout bracket generated (Play-off + Round of 16).',
+        ),
+        behavior: SnackBarBehavior.floating,
       ),
     );
   }

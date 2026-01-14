@@ -13,6 +13,8 @@ import '../../features/leagues/presentation/qr_scanner_screen.dart';
 import '../../features/leagues/presentation/fixtures_screen.dart';
 import '../../features/leagues/presentation/admin_score_mgmt_screen.dart';
 import '../../features/leagues/presentation/league_standings_screen.dart';
+import '../../features/leagues/presentation/knockout_bracket_screen.dart';
+import '../../features/leagues/presentation/admin_knockout_score_mgmt_screen.dart';
 import '../../features/live/presentation/join_match_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 
@@ -72,7 +74,6 @@ final appRouter = GoRouter(
                 GoRoute(
                   path: 'standings',
                   builder: (context, state) => LeagueStandingsScreen(
-                    // Constructor takes `id`, not `leagueId`
                     id: state.pathParameters['id']!,
                   ),
                 ),
@@ -102,6 +103,23 @@ final appRouter = GoRouter(
                 return AdminScoreMgmtScreen(leagueId: leagueId);
               },
             ),
+
+            // -------- KNOCKOUT ROUTES --------
+            GoRoute(
+              path: ':leagueId/knockout',
+              builder: (context, state) {
+                final leagueId = state.pathParameters['leagueId']!;
+                return KnockoutBracketScreen(leagueId: leagueId);
+              },
+            ),
+            GoRoute(
+              path: ':leagueId/knockout-admin',
+              builder: (context, state) {
+                final leagueId = state.pathParameters['leagueId']!;
+                return AdminKnockoutScoreMgmtScreen(leagueId: leagueId);
+              },
+            ),
+
             GoRoute(
               path: ':leagueId/matches/:matchId',
               builder: (context, state) {

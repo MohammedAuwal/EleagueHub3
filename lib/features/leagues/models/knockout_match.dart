@@ -4,7 +4,7 @@ import 'enums.dart';
 class KnockoutMatch {
   final String id;
   final String leagueId;
-  final String roundName; // R16, QF, SF, Final, 3rd Place
+  final String roundName; // e.g. "Play-off", "Round of 16", "Quarter Finals", "Semi Finals", "Final", "3rd Place"
 
   final String? homeTeamId;
   final String? awayTeamId;
@@ -73,6 +73,39 @@ class KnockoutMatch {
       nextMatchId: nextMatchId ?? this.nextMatchId,
       loserGoesToMatchId: loserGoesToMatchId ?? this.loserGoesToMatchId,
       isSecondLeg: isSecondLeg ?? this.isSecondLeg,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'leagueId': leagueId,
+        'roundName': roundName,
+        'homeTeamId': homeTeamId,
+        'awayTeamId': awayTeamId,
+        'homeScore': homeScore,
+        'awayScore': awayScore,
+        'status': status.name,
+        'nextMatchId': nextMatchId,
+        'loserGoesToMatchId': loserGoesToMatchId,
+        'isSecondLeg': isSecondLeg,
+      };
+
+  factory KnockoutMatch.fromJson(Map<String, dynamic> json) {
+    return KnockoutMatch(
+      id: json['id'] as String,
+      leagueId: json['leagueId'] as String,
+      roundName: json['roundName'] as String,
+      homeTeamId: json['homeTeamId'] as String?,
+      awayTeamId: json['awayTeamId'] as String?,
+      homeScore: json['homeScore'] as int?,
+      awayScore: json['awayScore'] as int?,
+      status: MatchStatus.values.firstWhere(
+        (e) => e.name == json['status'],
+        orElse: () => MatchStatus.scheduled,
+      ),
+      nextMatchId: json['nextMatchId'] as String?,
+      loserGoesToMatchId: json['loserGoesToMatchId'] as String?,
+      isSecondLeg: json['isSecondLeg'] as bool? ?? false,
     );
   }
 }
