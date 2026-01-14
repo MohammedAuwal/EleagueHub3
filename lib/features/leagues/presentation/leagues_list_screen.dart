@@ -353,7 +353,7 @@ class _LeaguesListScreenState extends ConsumerState<LeaguesListScreen> {
                         id: generatedLeagueId,
                         name: 'Joined League',
                         format: LeagueFormat.classic,
-                        privacy: LeaguePrivacy.private,
+                        isPrivate: true,
                         region: 'Global',
                         maxTeams: 20,
                         season: '2026',
