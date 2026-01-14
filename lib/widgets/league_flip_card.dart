@@ -62,7 +62,7 @@ class _LeagueFlipCardState extends State<LeagueFlipCard> {
         transitionBuilder: (Widget child, Animation<double> animation) {
           return AnimatedBuilder(
             animation: animation,
-            child: child,
+            child: (angle > 1.5708) ? Transform(transform: Matrix4.rotationY(3.14159), alignment: Alignment.center, child: child) : child,
             builder: (context, child) {
               final angle = animation.value * pi;
 
@@ -79,7 +79,7 @@ class _LeagueFlipCardState extends State<LeagueFlipCard> {
                   ..setEntry(3, 2, tilt)
                   ..rotateY(angle),
                 alignment: Alignment.center,
-                child: child,
+                child: (angle > 1.5708) ? Transform(transform: Matrix4.rotationY(3.14159), alignment: Alignment.center, child: child) : child,
               );
             },
           );
@@ -104,7 +104,7 @@ class _LeagueFlipCardState extends State<LeagueFlipCard> {
             borderRadius: BorderRadius.circular(24),
             border: Border.all(color: Colors.white.withOpacity(0.2)),
           ),
-          child: child,
+          child: (angle > 1.5708) ? Transform(transform: Matrix4.rotationY(3.14159), alignment: Alignment.center, child: child) : child,
         ),
       ),
     );
