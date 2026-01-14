@@ -61,6 +61,16 @@ final appRouter = GoRouter(
               },
             ),
             GoRoute(
+              path: ':id',
+              builder: (context, state) => LeagueDetailScreen(id: state.pathParameters['id']!),
+              routes: [
+                GoRoute(
+                  path: 'standings',
+                  builder: (context, state) => LeagueStandingsScreen(id: state.pathParameters['id']!),
+                ),,
+              ],
+            )
+            GoRoute(
               path: ':leagueId',
               builder: (context, state) {
                 final leagueId = state.pathParameters['leagueId']!;
