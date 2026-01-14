@@ -329,7 +329,8 @@ class _ScoreEntryTileState extends State<_ScoreEntryTile> {
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.05),
         borderRadius: BorderRadius.circular(12),
-        border: const BorderSide(color: Colors.white10),
+        // FIXED: BoxDecoration.border expects a BoxBorder, so use Border.all
+        border: Border.all(color: Colors.white10),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       child: Row(
