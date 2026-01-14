@@ -4,13 +4,11 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-/// Glass flip card
-/// Fixes:
-/// - mirrored/backside content issue by ensuring only the back face is flipped
-/// Adds:
-/// - optional qrWidget
-/// - copy invite code
-/// - double-tap callback (navigate to details)
+/// Glass flip card (fixed)
+/// - No upside-down / mirrored content
+/// - Tap: flip
+/// - Double tap: callback (open details)
+/// - Back shows QR + Join ID, copy works
 class LeagueFlipCard extends StatefulWidget {
   final String leagueName;
   final String leagueCode;
@@ -60,31 +58,45 @@ class _LeagueFlipCardState extends State<LeagueFlipCard> {
       child: AnimatedSwitcher(
         duration: const Duration(milliseconds: 600),
         transitionBuilder: (Widget child, Animation<double> animation) {
+          // Standard flip: rotate from 0..pi and fix "under side" mirroring
           return AnimatedBuilder(
             animation: animation,
-            child: (isUnder) ? Transform(transform: Matrix4.rotationY(3.14159), alignment: Alignment.center, child: child) : child,
+            child: child,
             builder: (context, child) {
-              final angle = animation.value * pi;
+              final value = animation.value;
+              final angle = value * pi;
 
-              // Important fix:
-              // During the switch, one widget is under the other.
-              // We only rotate the "incoming/outgoing" faces correctly,
-              // and we do not double-flip the back content.
               final isUnder = (child!.key != ValueKey(_isFront));
+
+              // A tiny perspective tilt
               var tilt = 0.002;
               if (isUnder) tilt = -tilt;
+
+              // When a face is "under", we rotate it by pi so it reads correctly.
+              final correctedChild = isUnder
+                  ? Transform(
+                      transform: Matrix4.rotationY(pi),
+                      alignment: Alignment.center,
+                      child: child,
+                    )
+                  : child;
 
               return Transform(
                 transform: Matrix4.identity()
                   ..setEntry(3, 2, tilt)
                   ..rotateY(angle),
                 alignment: Alignment.center,
-                child: (isUnder) ? Transform(transform: Matrix4.rotationY(3.14159), alignment: Alignment.center, child: child) : child,
+                child: correctedChild,
               );
             },
           );
         },
-        layoutBuilder: (widget, list) => Stack(children: [widget!, ...list]),
+        layoutBuilder: (currentChild, previousChildren) => Stack(
+          children: <Widget>[
+            ...previousChildren,
+            if (currentChild != null) currentChild,
+          ],
+        ),
         child: _isFront ? _buildFront() : _buildBack(),
       ),
     );
@@ -104,7 +116,7 @@ class _LeagueFlipCardState extends State<LeagueFlipCard> {
             borderRadius: BorderRadius.circular(24),
             border: Border.all(color: Colors.white.withOpacity(0.2)),
           ),
-          child: (isUnder) ? Transform(transform: Matrix4.rotationY(3.14159), alignment: Alignment.center, child: child) : child,
+          child: child,
         ),
       ),
     );
@@ -156,7 +168,12 @@ class _LeagueFlipCardState extends State<LeagueFlipCard> {
               const SizedBox(width: 8),
               const Text(
                 "TAP TO JOIN / SCAN QR",
-                style: TextStyle(color: Colors.cyanAccent, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.2),
+                style: TextStyle(
+                  color: Colors.cyanAccent,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
+                ),
               ),
             ],
           ),
@@ -196,7 +213,11 @@ class _LeagueFlipCardState extends State<LeagueFlipCard> {
                 children: [
                   Text(
                     "INVITE CODE",
-                    style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 11, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.6),
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   FittedBox(
@@ -204,7 +225,12 @@ class _LeagueFlipCardState extends State<LeagueFlipCard> {
                     alignment: Alignment.centerLeft,
                     child: Text(
                       widget.leagueCode,
-                      style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold, letterSpacing: 2),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 2,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 24),
@@ -218,7 +244,7 @@ class _LeagueFlipCardState extends State<LeagueFlipCard> {
                       elevation: 0,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
-                  )
+                  ),
                 ],
               ),
             ),
