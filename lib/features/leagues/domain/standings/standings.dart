@@ -1,6 +1,6 @@
 /// Represents a single row in a league or group table.
-/// 
-/// This domain model calculates competitive statistics like 
+///
+/// This domain model calculates competitive statistics like
 /// Points and Goal Difference based on match results.
 class StandingsRow {
   final String teamId;
@@ -54,9 +54,14 @@ class StandingsRow {
   /// Initial state for a team before any matches are played.
   static StandingsRow empty({required String teamId, required String teamName}) {
     return StandingsRow(
-      teamId: teamId, 
-      teamName: teamName, 
-      mp: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0
+      teamId: teamId,
+      teamName: teamName,
+      mp: 0,
+      w: 0,
+      d: 0,
+      l: 0,
+      gf: 0,
+      ga: 0,
     );
   }
 }

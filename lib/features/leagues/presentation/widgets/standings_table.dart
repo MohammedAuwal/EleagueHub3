@@ -1,37 +1,64 @@
 import 'package:flutter/material.dart';
+
 import '../../../../core/widgets/glass.dart';
-import '../../domain/models.dart';
+// Use the real domain model for standings:
+import '../../domain/standings/standings.dart';
 
+/// A sortable standings table rendered using the [StandingsRow] domain model.
 class StandingsTable extends StatefulWidget {
-  const StandingsTable({super.key, required this.rows});
+  const StandingsTable({
+    super.key,
+    required this.rows,
+  });
 
-  final List<StandingRow> rows;
+  /// Raw, unsorted list of standing rows.
+  final List<StandingsRow> rows;
 
   @override
   State<StandingsTable> createState() => _StandingsTableState();
 }
 
 class _StandingsTableState extends State<StandingsTable> {
+  /// Index of the currently sorted column in the DataTable.
+  /// 0 = Team, 1 = P, 2 = W, 3 = D, 4 = L, 5 = GD, 6 = GF, 7 = Pts
   int _sortCol = 7; // default sort by points
+
+  /// Whether the sort is ascending or descending.
   bool _asc = false;
 
-  List<StandingRow> get _sorted {
+  /// Returns a sorted copy of the incoming rows based on the current sort state.
+  List<StandingsRow> get _sorted {
     final rows = [...widget.rows];
 
     rows.sort((a, b) {
       int v;
       switch (_sortCol) {
-        case 0: v = a.team.compareTo(b.team); break;
-        case 1: v = a.played.compareTo(b.played); break;
-        case 2: v = a.wins.compareTo(b.wins); break;
-        case 3: v = a.draws.compareTo(b.draws); break;
-        case 4: v = a.losses.compareTo(b.losses); break;
-        case 5: v = a.gd.compareTo(b.gd); break;
-        case 6: v = a.gf.compareTo(b.gf); break;
-        case 7:
+        case 0: // Team
+          v = a.teamName.compareTo(b.teamName);
+          break;
+        case 1: // Played
+          v = a.mp.compareTo(b.mp);
+          break;
+        case 2: // Wins
+          v = a.w.compareTo(b.w);
+          break;
+        case 3: // Draws
+          v = a.d.compareTo(b.d);
+          break;
+        case 4: // Losses
+          v = a.l.compareTo(b.l);
+          break;
+        case 5: // Goal difference
+          v = a.gd.compareTo(b.gd);
+          break;
+        case 6: // Goals for
+          v = a.gf.compareTo(b.gf);
+          break;
+        case 7: // Points
         default:
-          v = a.points.compareTo(b.points);
+          v = a.pts.compareTo(b.pts);
       }
+      // Flip sort order depending on [_asc].
       return _asc ? v : -v;
     });
 
@@ -43,7 +70,8 @@ class _StandingsTableState extends State<StandingsTable> {
     final rows = _sorted;
 
     return Glass(
-      borderRadius: BorderRadius.circular(20),
+      // Glass.borderRadius is a double, so pass a radius, not a BorderRadius.
+      borderRadius: 20,
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.all(12),
@@ -68,10 +96,14 @@ class _StandingsTableState extends State<StandingsTable> {
     );
   }
 
+  /// Helper to create a sortable [DataColumn].
   DataColumn _col(String label, int index, {bool numeric = false}) {
     return DataColumn(
       numeric: numeric,
-      label: Text(label, style: const TextStyle(fontWeight: FontWeight.w800)),
+      label: Text(
+        label,
+        style: const TextStyle(fontWeight: FontWeight.w800),
+      ),
       onSort: (colIndex, ascending) {
         setState(() {
           _sortCol = colIndex;
@@ -81,25 +113,41 @@ class _StandingsTableState extends State<StandingsTable> {
     );
   }
 
-  DataRow _row(BuildContext context, int i, StandingRow r) {
+  /// Build a single DataRow for the standings table.
+  DataRow _row(BuildContext context, int i, StandingsRow r) {
     final primary = Theme.of(context).colorScheme.primary;
+
+    // Example coloring:
+    // - Top 2: green (champions zone)
+    // - Next 2: primary tint (e.g. European qualifiers)
     final zoneColor = i < 2
-        ? Colors.green.withOpacity(0.12)       // Champions zone
+        ? Colors.green.withOpacity(0.12)
         : i < 4
-            ? primary.withOpacity(0.10)       // European qualifiers
+            ? primary.withOpacity(0.10)
             : Colors.transparent;
 
     return DataRow(
+      // In Flutter 3.24, WidgetStatePropertyAll works here.
       color: WidgetStatePropertyAll(zoneColor),
       cells: [
-        DataCell(Text(r.team, style: const TextStyle(fontWeight: FontWeight.w700))),
-        DataCell(Text('${r.played}')),
-        DataCell(Text('${r.wins}')),
-        DataCell(Text('${r.draws}')),
-        DataCell(Text('${r.losses}')),
+        DataCell(
+          Text(
+            r.teamName,
+            style: const TextStyle(fontWeight: FontWeight.w700),
+          ),
+        ),
+        DataCell(Text('${r.mp}')),
+        DataCell(Text('${r.w}')),
+        DataCell(Text('${r.d}')),
+        DataCell(Text('${r.l}')),
         DataCell(Text('${r.gd}')),
         DataCell(Text('${r.gf}')),
-        DataCell(Text('${r.points}', style: const TextStyle(fontWeight: FontWeight.w900))),
+        DataCell(
+          Text(
+            '${r.pts}',
+            style: const TextStyle(fontWeight: FontWeight.w900),
+          ),
+        ),
       ],
     );
   }
