@@ -101,11 +101,13 @@ class LeagueStandingsScreen extends ConsumerWidget {
                                     itemCount: groupKeys.length,
                                     itemBuilder: (context, index) {
                                       final groupId = groupKeys[index];
-                                      final rows = groupMap[groupId] ?? const <StandingsRow>[];
+                                      final rows = groupMap[groupId] ??
+                                          const <StandingsRow>[];
 
                                       return Padding(
                                         padding: EdgeInsets.only(
-                                          bottom: index == groupKeys.length - 1
+                                          bottom: index ==
+                                                  groupKeys.length - 1
                                               ? 0
                                               : 16,
                                         ),
@@ -135,10 +137,110 @@ class LeagueStandingsScreen extends ConsumerWidget {
                                 },
                               );
 
-                            case LeagueFormat.classic:
                             case LeagueFormat.uclSwiss:
+                              // UCL Swiss: single global table + Swiss phase round indicator.
+                              final standingsAsync =
+                                  ref.watch(leagueStandingsProvider(id));
+                              return standingsAsync.when(
+                                loading: () => const Center(
+                                  child: CircularProgressIndicator(
+                                    color: Colors.cyanAccent,
+                                  ),
+                                ),
+                                error: (error, stack) => Center(
+                                  child: Text(
+                                    'Failed to load standings.\n${error.toString()}',
+                                    style: const TextStyle(
+                                      color: Colors.white70,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                                data: (rows) {
+                                  if (rows.isEmpty) {
+                                    // Even if no results yet, show Swiss phase info.
+                                    return FutureBuilder<int>(
+                                      future: _getSwissCurrentRound(ref, id),
+                                      builder: (context, snapshot) {
+                                        final current =
+                                            snapshot.data ?? 0;
+                                        final total =
+                                            league.settings.swissRounds;
+
+                                        final label = current == 0
+                                            ? 'Swiss phase: no rounds yet (max $total rounds)'
+                                            : 'Swiss phase: Round $current of $total';
+
+                                        return Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.stretch,
+                                          children: [
+                                            Text(
+                                              label,
+                                              style: const TextStyle(
+                                                color: Colors.white54,
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 12),
+                                            const Expanded(
+                                              child: Center(
+                                                child: Text(
+                                                  'No results yet.\n'
+                                                  'Standings will appear here after matches are played.',
+                                                  style: TextStyle(
+                                                    color: Colors.white54,
+                                                  ),
+                                                  textAlign:
+                                                      TextAlign.center,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        );
+                                      },
+                                    );
+                                  }
+
+                                  return FutureBuilder<int>(
+                                    future:
+                                        _getSwissCurrentRound(ref, id),
+                                    builder: (context, snapshot) {
+                                      final current = snapshot.data ?? 0;
+                                      final total =
+                                          league.settings.swissRounds;
+
+                                      final label = current == 0
+                                          ? 'Swiss phase: no rounds yet (max $total rounds)'
+                                          : 'Swiss phase: Round $current of $total';
+
+                                      return Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.stretch,
+                                        children: [
+                                          Text(
+                                            label,
+                                            style: const TextStyle(
+                                              color: Colors.white54,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Expanded(
+                                            child: StandingsTable(
+                                              rows: rows,
+                                            ),
+                                          ),
+                                        ],
+                                      );
+                                    },
+                                  );
+                                },
+                              );
+
+                            case LeagueFormat.classic:
                             default:
-                              // Classic + Swiss: single global standings table.
+                              // Classic: single global standings table.
                               final standingsAsync =
                                   ref.watch(leagueStandingsProvider(id));
                               return standingsAsync.when(
@@ -185,4 +287,15 @@ class LeagueStandingsScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// Helper to compute the highest Swiss round that has been generated so far
+/// (based purely on existing matches).
+Future<int> _getSwissCurrentRound(WidgetRef ref, String leagueId) async {
+  final repo = ref.read(localLeaguesRepositoryProvider);
+  final allMatches = await repo.getMatches(leagueId);
+  if (allMatches.isEmpty) return 0;
+  return allMatches
+      .map((m) => m.roundNumber)
+      .reduce((a, b) => a > b ? a : b);
 }

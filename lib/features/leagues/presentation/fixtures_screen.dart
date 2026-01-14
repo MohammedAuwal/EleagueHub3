@@ -11,6 +11,7 @@ import '../models/fixture_match.dart';
 import '../models/enums.dart';
 import '../models/league.dart';
 import '../models/league_format.dart';
+import '../domain/algorithms/swiss_pairing.dart';
 
 class FixturesScreen extends ConsumerStatefulWidget {
   final String leagueId;
@@ -34,6 +35,8 @@ class _FixturesScreenState extends ConsumerState<FixturesScreen> {
   List<String> _groups = [];
   /// null = "All groups" when format == uclGroup
   String? _selectedGroup;
+
+  bool _isGeneratingNextRound = false;
 
   @override
   void initState() {
@@ -71,14 +74,12 @@ class _FixturesScreenState extends ConsumerState<FixturesScreen> {
         _format = format;
         _teamNames = {for (var t in teams) t.id: t.name};
         _groups = groups;
-        // For UCL Group: default to "All groups" (null), so user sees everything by default.
+        // UCL Group: default to "All groups" (null filter).
         _selectedGroup = null;
         _isLoading = false;
       });
     } catch (e) {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -113,6 +114,128 @@ class _FixturesScreenState extends ConsumerState<FixturesScreen> {
         .reduce((a, b) => a > b ? a : b);
   }
 
+  /// Generate the next Swiss round (or Round 1 if none exist yet) for UCL Swiss leagues.
+  Future<void> _generateNextSwissRound() async {
+    if (_isGeneratingNextRound || _format != LeagueFormat.uclSwiss) return;
+
+    setState(() => _isGeneratingNextRound = true);
+    try {
+      final league = await _repo.getLeagueById(widget.leagueId);
+      if (league == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('League not found'),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+        return;
+      }
+
+      final maxRounds = league.settings.swissRounds;
+
+      final teams = await _repo.getTeams(widget.leagueId);
+      if (teams.length < 2) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Not enough teams to generate Swiss pairings.'),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+        return;
+      }
+
+      final existingMatches = await _repo.getMatches(widget.leagueId);
+
+      int currentMaxRound = 0;
+      if (existingMatches.isNotEmpty) {
+        currentMaxRound = existingMatches
+            .map((m) => m.roundNumber)
+            .reduce((a, b) => a > b ? a : b);
+      }
+
+      int nextRound;
+      List<FixtureMatch> newFixtures;
+
+      if (currentMaxRound == 0) {
+        // No Swiss rounds yet → generate Round 1 using initial Swiss pairing.
+        nextRound = 1;
+        newFixtures = SwissPairingEngine.generateInitialRound(
+          leagueId: widget.leagueId,
+          teams: teams,
+          roundNumber: nextRound,
+        );
+      } else {
+        if (currentMaxRound >= maxRounds) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'All $maxRounds Swiss rounds have already been generated.',
+                ),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+          return;
+        }
+
+        nextRound = currentMaxRound + 1;
+        newFixtures = SwissPairingEngine.generateNextRound(
+          leagueId: widget.leagueId,
+          teams: teams,
+          existingMatches: existingMatches,
+          nextRoundNumber: nextRound,
+        );
+      }
+
+      if (newFixtures.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('No Swiss pairings could be generated.'),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+        return;
+      }
+
+      await _repo.saveMatches(widget.leagueId, newFixtures);
+
+      if (!mounted) return;
+      setState(() {
+        _selectedRound = nextRound;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Swiss round $nextRound generated'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+
+      // Refresh names / groups / format / rounds.
+      await _loadInitialData();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to generate Swiss round: $e'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isGeneratingNextRound = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
@@ -123,6 +246,25 @@ class _FixturesScreenState extends ConsumerState<FixturesScreen> {
         title: const Text('Fixtures & Results'),
         elevation: 0,
         backgroundColor: Colors.transparent,
+        actions: [
+          if (_format == LeagueFormat.uclSwiss)
+            IconButton(
+              onPressed: _isGeneratingNextRound
+                  ? null
+                  : _generateNextSwissRound,
+              tooltip: 'Generate next Swiss round',
+              icon: _isGeneratingNextRound
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.cyanAccent,
+                      ),
+                    )
+                  : const Icon(Icons.auto_mode),
+            ),
+        ],
       ),
       body: _isLoading
           ? const Center(
