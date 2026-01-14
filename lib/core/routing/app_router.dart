@@ -54,7 +54,8 @@ final appRouter = GoRouter(
               builder: (context, state) {
                 final extra = state.extra as Map<String, dynamic>? ?? {};
                 final leagueId = extra['leagueId'] as String? ?? 'mock-id';
-                final format = extra['format'] as LeagueFormat? ?? LeagueFormat.classic;
+                final format =
+                    extra['format'] as LeagueFormat? ?? LeagueFormat.classic;
                 return AddTeamsScreen(
                   leagueId: leagueId,
                   format: format,
@@ -70,10 +71,10 @@ final appRouter = GoRouter(
               routes: [
                 GoRoute(
                   path: 'standings',
-                  builder: (context, state) =>
-                      LeagueStandingsScreen(
-                        leagueId: state.pathParameters['id']!,
-                      ),
+                  builder: (context, state) => LeagueStandingsScreen(
+                    // Constructor takes `id`, not `leagueId`
+                    id: state.pathParameters['id']!,
+                  ),
                 ),
               ],
             ),

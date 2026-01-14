@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/widgets/glass_scaffold.dart';
 import '../../../core/widgets/glass.dart';
+import '../domain/standings/standings.dart';
 import 'widgets/standings_table.dart';
 
 class LeagueStandingsScreen extends ConsumerWidget {
@@ -15,6 +16,10 @@ class LeagueStandingsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // TODO: Replace this placeholder with your real Riverpod provider,
+    // e.g. final rows = ref.watch(leagueStandingsProvider(id)).value ?? [];
+    const List<StandingsRow> rows = [];
+
     return GlassScaffold(
       appBar: AppBar(
         title: const Text('Standings'),
@@ -30,7 +35,8 @@ class LeagueStandingsScreen extends ConsumerWidget {
               child: Glass(
                 padding: const EdgeInsets.all(16),
                 child: StandingsTable(
-                  leagueId: id,
+                  // StandingsTable expects a List<StandingsRow> via `rows:`
+                  rows: rows,
                 ),
               ),
             ),
