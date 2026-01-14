@@ -8,6 +8,8 @@ import '../../../core/widgets/section_header.dart';
 import '../data/leagues_repository_local.dart';
 import '../models/fixture_match.dart';
 import '../models/enums.dart';
+import '../models/league.dart';
+import '../models/league_format.dart';
 
 class AdminScoreMgmtScreen extends ConsumerStatefulWidget {
   final String leagueId;
@@ -25,6 +27,12 @@ class _AdminScoreMgmtScreenState
   Map<String, String> _teamNames = {};
   bool _isLoading = true;
 
+  LeagueFormat _format = LeagueFormat.classic;
+  List<String> _groups = [];
+  /// null = "All groups" when format == uclGroup
+  String? _selectedGroup;
+  int _selectedRound = 1;
+
   @override
   void initState() {
     super.initState();
@@ -36,9 +44,28 @@ class _AdminScoreMgmtScreenState
     if (!mounted) return;
     setState(() => _isLoading = true);
 
-    // Fetch both matches and teams to resolve names
-    final matches = await _repo.getMatches(widget.leagueId);
-    final teams = await _repo.getTeams(widget.leagueId);
+    final leagueFuture = _repo.getLeagueById(widget.leagueId);
+    final matchesFuture = _repo.getMatches(widget.leagueId);
+    final teamsFuture = _repo.getTeams(widget.leagueId);
+
+    final league = await leagueFuture;
+    final matches = await matchesFuture;
+    final teams = await teamsFuture;
+
+    final format = league?.format ?? LeagueFormat.classic;
+
+    // Collect groups (only relevant for UCL Group).
+    List<String> groups = [];
+    if (format == LeagueFormat.uclGroup) {
+      groups = matches
+          .map((m) => m.groupId)
+          .whereType<String>()
+          .map((g) => g.trim())
+          .where((g) => g.isNotEmpty)
+          .toSet()
+          .toList()
+        ..sort();
+    }
 
     // Sort so that pending/unplayed matches come first, completed go to bottom.
     matches.sort((a, b) {
@@ -54,10 +81,37 @@ class _AdminScoreMgmtScreenState
       return a.id.compareTo(b.id);
     });
 
+    // Preserve selected group if still valid, else reset to All.
+    String? selectedGroup = _selectedGroup;
+    if (format != LeagueFormat.uclGroup) {
+      selectedGroup = null;
+    } else if (selectedGroup != null && !groups.contains(selectedGroup)) {
+      selectedGroup = null;
+    }
+
+    // Compute a sensible selected round given the new data + selection.
+    Iterable<FixtureMatch> forRounds = matches;
+    if (format == LeagueFormat.uclGroup && selectedGroup != null) {
+      forRounds =
+          forRounds.where((m) => m.groupId == selectedGroup);
+    }
+    final roundSet = forRounds.map((m) => m.roundNumber).toSet();
+    int selectedRound = _selectedRound;
+    if (roundSet.isEmpty) {
+      selectedRound = 1;
+    } else if (!roundSet.contains(selectedRound)) {
+      final sorted = roundSet.toList()..sort();
+      selectedRound = sorted.first;
+    }
+
     if (!mounted) return;
     setState(() {
+      _format = format;
+      _groups = groups;
+      _selectedGroup = selectedGroup;
       _matches = matches;
       _teamNames = {for (var t in teams) t.id: t.name};
+      _selectedRound = selectedRound;
       _isLoading = false;
     });
   }
@@ -93,6 +147,34 @@ class _AdminScoreMgmtScreenState
     final width = MediaQuery.of(context).size.width;
     final isTablet = width > 700;
 
+    // Determine available rounds based on current group selection.
+    List<int> availableRounds = [];
+    {
+      Iterable<FixtureMatch> forRounds = _matches;
+      if (_format == LeagueFormat.uclGroup &&
+          _selectedGroup != null) {
+        forRounds =
+            forRounds.where((m) => m.groupId == _selectedGroup);
+      }
+      final roundSet =
+          forRounds.map((m) => m.roundNumber).toSet();
+      availableRounds = roundSet.toList()..sort();
+    }
+
+    // Apply group + round filter on matches.
+    List<FixtureMatch> visibleMatches = _matches;
+    if (_format == LeagueFormat.uclGroup &&
+        _selectedGroup != null) {
+      visibleMatches = visibleMatches
+          .where((m) => m.groupId == _selectedGroup)
+          .toList();
+    }
+    if (availableRounds.isNotEmpty) {
+      visibleMatches = visibleMatches
+          .where((m) => m.roundNumber == _selectedRound)
+          .toList();
+    }
+
     return GlassScaffold(
       appBar: AppBar(
         title: const Text("Score Management"),
@@ -122,6 +204,7 @@ class _AdminScoreMgmtScreenState
                           EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                       child: Text(
                         'Tap + / - to adjust each team\'s score.\n'
+                        'Use group and round filters to quickly find matches.\n'
                         'Pending matches are listed first; completed go to the bottom.',
                         style: TextStyle(
                           color: Colors.white30,
@@ -131,8 +214,14 @@ class _AdminScoreMgmtScreenState
                       ),
                     ),
                     const SizedBox(height: 8),
+                    if (_format == LeagueFormat.uclGroup &&
+                        _groups.isNotEmpty)
+                      _buildGroupSelector(),
+                    if (availableRounds.isNotEmpty)
+                      _buildRoundSelector(availableRounds),
+                    const SizedBox(height: 4),
                     Expanded(
-                      child: _matches.isEmpty
+                      child: visibleMatches.isEmpty
                           ? const Center(
                               child: Text(
                                 "No matches to manage",
@@ -141,11 +230,11 @@ class _AdminScoreMgmtScreenState
                             )
                           : ListView.separated(
                               padding: const EdgeInsets.all(16),
-                              itemCount: _matches.length,
+                              itemCount: visibleMatches.length,
                               separatorBuilder: (_, __) =>
                                   const SizedBox(height: 12),
                               itemBuilder: (context, index) {
-                                final match = _matches[index];
+                                final match = visibleMatches[index];
                                 return _ScoreEntryTile(
                                   key: ValueKey(match.id),
                                   match: match,
@@ -163,6 +252,171 @@ class _AdminScoreMgmtScreenState
                 ),
               ),
             ),
+    );
+  }
+
+  /// "All" + each group (Group A, Group B, ...) for UCL Group leagues.
+  Widget _buildGroupSelector() {
+    final bool allSelected = _selectedGroup == null;
+
+    return Container(
+      height: 40,
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        children: [
+          // "All" chip
+          GestureDetector(
+            onTap: () {
+              // Recompute rounds after changing group.
+              Iterable<FixtureMatch> forRounds = _matches;
+              final roundSet =
+                  forRounds.map((m) => m.roundNumber).toSet();
+              int newRound = _selectedRound;
+              if (roundSet.isEmpty) {
+                newRound = 1;
+              } else if (!roundSet.contains(newRound)) {
+                final sorted =
+                    roundSet.toList()..sort();
+                newRound = sorted.first;
+              }
+
+              setState(() {
+                _selectedGroup = null;
+                _selectedRound = newRound;
+              });
+            },
+            child: Container(
+              margin: const EdgeInsets.only(right: 8),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              decoration: BoxDecoration(
+                color: allSelected
+                    ? Colors.cyanAccent
+                    : Colors.white.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(
+                  color: allSelected
+                      ? Colors.cyanAccent
+                      : Colors.white10,
+                ),
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                'All',
+                style: TextStyle(
+                  color: allSelected ? Colors.black : Colors.white70,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 11,
+                ),
+              ),
+            ),
+          ),
+          // Group chips
+          for (final group in _groups)
+            Builder(
+              builder: (context) {
+                final isSelected = _selectedGroup == group;
+                return GestureDetector(
+                  onTap: () {
+                    // Recompute rounds for this group.
+                    Iterable<FixtureMatch> forRounds = _matches
+                        .where((m) => m.groupId == group);
+                    final roundSet = forRounds
+                        .map((m) => m.roundNumber)
+                        .toSet();
+                    int newRound = _selectedRound;
+                    if (roundSet.isEmpty) {
+                      newRound = 1;
+                    } else if (!roundSet.contains(newRound)) {
+                      final sorted =
+                          roundSet.toList()..sort();
+                      newRound = sorted.first;
+                    }
+
+                    setState(() {
+                      _selectedGroup = group;
+                      _selectedRound = newRound;
+                    });
+                  },
+                  child: Container(
+                    margin: const EdgeInsets.only(right: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? Colors.cyanAccent
+                          : Colors.white.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(
+                        color: isSelected
+                            ? Colors.cyanAccent
+                            : Colors.white10,
+                      ),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      group,
+                      style: TextStyle(
+                        color: isSelected
+                            ? Colors.black
+                            : Colors.white70,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRoundSelector(List<int> rounds) {
+    return Container(
+      height: 46,
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: rounds.length,
+        itemBuilder: (context, i) {
+          final round = rounds[i];
+          final isSelected = _selectedRound == round;
+          return GestureDetector(
+            onTap: () => setState(() => _selectedRound = round),
+            child: Container(
+              margin: const EdgeInsets.only(right: 10),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? Colors.cyanAccent
+                    : Colors.white.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isSelected
+                      ? Colors.cyanAccent
+                      : Colors.white10,
+                ),
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                'RD $round',
+                style: TextStyle(
+                  color: isSelected ? Colors.black : Colors.white70,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 }
@@ -211,11 +465,30 @@ class _ScoreEntryTileState extends State<_ScoreEntryTile> {
 
   @override
   Widget build(BuildContext context) {
+    final groupLabel = widget.match.groupId?.trim().isNotEmpty == true
+        ? widget.match.groupId!.trim()
+        : null;
+
     return Glass(
       padding: const EdgeInsets.all(18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (groupLabel != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  groupLabel,
+                  style: const TextStyle(
+                    color: Colors.white54,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
           // Teams + status pill
           Row(
             children: [
@@ -329,7 +602,6 @@ class _ScoreEntryTileState extends State<_ScoreEntryTile> {
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.05),
         borderRadius: BorderRadius.circular(12),
-        // FIXED: BoxDecoration.border expects a BoxBorder, so use Border.all
         border: Border.all(color: Colors.white10),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),

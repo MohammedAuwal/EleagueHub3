@@ -9,6 +9,8 @@ import '../../../core/widgets/section_header.dart';
 import '../data/leagues_repository_local.dart';
 import '../models/fixture_match.dart';
 import '../models/enums.dart';
+import '../models/league.dart';
+import '../models/league_format.dart';
 
 class FixturesScreen extends ConsumerStatefulWidget {
   final String leagueId;
@@ -26,7 +28,12 @@ class _FixturesScreenState extends ConsumerState<FixturesScreen> {
   int _selectedRound = 1;
   late LocalLeaguesRepository _repo;
   Map<String, String> _teamNames = {};
-  bool _isLoadingNames = true;
+  bool _isLoading = true;
+
+  LeagueFormat _format = LeagueFormat.classic;
+  List<String> _groups = [];
+  /// null = "All groups" when format == uclGroup
+  String? _selectedGroup;
 
   @override
   void initState() {
@@ -35,30 +42,75 @@ class _FixturesScreenState extends ConsumerState<FixturesScreen> {
     _loadInitialData();
   }
 
-  // FIXED: Added 'async' to this method
   Future<void> _loadInitialData() async {
     try {
-      final teams = await _repo.getTeams(widget.leagueId);
-      if (mounted) {
-        setState(() {
-          _teamNames = {for (var t in teams) t.id: t.name};
-          _isLoadingNames = false;
-        });
+      final leagueFuture = _repo.getLeagueById(widget.leagueId);
+      final teamsFuture = _repo.getTeams(widget.leagueId);
+      final matchesFuture = _repo.getMatches(widget.leagueId);
+
+      final league = await leagueFuture;
+      final teams = await teamsFuture;
+      final allMatches = await matchesFuture;
+
+      final format = league?.format ?? LeagueFormat.classic;
+
+      List<String> groups = [];
+      if (format == LeagueFormat.uclGroup) {
+        groups = allMatches
+            .map((m) => m.groupId)
+            .whereType<String>()
+            .map((g) => g.trim())
+            .where((g) => g.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort();
       }
+
+      if (!mounted) return;
+      setState(() {
+        _format = format;
+        _teamNames = {for (var t in teams) t.id: t.name};
+        _groups = groups;
+        // For UCL Group: default to "All groups" (null), so user sees everything by default.
+        _selectedGroup = null;
+        _isLoading = false;
+      });
     } catch (e) {
-      if (mounted) setState(() => _isLoadingNames = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
   Future<List<FixtureMatch>> _getMatches() async {
     final allMatches = await _repo.getMatches(widget.leagueId);
-    return allMatches.where((m) => m.roundNumber == _selectedRound).toList();
+
+    Iterable<FixtureMatch> filtered = allMatches;
+
+    if (_format == LeagueFormat.uclGroup && _selectedGroup != null) {
+      filtered = filtered.where((m) => m.groupId == _selectedGroup);
+    }
+
+    filtered = filtered.where((m) => m.roundNumber == _selectedRound);
+
+    return filtered.toList();
   }
 
   Future<int> _getTotalRounds() async {
     final allMatches = await _repo.getMatches(widget.leagueId);
-    if (allMatches.isEmpty) return 0;
-    return allMatches.map((m) => m.roundNumber).reduce((a, b) => a > b ? a : b);
+
+    Iterable<FixtureMatch> filtered = allMatches;
+
+    if (_format == LeagueFormat.uclGroup && _selectedGroup != null) {
+      filtered = filtered.where((m) => m.groupId == _selectedGroup);
+    }
+
+    final list = filtered.toList();
+    if (list.isEmpty) return 0;
+
+    return list
+        .map((m) => m.roundNumber)
+        .reduce((a, b) => a > b ? a : b);
   }
 
   @override
@@ -72,32 +124,136 @@ class _FixturesScreenState extends ConsumerState<FixturesScreen> {
         elevation: 0,
         backgroundColor: Colors.transparent,
       ),
-      body: _isLoadingNames 
-        ? const Center(child: CircularProgressIndicator(color: Colors.cyanAccent))
-        : Center(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: isTablet ? 800 : 600),
-              child: FutureBuilder<int>(
-                future: _getTotalRounds(),
-                builder: (context, snapshot) {
-                  final totalRounds = snapshot.data ?? 0;
-                  
-                  return Column(
-                    children: [
-                      if (totalRounds > 0) _buildRoundSelector(totalRounds),
-                      const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 16),
-                        child: SectionHeader('Matchday Schedule'),
-                      ),
-                      Expanded(
-                        child: _buildMatchesList(),
-                      ),
-                    ],
-                  );
-                },
+      body: _isLoading
+          ? const Center(
+              child: CircularProgressIndicator(
+                color: Colors.cyanAccent,
+              ),
+            )
+          : Center(
+              child: ConstrainedBox(
+                constraints:
+                    BoxConstraints(maxWidth: isTablet ? 800 : 600),
+                child: FutureBuilder<int>(
+                  future: _getTotalRounds(),
+                  builder: (context, snapshot) {
+                    final totalRounds = snapshot.data ?? 0;
+
+                    return Column(
+                      children: [
+                        // For UCL Group, show group selector (with All + each group)
+                        if (_format == LeagueFormat.uclGroup &&
+                            _groups.isNotEmpty)
+                          _buildGroupSelector(),
+                        if (totalRounds > 0)
+                          _buildRoundSelector(totalRounds),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 16),
+                          child: SectionHeader('Matchday Schedule'),
+                        ),
+                        Expanded(
+                          child: _buildMatchesList(),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ),
+    );
+  }
+
+  /// Horizontal chips for "All" and each group (Group A, Group B, ...).
+  /// _selectedGroup == null means "All groups".
+  Widget _buildGroupSelector() {
+    final bool allSelected = _selectedGroup == null;
+
+    return Container(
+      height: 44,
+      margin: const EdgeInsets.only(top: 12, bottom: 4),
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        children: [
+          // "All" chip
+          GestureDetector(
+            onTap: () {
+              setState(() {
+                _selectedGroup = null;
+                _selectedRound = 1; // reset round when changing filter
+              });
+            },
+            child: Container(
+              margin: const EdgeInsets.only(right: 10),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: allSelected
+                    ? Colors.cyanAccent
+                    : Colors.white.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(
+                  color: allSelected
+                      ? Colors.cyanAccent
+                      : Colors.white10,
+                ),
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                'All',
+                style: TextStyle(
+                  color: allSelected ? Colors.black : Colors.white70,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
               ),
             ),
           ),
+          // Group chips
+          for (final group in _groups)
+            Builder(
+              builder: (context) {
+                final isSelected = _selectedGroup == group;
+                return GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _selectedGroup = group;
+                      _selectedRound = 1;
+                    });
+                  },
+                  child: Container(
+                    margin: const EdgeInsets.only(right: 10),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? Colors.cyanAccent
+                          : Colors.white.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(
+                        color: isSelected
+                            ? Colors.cyanAccent
+                            : Colors.white10,
+                      ),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      group,
+                      style: TextStyle(
+                        color:
+                            isSelected ? Colors.black : Colors.white70,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+        ],
+      ),
     );
   }
 
@@ -118,10 +274,14 @@ class _FixturesScreenState extends ConsumerState<FixturesScreen> {
               margin: const EdgeInsets.only(right: 12),
               padding: const EdgeInsets.symmetric(horizontal: 20),
               decoration: BoxDecoration(
-                color: isSelected ? Colors.cyanAccent : Colors.white.withOpacity(0.05),
+                color: isSelected
+                    ? Colors.cyanAccent
+                    : Colors.white.withOpacity(0.05),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: isSelected ? Colors.cyanAccent : Colors.white10,
+                  color: isSelected
+                      ? Colors.cyanAccent
+                      : Colors.white10,
                 ),
               ),
               alignment: Alignment.center,
@@ -145,69 +305,108 @@ class _FixturesScreenState extends ConsumerState<FixturesScreen> {
       future: _getMatches(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator(color: Colors.cyanAccent));
+          return const Center(
+            child:
+                CircularProgressIndicator(color: Colors.cyanAccent),
+          );
         }
 
         final matches = snapshot.data ?? [];
 
         if (matches.isEmpty) {
           return const Center(
-            child: Text('No matches generated yet', style: TextStyle(color: Colors.white38)),
+            child: Text(
+              'No matches generated yet',
+              style: TextStyle(color: Colors.white38),
+            ),
           );
         }
 
         return ListView.builder(
           padding: const EdgeInsets.all(16),
           itemCount: matches.length,
-          itemBuilder: (context, index) => _buildMatchCard(matches[index]),
+          itemBuilder: (context, index) =>
+              _buildMatchCard(matches[index]),
         );
       },
     );
   }
 
   Widget _buildMatchCard(FixtureMatch match) {
-    // FIXED: Using the name map instead of ID substrings
     final homeName = _teamNames[match.homeTeamId] ?? 'TBD';
     final awayName = _teamNames[match.awayTeamId] ?? 'TBD';
+    final groupLabel = match.groupId?.trim().isNotEmpty == true
+        ? match.groupId!.trim()
+        : null;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       child: Glass(
         padding: const EdgeInsets.all(16),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Expanded(
-              child: Text(
-                homeName,
-                textAlign: TextAlign.right,
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            Container(
-              width: 80,
-              alignment: Alignment.center,
-              child: (match.status == MatchStatus.completed || match.status == MatchStatus.played)
-                  ? Text(
-                      '${match.homeScore} - ${match.awayScore}',
-                      style: const TextStyle(
-                        color: Colors.cyanAccent,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                      ),
-                    )
-                  : const Text(
-                      'VS',
-                      style: TextStyle(color: Colors.white24, fontWeight: FontWeight.w900),
+            if (_format == LeagueFormat.uclGroup && groupLabel != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    groupLabel,
+                    style: const TextStyle(
+                      color: Colors.white54,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
                     ),
-            ),
-            Expanded(
-              child: Text(
-                awayName,
-                textAlign: TextAlign.left,
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
-                overflow: TextOverflow.ellipsis,
+                  ),
+                ),
               ),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    homeName,
+                    textAlign: TextAlign.right,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                Container(
+                  width: 80,
+                  alignment: Alignment.center,
+                  child: (match.status == MatchStatus.completed ||
+                          match.status == MatchStatus.played)
+                      ? Text(
+                          '${match.homeScore} - ${match.awayScore}',
+                          style: const TextStyle(
+                            color: Colors.cyanAccent,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                          ),
+                        )
+                      : const Text(
+                          'VS',
+                          style: TextStyle(
+                            color: Colors.white24,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                ),
+                Expanded(
+                  child: Text(
+                    awayName,
+                    textAlign: TextAlign.left,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
