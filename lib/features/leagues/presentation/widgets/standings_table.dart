@@ -8,14 +8,32 @@ import '../../domain/standings/standings.dart';
 /// - Horizontally scrollable for narrow screens.
 /// - Vertically scrollable when there are many teams.
 /// - Sortable by tapping column headers.
+/// - Allows optional custom row coloring via [rowColorBuilder].
 class StandingsTable extends StatefulWidget {
   const StandingsTable({
     super.key,
     required this.rows,
+    this.rowColorBuilder,
   });
 
   /// Raw, unsorted list of standing rows.
   final List<StandingsRow> rows;
+
+  /// Optional custom row color function.
+  ///
+  /// Parameters:
+  /// - [context]: BuildContext
+  /// - [index]: 0-based index in the sorted table
+  /// - [row]: the actual [StandingsRow] for that index
+  /// - [total]: total number of rows
+  ///
+  /// Return a [Color] to tint the row, or null for no background.
+  final Color? Function(
+    BuildContext context,
+    int index,
+    StandingsRow row,
+    int total,
+  )? rowColorBuilder;
 
   @override
   State<StandingsTable> createState() => _StandingsTableState();
@@ -109,7 +127,7 @@ class _StandingsTableState extends State<StandingsTable> {
                   ],
                   rows: [
                     for (int i = 0; i < rows.length; i++)
-                      _row(context, i, rows[i]),
+                      _row(context, i, rows.length, rows[i]),
                   ],
                 ),
               ),
@@ -138,21 +156,31 @@ class _StandingsTableState extends State<StandingsTable> {
   }
 
   /// Build a single DataRow for the standings table.
-  DataRow _row(BuildContext context, int i, StandingsRow r) {
-    final primary = Theme.of(context).colorScheme.primary;
+  DataRow _row(
+    BuildContext context,
+    int i,
+    int total,
+    StandingsRow r,
+  ) {
+    Color? zoneColor;
 
-    // Example coloring:
-    // - Top 2: green (champions zone)
-    // - Next 2: primary tint (e.g. European qualifiers)
-    final zoneColor = i < 2
-        ? Colors.green.withOpacity(0.12)
-        : i < 4
-            ? primary.withOpacity(0.10)
-            : Colors.transparent;
+    if (widget.rowColorBuilder != null) {
+      zoneColor = widget.rowColorBuilder!(context, i, r, total);
+    } else {
+      // Default coloring:
+      // - Top 2: green (champions zone)
+      // - Next 2: primary tint (e.g. European qualifiers)
+      final primary = Theme.of(context).colorScheme.primary;
+      zoneColor = i < 2
+          ? Colors.green.withOpacity(0.12)
+          : i < 4
+              ? primary.withOpacity(0.10)
+              : Colors.transparent;
+    }
 
     return DataRow(
       // In Flutter 3.24, WidgetStatePropertyAll works here.
-      color: WidgetStatePropertyAll(zoneColor),
+      color: zoneColor != null ? WidgetStatePropertyAll(zoneColor) : null,
       cells: [
         DataCell(
           // Show position before the team name for clarity.
