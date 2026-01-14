@@ -1,9 +1,10 @@
+import 'package:eleaguehub3/features/leagues/models/enums.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../models/league_format.dart';
-import '../models/league_settings.dart';
-import '../models/league.dart';
+import 'package:eleaguehub3/features/leagues/models/league_settings.dart';
+import 'package:eleaguehub3/features/leagues/models/league.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../../core/persistence/prefs_service.dart';
@@ -12,7 +13,7 @@ import '../../../core/widgets/glass_scaffold.dart';
 import '../../../widgets/glass_search_bar.dart';
 import '../../../widgets/league_flip_card.dart';
 import '../data/leagues_repository_local.dart';
-import '../models/league.dart';
+import 'package:eleaguehub3/features/leagues/models/league.dart';
 
 class LeaguesListScreen extends ConsumerStatefulWidget {
   const LeaguesListScreen({super.key});
@@ -381,3 +382,5 @@ class _LeaguesListScreenState extends ConsumerState<LeaguesListScreen> {
   }
 }
 // sync-fix
+// enum-fix-sync
+// enum-fix-sync
