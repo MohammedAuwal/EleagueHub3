@@ -27,12 +27,25 @@ class _LeagueCreateWizardState extends ConsumerState<LeagueCreateWizard> {
 
   final _name = TextEditingController();
   LeagueFormat _format = LeagueFormat.classic;
-  final int _maxTeams = 16;
 
   bool _doubleRoundRobin = true;
   bool _submitting = false;
 
   League? _createdLeague;
+
+  /// Max teams depends on the selected format:
+  /// - Classic: 20
+  /// - UCL Group: 32
+  /// - UCL Swiss: 32
+  int get _maxTeams {
+    switch (_format) {
+      case LeagueFormat.classic:
+        return 20;
+      case LeagueFormat.uclGroup:
+      case LeagueFormat.uclSwiss:
+        return 32;
+    }
+  }
 
   @override
   void dispose() {

@@ -13,6 +13,7 @@ import '../models/league_format.dart';
 import '../models/team.dart';
 import '../models/fixture_match.dart';
 import '../domain/algorithms/round_robin.dart';
+import '../domain/algorithms/swiss_pairing.dart';
 
 class AddTeamsScreen extends ConsumerStatefulWidget {
   final String leagueId;
@@ -32,12 +33,22 @@ class _AddTeamsScreenState extends ConsumerState<AddTeamsScreen> {
   late LocalLeaguesRepository _localRepo;
   final _bulkController = TextEditingController();
   final List<Map<String, String>> _tempTeams = [];
-
   String _selectedGroup = 'Group A';
   final List<String> _groups = const [
     'Group A', 'Group B', 'Group C', 'Group D',
     'Group E', 'Group F', 'Group G', 'Group H',
   ];
+
+  /// Max teams allowed in this Add Teams session, based on league format.
+  int get _maxTeamsForFormat {
+    switch (widget.format) {
+      case LeagueFormat.classic:
+        return 20;
+      case LeagueFormat.uclGroup:
+      case LeagueFormat.uclSwiss:
+        return 32;
+    }
+  }
 
   @override
   void initState() {
@@ -48,6 +59,20 @@ class _AddTeamsScreenState extends ConsumerState<AddTeamsScreen> {
   void _addTeam(String name) {
     final trimmed = name.trim();
     if (trimmed.isEmpty) return;
+
+    // Enforce max teams per format.
+    if (_tempTeams.length >= _maxTeamsForFormat) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Maximum $_maxTeamsForFormat teams allowed for this format.',
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
     if (_tempTeams.any((t) => t['name'] == trimmed)) return;
 
     setState(() {
@@ -80,12 +105,14 @@ class _AddTeamsScreenState extends ConsumerState<AddTeamsScreen> {
   Future<void> _generateAndSave() async {
     if (_tempTeams.isEmpty) return;
 
+    final now = DateTime.now().millisecondsSinceEpoch;
+
     final teamsToSave = _tempTeams.map((t) {
       return Team(
         id: const Uuid().v4(),
         leagueId: widget.leagueId,
         name: t['name']!,
-        updatedAtMs: DateTime.now().millisecondsSinceEpoch,
+        updatedAtMs: now,
         version: 1,
       );
     }).toList();
@@ -93,9 +120,10 @@ class _AddTeamsScreenState extends ConsumerState<AddTeamsScreen> {
     await _localRepo.saveTeams(widget.leagueId, teamsToSave);
 
     List<FixtureMatch> generatedFixtures = [];
-    final teamIds = teamsToSave.map((t) => t.id).toList();
 
     if (widget.format == LeagueFormat.classic) {
+      // Full round robin for all teams (double round robin based on rules).
+      final teamIds = teamsToSave.map((t) => t.id).toList();
       generatedFixtures = RoundRobinGenerator.generate(
         leagueId: widget.leagueId,
         teamIds: teamIds,
@@ -103,11 +131,13 @@ class _AddTeamsScreenState extends ConsumerState<AddTeamsScreen> {
         startRoundNumber: 1,
       );
     } else if (widget.format == LeagueFormat.uclGroup) {
+      // Round robin per group (e.g. Group A, B, ...).
       for (var groupName in _groups) {
         final groupTeams = teamsToSave
             .where((t) =>
                 _tempTeams.firstWhere(
-                    (temp) => temp['name'] == t.name)['group'] ==
+                  (temp) => temp['name'] == t.name,
+                )['group'] ==
                 groupName)
             .map((t) => t.id)
             .toList();
@@ -124,6 +154,13 @@ class _AddTeamsScreenState extends ConsumerState<AddTeamsScreen> {
           );
         }
       }
+    } else if (widget.format == LeagueFormat.uclSwiss) {
+      // Swiss: generate only Round 1 using SwissPairingEngine.
+      generatedFixtures = SwissPairingEngine.generateInitialRound(
+        leagueId: widget.leagueId,
+        teams: teamsToSave,
+        roundNumber: 1,
+      );
     }
 
     if (generatedFixtures.isNotEmpty) {
@@ -245,6 +282,16 @@ class _AddTeamsScreenState extends ConsumerState<AddTeamsScreen> {
               padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
               child: SectionHeader('Team Preview'),
             ),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Text(
+                '${_tempTeams.length} / $_maxTeamsForFormat teams',
+                style: const TextStyle(
+                  color: Colors.white54,
+                  fontSize: 12,
+                ),
+              ),
+            ),
             Expanded(
               child: ListView.builder(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -260,43 +307,35 @@ class _AddTeamsScreenState extends ConsumerState<AddTeamsScreen> {
                       child: Text(
                         '${i + 1}',
                         style: const TextStyle(
-                            color: Colors.cyanAccent, fontSize: 10),
+                          color: Colors.cyanAccent,
+                          fontSize: 12,
+                        ),
                       ),
                     ),
                     title: Text(
                       team['name']!,
-                      style: const TextStyle(
-                          color: Colors.white, fontSize: 14),
+                      style: const TextStyle(color: Colors.white),
+                      overflow: TextOverflow.ellipsis,
                     ),
                     subtitle: Text(
-                      team['group']!,
+                      team['group'] ?? '',
                       style: const TextStyle(
-                          color: Colors.white38, fontSize: 11),
-                    ),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.remove_circle_outline,
-                          color: Colors.white24, size: 18),
-                      onPressed: () =>
-                          setState(() => _tempTeams.removeAt(i)),
+                        color: Colors.white38,
+                        fontSize: 11,
+                      ),
                     ),
                   );
                 },
               ),
             ),
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
               child: FilledButton(
-                onPressed:
-                    _tempTeams.isEmpty ? null : _generateAndSave,
+                onPressed: _generateAndSave,
                 style: FilledButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 56),
-                  backgroundColor: Colors.cyanAccent,
-                  foregroundColor: Colors.black,
+                  minimumSize: const Size(double.infinity, 50),
                 ),
-                child: const Text(
-                  'GENERATE FIXTURES',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
+                child: const Text('SAVE & GENERATE FIXTURES'),
               ),
             ),
           ],
