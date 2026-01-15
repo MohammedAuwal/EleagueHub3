@@ -6,83 +6,132 @@ import '../../models/fixture_match.dart';
 import '../standings/standings.dart';
 
 class TournamentController {
-  /// Takes completed Group/Swiss standings and fills the R16 bracket.
+  /// Group-based UCL seeding:
   ///
-  /// Existing stub – currently unused in the new flow.
+  /// Input: groupStandings[groupId] = List<StandingsRow> sorted best→worst.
+  ///
+  /// - For each group, we take:
+  ///   - Winner  (index 0)
+  ///   - Runner-up (index 1)
+  ///
+  /// - From all groups (sorted by groupId), we build:
+  ///   - Winners list: [A1, B1, C1, ...]
+  ///   - Runners list: [A2, B2, C2, ...]
+  ///
+  /// - Round of 16 pairings (for pairs of groups):
+  ///   - A1 vs B2
+  ///   - B1 vs A2
+  ///   - C1 vs D2
+  ///   - D1 vs C2
+  ///   - ...
+  ///
+  /// Then we build the tree:
+  ///   - 8 Round of 16 matches
+  ///   - 4 Quarter Finals
+  ///   - 2 Semi Finals
+  ///   - 1 Final
+  ///   - 1 Third Place
   static List<KnockoutMatch> seedKnockoutsFromGroups({
     required String leagueId,
     required Map<String, List<StandingsRow>> groupStandings,
   }) {
-    // TODO: Implement classic UCL group seeding (Group A winner vs Group B runner-up, etc.)
-    return [];
-  }
-
-  /// Swiss-specific seeding:
-  ///
-  /// - Top 1–8: go directly to Round of 16 (automatic qualifiers).
-  /// - 9–24: go into a Play-off round (16 teams, 8 matches).
-  /// - Winners of Play-off matches advance into the remaining 8 R16 slots.
-  ///
-  /// This method seeds:
-  /// - 8 Play-off matches          (roundName = "Play-off")
-  /// - 8 Round of 16 matches       (roundName = "Round of 16")
-  /// - 4 Quarter-finals            (roundName = "Quarter Finals")
-  /// - 2 Semi-finals               (roundName = "Semi Finals")
-  /// - 1 Final                     (roundName = "Final")
-  /// - 1 Third-place match         (roundName = "3rd Place")
-  ///
-  /// Wiring of [nextMatchId]:
-  ///   Play-off -> Round of 16 -> Quarter Finals -> Semi Finals -> Final
-  /// Semi-finals losers go to the single "3rd Place" match (handled by [processMatchResult]).
-  static List<KnockoutMatch> seedSwissKnockouts({
-    required String leagueId,
-    required List<StandingsRow> swissStandings,
-  }) {
-    if (swissStandings.length < 16) {
-      // Need at least 16 teams to have a meaningful Play-off + full KO tree.
-      return [];
-    }
+    if (groupStandings.isEmpty) return [];
 
     final now = DateTime.now().millisecondsSinceEpoch;
-
     String _id(String prefix, int index) =>
         '$leagueId-$prefix-${now}_$index';
 
-    // 1–8: auto qualifiers for Round of 16
-    final autoQualifiers = swissStandings.take(8).toList();
+    // Sort groups by name (e.g. "Group A", "Group B", ...)
+    final groupKeys = groupStandings.keys.toList()..sort();
 
-    // 9–24: playoff pool (may be smaller if not enough teams, but we cap at 16).
-    final playoffSeeds = swissStandings.skip(8).take(16).toList();
+    // Collect winners and runners-up
+    final winners = <StandingsRow>[];
+    final runners = <StandingsRow>[];
 
-    // --- Create Round of 16 skeleton: 8 matches, home team = top 8 (where available) ---
+    for (final g in groupKeys) {
+      final rows = groupStandings[g] ?? [];
+      if (rows.isEmpty) continue;
+      winners.add(rows[0]);
+      if (rows.length > 1) runners.add(rows[1]);
+    }
+
+    if (winners.isEmpty || runners.isEmpty) {
+      return [];
+    }
+
+    // --- Create Round of 16 matches ---
     final r16Matches = <KnockoutMatch>[];
-    for (var i = 0; i < 8; i++) {
-      final homeTeamId = i < autoQualifiers.length
-          ? autoQualifiers[i].teamId
-          : null;
 
+    // Pair groups in twos: (A,B), (C,D), ...
+    int r16Index = 0;
+    for (var i = 0; i + 1 < winners.length && i + 1 < runners.length; i += 2) {
+      if (r16Index >= 8) break;
+
+      final g1Winner = winners[i];
+      final g2Winner = winners[i + 1];
+
+      final g1Runner = runners[i];
+      final g2Runner = runners[i + 1];
+
+      // Match 1: g1Winner vs g2Runner
+      r16Matches.add(
+        KnockoutMatch(
+          id: _id('R16', r16Index + 1),
+          leagueId: leagueId,
+          roundName: 'Round of 16',
+          homeTeamId: g1Winner.teamId,
+          awayTeamId: g2Runner.teamId,
+          homeScore: null,
+          awayScore: null,
+          status: MatchStatus.scheduled,
+          nextMatchId: null,
+          loserGoesToMatchId: null,
+          isSecondLeg: false,
+        ),
+      );
+      r16Index++;
+      if (r16Index >= 8) break;
+
+      // Match 2: g2Winner vs g1Runner
+      r16Matches.add(
+        KnockoutMatch(
+          id: _id('R16', r16Index + 1),
+          leagueId: leagueId,
+          roundName: 'Round of 16',
+          homeTeamId: g2Winner.teamId,
+          awayTeamId: g1Runner.teamId,
+          homeScore: null,
+          awayScore: null,
+          status: MatchStatus.scheduled,
+          nextMatchId: null,
+          loserGoesToMatchId: null,
+          isSecondLeg: false,
+        ),
+      );
+      r16Index++;
+    }
+
+    // Pad to 8 matches if fewer were created.
+    while (r16Matches.length < 8) {
+      final i = r16Matches.length;
       r16Matches.add(
         KnockoutMatch(
           id: _id('R16', i + 1),
           leagueId: leagueId,
           roundName: 'Round of 16',
-          homeTeamId: homeTeamId,
+          homeTeamId: null,
           awayTeamId: null,
           homeScore: null,
           awayScore: null,
           status: MatchStatus.scheduled,
-          nextMatchId: null, // will be wired to QF below
+          nextMatchId: null,
           loserGoesToMatchId: null,
           isSecondLeg: false,
         ),
       );
     }
 
-    // --- Create Quarter-finals: 4 matches ---
-    // QF1: winners of R16-1 & R16-2
-    // QF2: winners of R16-3 & R16-4
-    // QF3: winners of R16-5 & R16-6
-    // QF4: winners of R16-7 & R16-8
+    // Build QF, SF, Final, 3rd Place exactly like Swiss.
     final qfMatches = <KnockoutMatch>[];
     for (var i = 0; i < 4; i++) {
       qfMatches.add(
@@ -95,16 +144,13 @@ class TournamentController {
           homeScore: null,
           awayScore: null,
           status: MatchStatus.scheduled,
-          nextMatchId: null, // will be wired to SF below
+          nextMatchId: null,
           loserGoesToMatchId: null,
           isSecondLeg: false,
         ),
       );
     }
 
-    // --- Create Semi-finals: 2 matches ---
-    // SF1: winners of QF1 & QF2
-    // SF2: winners of QF3 & QF4
     final sfMatches = <KnockoutMatch>[];
     for (var i = 0; i < 2; i++) {
       sfMatches.add(
@@ -117,14 +163,13 @@ class TournamentController {
           homeScore: null,
           awayScore: null,
           status: MatchStatus.scheduled,
-          nextMatchId: null, // will be wired to Final below
+          nextMatchId: null,
           loserGoesToMatchId: null,
           isSecondLeg: false,
         ),
       );
     }
 
-    // --- Create Final & 3rd Place ---
     final finalMatch = KnockoutMatch(
       id: _id('F', 1),
       leagueId: leagueId,
@@ -153,8 +198,7 @@ class TournamentController {
       isSecondLeg: false,
     );
 
-    // --- Wire R16 -> QF ---
-    // R16[0,1] -> QF[0], R16[2,3] -> QF[1], R16[4,5] -> QF[2], R16[6,7] -> QF[3]
+    // Wire R16 -> QF (same pattern as Swiss)
     void wireR16ToQF(int r16Index, int qfIndex) {
       final m = r16Matches[r16Index];
       r16Matches[r16Index] =
@@ -170,8 +214,7 @@ class TournamentController {
     wireR16ToQF(6, 3);
     wireR16ToQF(7, 3);
 
-    // --- Wire QF -> SF ---
-    // QF[0,1] -> SF[0], QF[2,3] -> SF[1]
+    // Wire QF -> SF
     void wireQFToSF(int qfIndex, int sfIndex) {
       final m = qfMatches[qfIndex];
       qfMatches[qfIndex] =
@@ -183,14 +226,178 @@ class TournamentController {
     wireQFToSF(2, 1);
     wireQFToSF(3, 1);
 
-    // --- Wire SF -> Final ---
-    // Both SF winners go to the same Final match.
+    // Wire SF -> Final
     for (var i = 0; i < sfMatches.length; i++) {
       final m = sfMatches[i];
       sfMatches[i] = m.copyWith(nextMatchId: finalMatch.id);
     }
-    // SF losers automatically go to the 3rd place match via [processMatchResult]
-    // which checks: completedMatch.roundName == "Semi Finals" && m.roundName == "3rd Place".
+    // SF losers go to 3rd place via processMatchResult.
+
+    return [
+      ...r16Matches,
+      ...qfMatches,
+      ...sfMatches,
+      finalMatch,
+      thirdPlace,
+    ];
+  }
+
+  /// Swiss-specific seeding:
+  ///
+  /// - Top 1–8: go directly to Round of 16 (automatic qualifiers).
+  /// - 9–24: go into a Play-off round (16 teams, 8 matches).
+  /// - Winners of Play-off matches advance into the remaining 8 R16 slots.
+  ///
+  /// This seeds:
+  /// - 8 Play-off matches
+  /// - 8 Round of 16 matches
+  /// - 4 Quarter Finals
+  /// - 2 Semi Finals
+  /// - 1 Final
+  /// - 1 Third Place
+  static List<KnockoutMatch> seedSwissKnockouts({
+    required String leagueId,
+    required List<StandingsRow> swissStandings,
+  }) {
+    if (swissStandings.length < 16) {
+      // Need at least 16 teams to have a meaningful Play-off + full KO tree.
+      return [];
+    }
+
+    final now = DateTime.now().millisecondsSinceEpoch;
+    String _id(String prefix, int index) =>
+        '$leagueId-$prefix-${now}_$index';
+
+    // 1–8: auto qualifiers
+    final autoQualifiers = swissStandings.take(8).toList();
+
+    // 9–24: playoff pool (cap at 16)
+    final playoffSeeds =
+        swissStandings.skip(8).take(16).toList();
+
+    // --- Create Round of 16 skeleton: 8 matches ---
+    final r16Matches = <KnockoutMatch>[];
+    for (var i = 0; i < 8; i++) {
+      final homeTeamId =
+          i < autoQualifiers.length ? autoQualifiers[i].teamId : null;
+
+      r16Matches.add(
+        KnockoutMatch(
+          id: _id('R16', i + 1),
+          leagueId: leagueId,
+          roundName: 'Round of 16',
+          homeTeamId: homeTeamId,
+          awayTeamId: null,
+          homeScore: null,
+          awayScore: null,
+          status: MatchStatus.scheduled,
+          nextMatchId: null,
+          loserGoesToMatchId: null,
+          isSecondLeg: false,
+        ),
+      );
+    }
+
+    // --- Create QF, SF, Final, 3rd Place (same as groups) ---
+    final qfMatches = <KnockoutMatch>[];
+    for (var i = 0; i < 4; i++) {
+      qfMatches.add(
+        KnockoutMatch(
+          id: _id('QF', i + 1),
+          leagueId: leagueId,
+          roundName: 'Quarter Finals',
+          homeTeamId: null,
+          awayTeamId: null,
+          homeScore: null,
+          awayScore: null,
+          status: MatchStatus.scheduled,
+          nextMatchId: null,
+          loserGoesToMatchId: null,
+          isSecondLeg: false,
+        ),
+      );
+    }
+
+    final sfMatches = <KnockoutMatch>[];
+    for (var i = 0; i < 2; i++) {
+      sfMatches.add(
+        KnockoutMatch(
+          id: _id('SF', i + 1),
+          leagueId: leagueId,
+          roundName: 'Semi Finals',
+          homeTeamId: null,
+          awayTeamId: null,
+          homeScore: null,
+          awayScore: null,
+          status: MatchStatus.scheduled,
+          nextMatchId: null,
+          loserGoesToMatchId: null,
+          isSecondLeg: false,
+        ),
+      );
+    }
+
+    final finalMatch = KnockoutMatch(
+      id: _id('F', 1),
+      leagueId: leagueId,
+      roundName: 'Final',
+      homeTeamId: null,
+      awayTeamId: null,
+      homeScore: null,
+      awayScore: null,
+      status: MatchStatus.scheduled,
+      nextMatchId: null,
+      loserGoesToMatchId: null,
+      isSecondLeg: false,
+    );
+
+    final thirdPlace = KnockoutMatch(
+      id: _id('3P', 1),
+      leagueId: leagueId,
+      roundName: '3rd Place',
+      homeTeamId: null,
+      awayTeamId: null,
+      homeScore: null,
+      awayScore: null,
+      status: MatchStatus.scheduled,
+      nextMatchId: null,
+      loserGoesToMatchId: null,
+      isSecondLeg: false,
+    );
+
+    // Wire R16 -> QF
+    void wireR16ToQF(int r16Index, int qfIndex) {
+      final m = r16Matches[r16Index];
+      r16Matches[r16Index] =
+          m.copyWith(nextMatchId: qfMatches[qfIndex].id);
+    }
+
+    wireR16ToQF(0, 0);
+    wireR16ToQF(1, 0);
+    wireR16ToQF(2, 1);
+    wireR16ToQF(3, 1);
+    wireR16ToQF(4, 2);
+    wireR16ToQF(5, 2);
+    wireR16ToQF(6, 3);
+    wireR16ToQF(7, 3);
+
+    // Wire QF -> SF
+    void wireQFToSF(int qfIndex, int sfIndex) {
+      final m = qfMatches[qfIndex];
+      qfMatches[qfIndex] =
+          m.copyWith(nextMatchId: sfMatches[sfIndex].id);
+    }
+
+    wireQFToSF(0, 0);
+    wireQFToSF(1, 0);
+    wireQFToSF(2, 1);
+    wireQFToSF(3, 1);
+
+    // Wire SF -> Final
+    for (var i = 0; i < sfMatches.length; i++) {
+      final m = sfMatches[i];
+      sfMatches[i] = m.copyWith(nextMatchId: finalMatch.id);
+    }
 
     // --- Create Play-off matches: pair 9 vs 24, 10 vs 23, ... ---
     final playoffMatches = <KnockoutMatch>[];
@@ -204,9 +411,7 @@ class TournamentController {
         final a = playoffSeeds[start];
         final b = playoffSeeds[end];
 
-        // Map pairIndex to an R16 slot.
-        // Example mapping (reverse order):
-        //  pair 0 -> R16[7], pair 1 -> R16[6], ..., pair 7 -> R16[0]
+        // Map pairIndex to an R16 slot (reverse order).
         final r16Index =
             max(0, 7 - pairIndex).clamp(0, r16Matches.length - 1);
 

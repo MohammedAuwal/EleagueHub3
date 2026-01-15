@@ -290,6 +290,7 @@ class _LeagueDetailScreenState
     List<Team> teams,
   ) {
     final isSwiss = league.format == LeagueFormat.uclSwiss;
+    final isGroup = league.format == LeagueFormat.uclGroup;
 
     return Glass(
       padding: const EdgeInsets.all(20),
@@ -389,6 +390,40 @@ class _LeagueDetailScreenState
                   ),
                 ),
               ),
+            ],
+            if (isGroup) ...[
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(
+                      color: Colors.cyanAccent,
+                    ),
+                    foregroundColor: Colors.cyanAccent,
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 14,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  icon: const Icon(Icons.emoji_events_outlined),
+                  label: const Text(
+                    'GENERATE KNOCKOUT BRACKET (GROUPS)',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                  onPressed: () => _generateGroupKnockouts(
+                    context,
+                    league,
+                  ),
+                ),
+              ),
+            ],
+            if (isSwiss || isGroup) ...[
               const SizedBox(height: 8),
               Row(
                 children: [
@@ -721,6 +756,116 @@ class _LeagueDetailScreenState
       const SnackBar(
         content: Text(
           'Knockout bracket generated (Play-off + Round of 16).',
+        ),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  /// Generate UCL Group knockouts:
+  /// - Takes top 2 from each group
+  /// - Seeds Round of 16, QF, SF, Final, 3rd Place
+  Future<void> _generateGroupKnockouts(
+    BuildContext context,
+    League league,
+  ) async {
+    if (league.format != LeagueFormat.uclGroup) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('This action is only for UCL Group leagues.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    // Do not overwrite existing bracket.
+    final existing =
+        await _repo.getKnockoutMatches(league.id);
+    if (existing.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Knockout bracket already generated.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    final teams = await _repo.getTeams(league.id);
+    final matches = await _repo.getMatches(league.id);
+
+    // Build group standings similar to leagueGroupedStandingsProvider.
+    final groupIds = matches
+        .map((m) => m.groupId)
+        .whereType<String>()
+        .map((g) => g.trim())
+        .where((g) => g.isNotEmpty)
+        .toSet();
+
+    final groupStandings = <String, List<StandingsRow>>{};
+
+    for (final groupId in groupIds) {
+      final groupMatches =
+          matches.where((m) => m.groupId == groupId).toList();
+      if (groupMatches.isEmpty) continue;
+
+      final teamIds = <String>{};
+      for (final m in groupMatches) {
+        teamIds.add(m.homeTeamId);
+        teamIds.add(m.awayTeamId);
+      }
+      final groupTeams =
+          teams.where((t) => teamIds.contains(t.id)).toList();
+      if (groupTeams.isEmpty) continue;
+
+      final rows = StandingsCalculator.calculate(
+        teams: groupTeams,
+        matches: groupMatches,
+      );
+
+      groupStandings[groupId] = rows;
+    }
+
+    if (groupStandings.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'No group standings available to seed knockouts.',
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    final koMatches =
+        TournamentController.seedKnockoutsFromGroups(
+      leagueId: league.id,
+      groupStandings: groupStandings,
+    );
+
+    if (koMatches.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Failed to seed knockout bracket from group standings.',
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    await _repo.saveKnockoutMatches(
+      league.id,
+      koMatches,
+    );
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Knockout bracket generated from group standings.',
         ),
         behavior: SnackBarBehavior.floating,
       ),
