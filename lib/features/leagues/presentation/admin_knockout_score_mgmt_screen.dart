@@ -126,58 +126,60 @@ class _AdminKnockoutScoreMgmtScreenState
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
-      body: _isLoading
-          ? const Center(
-              child:
-                  CircularProgressIndicator(color: Colors.cyanAccent),
-            )
-          : Center(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxWidth: isTablet ? 1000 : 600,
-                ),
-                child: Column(
-                  children: [
-                    const Padding(
-                      padding:
-                          EdgeInsets.symmetric(horizontal: 16),
-                      child: SectionHeader(
-                          'Update Knockout Results'),
-                    ),
-                    const SizedBox(height: 4),
-                    const Padding(
-                      padding:
-                          EdgeInsets.symmetric(horizontal: 16),
-                      child: Text(
-                        'Update scores for Play-off, Round of 16, and beyond.\n'
-                        'Winners automatically advance to the next round.',
-                        style: TextStyle(
-                          color: Colors.white38,
-                          fontSize: 12,
-                        ),
-                        textAlign: TextAlign.center,
+      body: SafeArea(
+        child: _isLoading
+            ? const Center(
+                child:
+                    CircularProgressIndicator(color: Colors.cyanAccent),
+              )
+            : Center(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: isTablet ? 1000 : 600,
+                  ),
+                  child: Column(
+                    children: [
+                      const Padding(
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 16),
+                        child: SectionHeader(
+                            'Update Knockout Results'),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Expanded(
-                      child: _matches.isEmpty
-                          ? const Center(
-                              child: Text(
-                                'No knockout matches found.\n'
-                                'Generate the bracket from the league details screen first.',
-                                style: TextStyle(
-                                  color: Colors.white54,
-                                  fontSize: 13,
+                      const SizedBox(height: 4),
+                      const Padding(
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 16),
+                        child: Text(
+                          'Update scores for Play-off, Round of 16, and beyond.\n'
+                          'Winners automatically advance to the next round.',
+                          style: TextStyle(
+                            color: Colors.white38,
+                            fontSize: 12,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Expanded(
+                        child: _matches.isEmpty
+                            ? const Center(
+                                child: Text(
+                                  'No knockout matches found.\n'
+                                  'Generate the bracket from the league details screen first.',
+                                  style: TextStyle(
+                                    color: Colors.white54,
+                                    fontSize: 13,
+                                  ),
+                                  textAlign: TextAlign.center,
                                 ),
-                                textAlign: TextAlign.center,
-                              ),
-                            )
-                          : _buildGroupedList(),
-                    ),
-                  ],
+                              )
+                            : _buildGroupedList(),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
+      ),
     );
   }
 

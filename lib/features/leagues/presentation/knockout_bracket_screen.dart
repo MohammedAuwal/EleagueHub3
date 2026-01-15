@@ -81,7 +81,7 @@ class _KnockoutBracketScreenState
 
     return GlassScaffold(
       appBar: AppBar(
-        title: const Text('Knockout Bracket'),
+        title: const Text('UCL Knockout Stage'),
         backgroundColor: Colors.transparent,
         elevation: 0,
         actions: [
@@ -158,8 +158,8 @@ class _KnockoutBracketScreenState
                                     constrained: false,
                                     boundaryMargin:
                                         const EdgeInsets.all(100),
-                                    minScale: 0.4,
-                                    maxScale: 1.8,
+                                    minScale: 0.3,
+                                    maxScale: 2.0,
                                     child: Row(
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
@@ -168,7 +168,6 @@ class _KnockoutBracketScreenState
                                             i < roundNames.length;
                                             i++) ...[
                                           _buildRoundColumn(
-                                            context,
                                             roundNames[i],
                                             rounds[roundNames[i]]!,
                                           ),
@@ -191,7 +190,6 @@ class _KnockoutBracketScreenState
   }
 
   Widget _buildRoundColumn(
-    BuildContext context,
     String title,
     List<KnockoutMatch> roundMatches,
   ) {
@@ -199,34 +197,25 @@ class _KnockoutBracketScreenState
     final matches = [...roundMatches];
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          margin:
-              const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+        Padding(
           padding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.05),
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: Colors.white10),
-          ),
+              const EdgeInsets.symmetric(vertical: 20),
           child: Text(
             title,
             style: const TextStyle(
-              color: Colors.cyanAccent,
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
             ),
           ),
         ),
-        const SizedBox(height: 8),
-        for (final m in matches) _buildMatchCard(context, m),
+        for (final m in matches) _buildMatchCard(m),
       ],
     );
   }
 
-  Widget _buildMatchCard(BuildContext context, KnockoutMatch match) {
+  Widget _buildMatchCard(KnockoutMatch match) {
     final homeTeam = match.homeTeamId != null
         ? _teamsById[match.homeTeamId]
         : null;
@@ -247,20 +236,11 @@ class _KnockoutBracketScreenState
         match.awayScore != null &&
         match.awayScore! > match.homeScore!;
 
-    final bool isCompleted =
-        match.status == MatchStatus.completed;
-
-    final Color statusColor = isCompleted
-        ? Colors.cyanAccent.withOpacity(0.1)
-        : Colors.white.withOpacity(0.03);
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 8,
-        vertical: 6,
-      ),
+    return Container(
+      width: 220,
+      margin: const EdgeInsets.all(10),
       child: Glass(
-        borderRadius: 16,
+        borderRadius: 15,
         padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment:
@@ -273,7 +253,6 @@ class _KnockoutBracketScreenState
             ),
             const Divider(
               color: Colors.white24,
-              height: 14,
             ),
             _buildTeamRow(
               awayName,
@@ -283,26 +262,13 @@ class _KnockoutBracketScreenState
             const SizedBox(height: 8),
             Align(
               alignment: Alignment.centerRight,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 3,
-                ),
-                decoration: BoxDecoration(
-                  color: statusColor,
-                  borderRadius: BorderRadius.circular(999),
-                  border: Border.all(
-                    color: Colors.white24,
-                    width: 0.5,
-                  ),
-                ),
-                child: Text(
-                  isCompleted ? 'Completed' : 'Scheduled',
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                  ),
+              child: Text(
+                match.status == MatchStatus.completed
+                    ? "Completed"
+                    : "Scheduled",
+                style: const TextStyle(
+                  color: Colors.grey,
+                  fontSize: 10,
                 ),
               ),
             ),
@@ -339,8 +305,7 @@ class _KnockoutBracketScreenState
           score,
           style: const TextStyle(
             color: Colors.white,
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.bold,
           ),
         ),
       ],
@@ -351,7 +316,6 @@ class _KnockoutBracketScreenState
     return Container(
       width: 40,
       height: 2,
-      margin: const EdgeInsets.symmetric(horizontal: 4),
       color: Colors.white24,
     );
   }
