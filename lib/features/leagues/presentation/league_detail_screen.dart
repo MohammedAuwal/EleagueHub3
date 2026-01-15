@@ -765,6 +765,7 @@ class _LeagueDetailScreenState
   /// Generate UCL Group knockouts:
   /// - Takes top 2 from each group
   /// - Seeds Round of 16, QF, SF, Final, 3rd Place
+  /// Now requires at least one played group match before seeding.
   Future<void> _generateGroupKnockouts(
     BuildContext context,
     League league,
@@ -795,8 +796,28 @@ class _LeagueDetailScreenState
     final teams = await _repo.getTeams(league.id);
     final matches = await _repo.getMatches(league.id);
 
-    // Build group standings similar to leagueGroupedStandingsProvider.
-    final groupIds = matches
+    // Require at least one played group match in the league.
+    final anyPlayedGroupMatch = matches.any(
+      (m) => m.groupId != null && m.isPlayed,
+    );
+    if (!anyPlayedGroupMatch) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'You must play some group matches before generating the knockout bracket.',
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    // Build group standings using only played group matches.
+    final playedGroupMatches = matches
+        .where((m) => m.groupId != null && m.isPlayed)
+        .toList();
+
+    final groupIds = playedGroupMatches
         .map((m) => m.groupId)
         .whereType<String>()
         .map((g) => g.trim())
@@ -806,8 +827,9 @@ class _LeagueDetailScreenState
     final groupStandings = <String, List<StandingsRow>>{};
 
     for (final groupId in groupIds) {
-      final groupMatches =
-          matches.where((m) => m.groupId == groupId).toList();
+      final groupMatches = playedGroupMatches
+          .where((m) => m.groupId == groupId)
+          .toList();
       if (groupMatches.isEmpty) continue;
 
       final teamIds = <String>{};
