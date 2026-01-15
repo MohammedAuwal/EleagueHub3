@@ -181,77 +181,81 @@ class _AdminScoreMgmtScreenState
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
-      body: _isLoading
-          ? const Center(
-              child:
-                  CircularProgressIndicator(color: Colors.cyanAccent),
-            )
-          : Center(
-              child: ConstrainedBox(
-                // Limit width on phones to prevent a "stretched" look
-                constraints: BoxConstraints(
-                  maxWidth: isTablet ? 1000 : 500,
-                ),
-                child: Column(
-                  children: [
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 16),
-                      child: SectionHeader('Update Match Results'),
-                    ),
-                    const SizedBox(height: 4),
-                    const Padding(
-                      padding:
-                          EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                      child: Text(
-                        'Tap + / - to adjust each team\'s score.\n'
-                        'Use group and round filters to quickly find matches.\n'
-                        'Pending matches are listed first; completed go to the bottom.',
-                        style: TextStyle(
-                          color: Colors.white30,
-                          fontSize: 12,
-                        ),
-                        textAlign: TextAlign.center,
+      body: SafeArea(
+        child: _isLoading
+            ? const Center(
+                child:
+                    CircularProgressIndicator(color: Colors.cyanAccent),
+              )
+            : Center(
+                child: ConstrainedBox(
+                  // Limit width on phones to prevent a "stretched" look
+                  constraints: BoxConstraints(
+                    maxWidth: isTablet ? 1000 : 500,
+                  ),
+                  child: Column(
+                    children: [
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 16),
+                        child: SectionHeader('Update Match Results'),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    if (_format == LeagueFormat.uclGroup &&
-                        _groups.isNotEmpty)
-                      _buildGroupSelector(),
-                    if (availableRounds.isNotEmpty)
-                      _buildRoundSelector(availableRounds),
-                    const SizedBox(height: 4),
-                    Expanded(
-                      child: visibleMatches.isEmpty
-                          ? const Center(
-                              child: Text(
-                                "No matches to manage",
-                                style: TextStyle(color: Colors.white38),
+                      const SizedBox(height: 4),
+                      const Padding(
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                        child: Text(
+                          'Tap + / - to adjust each team\'s score.\n'
+                          'Use group and round filters to quickly find matches.\n'
+                          'Pending matches are listed first; completed go to the bottom.',
+                          style: TextStyle(
+                            color: Colors.white30,
+                            fontSize: 12,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      if (_format == LeagueFormat.uclGroup &&
+                          _groups.isNotEmpty)
+                        _buildGroupSelector(),
+                      if (availableRounds.isNotEmpty)
+                        _buildRoundSelector(availableRounds),
+                      const SizedBox(height: 4),
+                      Expanded(
+                        child: visibleMatches.isEmpty
+                            ? const Center(
+                                child: Text(
+                                  "No matches to manage",
+                                  style: TextStyle(color: Colors.white38),
+                                ),
+                              )
+                            : ListView.separated(
+                                padding: const EdgeInsets.all(16),
+                                itemCount: visibleMatches.length,
+                                separatorBuilder: (_, __) =>
+                                    const SizedBox(height: 12),
+                                itemBuilder: (context, index) {
+                                  final match = visibleMatches[index];
+                                  return _ScoreEntryTile(
+                                    key: ValueKey(match.id),
+                                    match: match,
+                                    homeName:
+                                        _teamNames[match.homeTeamId] ??
+                                            "Home",
+                                    awayName:
+                                        _teamNames[match.awayTeamId] ??
+                                            "Away",
+                                    onSave: (h, a) =>
+                                        _updateScore(match, h, a),
+                                  );
+                                },
                               ),
-                            )
-                          : ListView.separated(
-                              padding: const EdgeInsets.all(16),
-                              itemCount: visibleMatches.length,
-                              separatorBuilder: (_, __) =>
-                                  const SizedBox(height: 12),
-                              itemBuilder: (context, index) {
-                                final match = visibleMatches[index];
-                                return _ScoreEntryTile(
-                                  key: ValueKey(match.id),
-                                  match: match,
-                                  homeName: _teamNames[match.homeTeamId] ??
-                                      "Home",
-                                  awayName: _teamNames[match.awayTeamId] ??
-                                      "Away",
-                                  onSave: (h, a) =>
-                                      _updateScore(match, h, a),
-                                );
-                              },
-                            ),
-                    ),
-                  ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
+      ),
     );
   }
 
@@ -472,7 +476,8 @@ class _ScoreEntryTileState extends State<_ScoreEntryTile> {
     return Glass(
       padding: const EdgeInsets.all(18),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment:
+            CrossAxisAlignment.stretch,
         children: [
           if (groupLabel != null)
             Padding(
@@ -552,7 +557,8 @@ class _ScoreEntryTileState extends State<_ScoreEntryTile> {
           const SizedBox(height: 18),
           // Score stepper row
           Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisAlignment:
+                MainAxisAlignment.center,
             children: [
               _scoreStepper(
                 value: _homeScore,
@@ -560,7 +566,9 @@ class _ScoreEntryTileState extends State<_ScoreEntryTile> {
                 onDec: _decHome,
               ),
               const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 24),
+                padding: EdgeInsets.symmetric(
+                  horizontal: 24,
+                ),
                 child: Text(
                   ":",
                   style: TextStyle(
@@ -581,10 +589,13 @@ class _ScoreEntryTileState extends State<_ScoreEntryTile> {
                   FocusScope.of(context).unfocus();
                 },
                 style: IconButton.styleFrom(
-                  backgroundColor: Colors.cyanAccent.withOpacity(0.2),
-                  foregroundColor: Colors.cyanAccent,
+                  backgroundColor:
+                      Colors.cyanAccent.withOpacity(0.2),
+                  foregroundColor:
+                      Colors.cyanAccent,
                 ),
-                icon: const Icon(Icons.done_all, size: 24),
+                icon: const Icon(Icons.done_all,
+                    size: 24),
               ),
             ],
           ),
@@ -601,10 +612,12 @@ class _ScoreEntryTileState extends State<_ScoreEntryTile> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius:
+            BorderRadius.circular(12),
         border: Border.all(color: Colors.white10),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding:
+          const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -644,7 +657,8 @@ class _ScoreEntryTileState extends State<_ScoreEntryTile> {
   }) {
     return InkWell(
       onTap: onPressed,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius:
+          BorderRadius.circular(20),
       child: Container(
         width: 28,
         height: 28,
@@ -657,7 +671,9 @@ class _ScoreEntryTileState extends State<_ScoreEntryTile> {
         child: Icon(
           icon,
           size: 18,
-          color: enabled ? Colors.cyanAccent : Colors.white24,
+          color: enabled
+              ? Colors.cyanAccent
+              : Colors.white24,
         ),
       ),
     );

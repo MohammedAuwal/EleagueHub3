@@ -266,42 +266,46 @@ class _FixturesScreenState extends ConsumerState<FixturesScreen> {
             ),
         ],
       ),
-      body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(
-                color: Colors.cyanAccent,
-              ),
-            )
-          : Center(
-              child: ConstrainedBox(
-                constraints:
-                    BoxConstraints(maxWidth: isTablet ? 800 : 600),
-                child: FutureBuilder<int>(
-                  future: _getTotalRounds(),
-                  builder: (context, snapshot) {
-                    final totalRounds = snapshot.data ?? 0;
+      body: SafeArea(
+        child: _isLoading
+            ? const Center(
+                child: CircularProgressIndicator(
+                  color: Colors.cyanAccent,
+                ),
+              )
+            : Center(
+                child: ConstrainedBox(
+                  constraints:
+                      BoxConstraints(maxWidth: isTablet ? 800 : 600),
+                  child: FutureBuilder<int>(
+                    future: _getTotalRounds(),
+                    builder: (context, snapshot) {
+                      final totalRounds = snapshot.data ?? 0;
 
-                    return Column(
-                      children: [
-                        // For UCL Group, show group selector (with All + each group)
-                        if (_format == LeagueFormat.uclGroup &&
-                            _groups.isNotEmpty)
-                          _buildGroupSelector(),
-                        if (totalRounds > 0)
-                          _buildRoundSelector(totalRounds),
-                        const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 16),
-                          child: SectionHeader('Matchday Schedule'),
-                        ),
-                        Expanded(
-                          child: _buildMatchesList(),
-                        ),
-                      ],
-                    );
-                  },
+                      return Column(
+                        children: [
+                          // For UCL Group, show group selector (with All + each group)
+                          if (_format == LeagueFormat.uclGroup &&
+                              _groups.isNotEmpty)
+                            _buildGroupSelector(),
+                          if (totalRounds > 0)
+                            _buildRoundSelector(totalRounds),
+                          const Padding(
+                            padding:
+                                EdgeInsets.symmetric(horizontal: 16),
+                            child:
+                                SectionHeader('Matchday Schedule'),
+                          ),
+                          Expanded(
+                            child: _buildMatchesList(),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
                 ),
               ),
-            ),
+      ),
     );
   }
 
@@ -384,8 +388,9 @@ class _FixturesScreenState extends ConsumerState<FixturesScreen> {
                     child: Text(
                       group,
                       style: TextStyle(
-                        color:
-                            isSelected ? Colors.black : Colors.white70,
+                        color: isSelected
+                            ? Colors.black
+                            : Colors.white70,
                         fontWeight: FontWeight.bold,
                         fontSize: 12,
                       ),
@@ -446,7 +451,8 @@ class _FixturesScreenState extends ConsumerState<FixturesScreen> {
     return FutureBuilder<List<FixtureMatch>>(
       future: _getMatches(),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (snapshot.connectionState ==
+            ConnectionState.waiting) {
           return const Center(
             child:
                 CircularProgressIndicator(color: Colors.cyanAccent),
@@ -486,9 +492,11 @@ class _FixturesScreenState extends ConsumerState<FixturesScreen> {
       child: Glass(
         padding: const EdgeInsets.all(16),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+          crossAxisAlignment:
+              CrossAxisAlignment.stretch,
           children: [
-            if (_format == LeagueFormat.uclGroup && groupLabel != null)
+            if (_format == LeagueFormat.uclGroup &&
+                groupLabel != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Align(
@@ -519,23 +527,24 @@ class _FixturesScreenState extends ConsumerState<FixturesScreen> {
                 Container(
                   width: 80,
                   alignment: Alignment.center,
-                  child: (match.status == MatchStatus.completed ||
-                          match.status == MatchStatus.played)
-                      ? Text(
-                          '${match.homeScore} - ${match.awayScore}',
-                          style: const TextStyle(
-                            color: Colors.cyanAccent,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18,
-                          ),
-                        )
-                      : const Text(
-                          'VS',
-                          style: TextStyle(
-                            color: Colors.white24,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
+                  child:
+                      (match.status == MatchStatus.completed ||
+                              match.status == MatchStatus.played)
+                          ? Text(
+                              '${match.homeScore} - ${match.awayScore}',
+                              style: const TextStyle(
+                                color: Colors.cyanAccent,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                              ),
+                            )
+                          : const Text(
+                              'VS',
+                              style: TextStyle(
+                                color: Colors.white24,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
                 ),
                 Expanded(
                   child: Text(
