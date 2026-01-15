@@ -132,6 +132,14 @@ class _KnockoutBracketScreenState
                                   fontSize: 20,
                                 ),
                               ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Matches loaded: ${_matches.length}',
+                                style: const TextStyle(
+                                  color: Colors.white54,
+                                  fontSize: 11,
+                                ),
+                              ),
                               const SizedBox(height: 4),
                               const Text(
                                 'Play-off, Round of 16, Quarter-finals, Semi-finals and Final\n'
