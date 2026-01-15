@@ -14,7 +14,6 @@ import '../models/league.dart';
 import '../models/league_format.dart';
 import '../models/membership.dart';
 import '../models/team.dart';
-import '../models/knockout_match.dart';
 
 class LeagueDetailScreen extends ConsumerStatefulWidget {
   final String leagueId;
@@ -85,116 +84,122 @@ class _LeagueDetailScreenState
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
-      body: Center(
-        child: FutureBuilder<Map<String, dynamic>>(
-          future: _loadData(),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState ==
-                ConnectionState.waiting) {
-              return const Center(
-                child: CircularProgressIndicator(
-                  color: Colors.cyanAccent,
-                ),
-              );
-            }
+      body: SafeArea(
+        child: Center(
+          child: FutureBuilder<Map<String, dynamic>>(
+            future: _loadData(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState ==
+                  ConnectionState.waiting) {
+                return const Center(
+                  child: CircularProgressIndicator(
+                    color: Colors.cyanAccent,
+                  ),
+                );
+              }
 
-            if (snapshot.hasError) {
-              return Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    mainAxisAlignment:
-                        MainAxisAlignment.center,
-                    children: [
-                      const Icon(
-                        Icons.error_outline,
-                        color: Colors.redAccent,
-                        size: 48,
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        "Error: ${snapshot.error}",
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: Colors.white70,
+              if (snapshot.hasError) {
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      mainAxisAlignment:
+                          MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.error_outline,
+                          color: Colors.redAccent,
+                          size: 48,
                         ),
-                      ),
-                      const SizedBox(height: 16),
-                      TextButton(
-                        onPressed: () => setState(() {}),
-                        child: const Text(
-                          'Retry',
-                          style: TextStyle(
-                            color: Colors.cyanAccent,
+                        const SizedBox(height: 16),
+                        Text(
+                          "Error: ${snapshot.error}",
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.white70,
                           ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 16),
+                        TextButton(
+                          onPressed: () => setState(() {}),
+                          child: const Text(
+                            'Retry',
+                            style: TextStyle(
+                              color: Colors.cyanAccent,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
+                );
+              }
+
+              if (!snapshot.hasData) {
+                return const SizedBox.shrink();
+              }
+
+              final league =
+                  snapshot.data!['league'] as League;
+              final fixtures = snapshot
+                  .data!['fixtures'] as List<FixtureMatch>;
+              final teams =
+                  snapshot.data!['teams'] as List<Team>;
+              final teamNames =
+                  snapshot.data!['teamNames']
+                      as Map<String, String>;
+              final membership =
+                  snapshot.data!['membership']
+                      as Membership?;
+
+              final nextFixture =
+                  fixtures.isNotEmpty ? fixtures.first : null;
+
+              final bool isOwnerByLeague =
+                  membership?.role == LeagueRole.organizer;
+              final bool isOwnerFallback =
+                  league.organizerUserId ==
+                      (snapshot.data!['currentUserId']
+                          as String);
+
+              final bool isOwner =
+                  isOwnerByLeague || isOwnerFallback;
+
+              return ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: isWide ? 600 : 500,
+                ),
+                child: ListView(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  children: [
+                    _overviewCard(
+                      context,
+                      primary,
+                      league,
+                      isOwner,
+                    ),
+                    const SizedBox(height: 16),
+                    _quickActions(
+                      context,
+                      league,
+                      isOwner,
+                      fixtures,
+                      teams,
+                    ),
+                    const SizedBox(height: 16),
+                    _nextFixture(
+                      context,
+                      nextFixture,
+                      teamNames,
+                    ),
+                  ],
                 ),
               );
-            }
-
-            if (!snapshot.hasData) {
-              return const SizedBox.shrink();
-            }
-
-            final league = snapshot.data!['league'] as League;
-            final fixtures =
-                snapshot.data!['fixtures'] as List<FixtureMatch>;
-            final teams =
-                snapshot.data!['teams'] as List<Team>;
-            final teamNames =
-                snapshot.data!['teamNames'] as Map<String, String>;
-            final membership =
-                snapshot.data!['membership'] as Membership?;
-
-            final nextFixture =
-                fixtures.isNotEmpty ? fixtures.first : null;
-
-            final bool isOwnerByLeague =
-                membership?.role == LeagueRole.organizer;
-            final bool isOwnerFallback =
-                league.organizerUserId ==
-                    (snapshot.data!['currentUserId'] as String);
-
-            final bool isOwner =
-                isOwnerByLeague || isOwnerFallback;
-
-            return ConstrainedBox(
-              constraints: BoxConstraints(
-                maxWidth: isWide ? 600 : 500,
-              ),
-              child: ListView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                children: [
-                  _overviewCard(
-                    context,
-                    primary,
-                    league,
-                    isOwner,
-                  ),
-                  const SizedBox(height: 16),
-                  _quickActions(
-                    context,
-                    league,
-                    isOwner,
-                    fixtures,
-                    teams,
-                  ),
-                  const SizedBox(height: 16),
-                  _nextFixture(
-                    context,
-                    nextFixture,
-                    teamNames,
-                  ),
-                ],
-              ),
-            );
-          },
+            },
+          ),
         ),
       ),
     );
@@ -383,6 +388,54 @@ class _LeagueDetailScreenState
                     fixtures,
                   ),
                 ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton.icon(
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.cyanAccent,
+                      ),
+                      onPressed: () => context.push(
+                        '/leagues/${widget.leagueId}/knockout',
+                      ),
+                      icon: const Icon(
+                        Icons.account_tree_outlined,
+                        size: 18,
+                      ),
+                      label: const Text(
+                        'VIEW KNOCKOUT BRACKET',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextButton.icon(
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.cyanAccent,
+                      ),
+                      onPressed: () => context.push(
+                        '/leagues/${widget.leagueId}/knockout-admin',
+                      ),
+                      icon: const Icon(
+                        Icons.sports_score,
+                        size: 18,
+                      ),
+                      label: const Text(
+                        'MANAGE KO SCORES',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ] else ...[
