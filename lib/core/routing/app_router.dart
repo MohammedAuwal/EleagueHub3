@@ -13,9 +13,8 @@ import '../../features/leagues/presentation/qr_scanner_screen.dart';
 import '../../features/leagues/presentation/fixtures_screen.dart';
 import '../../features/leagues/presentation/admin_score_mgmt_screen.dart';
 import '../../features/leagues/presentation/league_standings_screen.dart';
-import '../../features/leagues/presentation/knockout_bracket_screen.dart';
-import '../../features/leagues/presentation/admin_knockout_score_mgmt_screen.dart';
 import '../../features/live/presentation/join_match_screen.dart';
+import '../../features/live/presentation/live_view_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 
 final authStateProvider = StateProvider<bool>((ref) => false);
@@ -40,91 +39,95 @@ final appRouter = GoRouter(
           builder: (context, state) => const JoinMatchScreen(),
         ),
         GoRoute(
+          path: 'live/view/:id',
+          builder: (context, state) {
+            final id = state.pathParameters['id']!;
+            final isHost = (state.extra == true);
+            return LiveViewScreen(
+              matchId: id,
+              isHost: isHost,
+            );
+          },
+        ),
+        GoRoute(
           path: 'leagues',
           builder: (context, state) => const LeaguesListScreen(),
           routes: [
             GoRoute(
               path: 'create',
-              builder: (context, state) => const LeagueCreateWizard(),
+              builder: (context, state) =>
+                  const LeagueCreateWizard(),
             ),
             GoRoute(
               path: 'join-scanner',
-              builder: (context, state) => const QRScannerScreen(),
+              builder: (context, state) =>
+                  const QRScannerScreen(),
             ),
             GoRoute(
               path: 'add-teams',
               builder: (context, state) {
-                final extra = state.extra as Map<String, dynamic>? ?? {};
-                final leagueId = extra['leagueId'] as String? ?? 'mock-id';
+                final extra =
+                    state.extra as Map<String, dynamic>? ?? {};
+                final leagueId =
+                    extra['leagueId'] as String? ?? 'mock-id';
                 final format =
-                    extra['format'] as LeagueFormat? ?? LeagueFormat.classic;
+                    extra['format'] as LeagueFormat? ??
+                        LeagueFormat.classic;
                 return AddTeamsScreen(
                   leagueId: leagueId,
                   format: format,
                 );
               },
             ),
-
-            // -------- DUPLICATE DETAIL ROUTE (INTENTIONAL) --------
             GoRoute(
               path: ':id',
               builder: (context, state) =>
-                  LeagueDetailScreen(leagueId: state.pathParameters['id']!),
+                  LeagueDetailScreen(
+                leagueId: state.pathParameters['id']!,
+              ),
               routes: [
                 GoRoute(
                   path: 'standings',
-                  builder: (context, state) => LeagueStandingsScreen(
+                  builder: (context, state) =>
+                      LeagueStandingsScreen(
                     id: state.pathParameters['id']!,
                   ),
                 ),
               ],
             ),
-
-            // -------- SECOND DUPLICATE DETAIL ROUTE --------
             GoRoute(
               path: ':leagueId',
               builder: (context, state) {
-                final leagueId = state.pathParameters['leagueId']!;
+                final leagueId =
+                    state.pathParameters['leagueId']!;
                 return LeagueDetailScreen(leagueId: leagueId);
               },
             ),
-
             GoRoute(
               path: ':leagueId/fixtures',
               builder: (context, state) {
-                final leagueId = state.pathParameters['leagueId']!;
+                final leagueId =
+                    state.pathParameters['leagueId']!;
                 return FixturesScreen(leagueId: leagueId);
               },
             ),
             GoRoute(
               path: ':leagueId/admin-scores',
               builder: (context, state) {
-                final leagueId = state.pathParameters['leagueId']!;
-                return AdminScoreMgmtScreen(leagueId: leagueId);
+                final leagueId =
+                    state.pathParameters['leagueId']!;
+                return AdminScoreMgmtScreen(
+                  leagueId: leagueId,
+                );
               },
             ),
-
-            // -------- KNOCKOUT ROUTES --------
-            GoRoute(
-              path: ':leagueId/knockout',
-              builder: (context, state) {
-                final leagueId = state.pathParameters['leagueId']!;
-                return KnockoutBracketScreen(leagueId: leagueId);
-              },
-            ),
-            GoRoute(
-              path: ':leagueId/knockout-admin',
-              builder: (context, state) {
-                final leagueId = state.pathParameters['leagueId']!;
-                return AdminKnockoutScoreMgmtScreen(leagueId: leagueId);
-              },
-            ),
-
             GoRoute(
               path: ':leagueId/matches/:matchId',
               builder: (context, state) {
-                final leagueId = state.pathParameters['leagueId']!;
-                final matchId = state.pathParameters['matchId']!;
+                final leagueId =
+                    state.pathParameters['leagueId']!;
+                final matchId =
+                    state.pathParameters['matchId']!;
                 return MatchDetailScreen(
                   leagueId: leagueId,
                   matchId: matchId,
