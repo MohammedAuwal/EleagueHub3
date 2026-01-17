@@ -325,22 +325,40 @@ class _LiveViewScreenState extends State<LiveViewScreen> {
   }
 
   Widget _buildMobileLayout(BuildContext context) {
+    // FIX: On small screens the chat Glass was covering the Start/Stop buttons.
+    // We reserve space for the chat overlay and place controls ABOVE it.
+    final inset = MediaQuery.of(context).viewInsets.bottom;
+
+    const chatHeight = 220.0;      // fixed chat overlay height
+    const controlsReserved = 170.0; // reserve space so stream isn't hidden
+    const gap = 12.0;
+
     return Stack(
       children: [
-        Padding(
-          padding: const EdgeInsets.only(bottom: 180),
-          child: Column(
-            children: [
-              Expanded(child: _buildStreamArea(context)),
-              const SizedBox(height: 12),
-              _buildControls(context),
-            ],
+        // Stream takes the remaining space ABOVE controls + chat
+        Positioned.fill(
+          child: Padding(
+            padding: const EdgeInsets.all(0).copyWith(
+              bottom: chatHeight + controlsReserved + (gap * 2) + inset,
+            ),
+            child: _buildStreamArea(context),
           ),
         ),
+
+        // Controls ABOVE the chat (so they are always tappable)
         Positioned(
           left: 0,
           right: 0,
-          bottom: 0,
+          bottom: chatHeight + gap + inset,
+          child: _buildControls(context),
+        ),
+
+        // Chat pinned to bottom
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: inset,
+          height: chatHeight,
           child: _ChatOverlay(
             messages: _messages,
             chatController: _chat,
