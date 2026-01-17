@@ -9,7 +9,6 @@ import '../../../core/widgets/section_header.dart';
 import '../data/leagues_repository_local.dart';
 import '../models/fixture_match.dart';
 import '../models/enums.dart';
-import '../models/league.dart';
 import '../models/league_format.dart';
 import '../domain/algorithms/swiss_pairing.dart';
 
@@ -27,22 +26,67 @@ class FixturesScreen extends ConsumerStatefulWidget {
 
 class _FixturesScreenState extends ConsumerState<FixturesScreen> {
   int _selectedRound = 1;
+
   late LocalLeaguesRepository _repo;
+  late PreferencesService _prefs;
+
   Map<String, String> _teamNames = {};
   bool _isLoading = true;
 
   LeagueFormat _format = LeagueFormat.classic;
   List<String> _groups = [];
+
   /// null = "All groups" when format == uclGroup
   String? _selectedGroup;
 
   bool _isGeneratingNextRound = false;
 
+  static String _lastRoundKey(String leagueId) => 'ui_last_round_$leagueId';
+  static String _lastGroupKey(String leagueId) => 'ui_last_group_$leagueId';
+
   @override
   void initState() {
     super.initState();
-    _repo = LocalLeaguesRepository(ref.read(prefsServiceProvider));
+    _prefs = ref.read(prefsServiceProvider);
+    _repo = LocalLeaguesRepository(_prefs);
+
+    // Restore last viewed round (shared with LeagueDetailScreen)
+    final savedRoundRaw = _prefs.getString(_lastRoundKey(widget.leagueId));
+    final savedRound = int.tryParse((savedRoundRaw ?? '').trim());
+    if (savedRound != null && savedRound >= 1) {
+      _selectedRound = savedRound;
+    }
+
+    // Restore last selected group (only matters for UCL Group format; we apply after loading groups)
+    final savedGroupRaw = _prefs.getString(_lastGroupKey(widget.leagueId));
+    _selectedGroup = (savedGroupRaw == null || savedGroupRaw.trim().isEmpty)
+        ? null
+        : savedGroupRaw.trim();
+
     _loadInitialData();
+  }
+
+  void _persistRound(int round) {
+    _prefs.setString(_lastRoundKey(widget.leagueId), '$round');
+  }
+
+  void _persistGroup(String? group) {
+    // null/"All" stored as empty string
+    _prefs.setString(_lastGroupKey(widget.leagueId), group ?? '');
+  }
+
+  void _setRound(int round) {
+    setState(() => _selectedRound = round);
+    _persistRound(round);
+  }
+
+  void _setGroup(String? group) {
+    setState(() {
+      _selectedGroup = group;
+      _selectedRound = 1; // reset round on filter change
+    });
+    _persistGroup(group);
+    _persistRound(1);
   }
 
   Future<void> _loadInitialData() async {
@@ -57,6 +101,7 @@ class _FixturesScreenState extends ConsumerState<FixturesScreen> {
 
       final format = league?.format ?? LeagueFormat.classic;
 
+      // Build groups list if needed
       List<String> groups = [];
       if (format == LeagueFormat.uclGroup) {
         groups = allMatches
@@ -69,15 +114,52 @@ class _FixturesScreenState extends ConsumerState<FixturesScreen> {
           ..sort();
       }
 
+      // Validate restored group:
+      // - Only keep it if format is uclGroup AND it exists in groups.
+      // - Else fallback to "All" (null).
+      String? validatedGroup;
+      if (format == LeagueFormat.uclGroup) {
+        final g = _selectedGroup;
+        if (g != null && g.isNotEmpty && groups.contains(g)) {
+          validatedGroup = g;
+        } else {
+          validatedGroup = null;
+        }
+      } else {
+        validatedGroup = null;
+      }
+
+      // Compute max round under the selected group filter (important!)
+      Iterable<FixtureMatch> filteredForRounds = allMatches;
+      if (format == LeagueFormat.uclGroup && validatedGroup != null) {
+        filteredForRounds = filteredForRounds.where((m) => m.groupId == validatedGroup);
+      }
+
+      final filteredList = filteredForRounds.toList();
+      final maxRound = filteredList.isEmpty
+          ? 1
+          : filteredList
+              .map((m) => m.roundNumber)
+              .reduce((a, b) => a > b ? a : b);
+
+      // Clamp round if user had a round larger than the group allows
+      var roundToUse = _selectedRound;
+      if (roundToUse > maxRound) roundToUse = maxRound;
+      if (roundToUse < 1) roundToUse = 1;
+
       if (!mounted) return;
       setState(() {
         _format = format;
         _teamNames = {for (var t in teams) t.id: t.name};
         _groups = groups;
-        // UCL Group: default to "All groups" (null filter).
-        _selectedGroup = null;
+        _selectedGroup = validatedGroup;
+        _selectedRound = roundToUse;
         _isLoading = false;
       });
+
+      // Persist any normalization we did (clamp/group invalid)
+      _persistGroup(_selectedGroup);
+      _persistRound(_selectedRound);
     } catch (e) {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -109,9 +191,7 @@ class _FixturesScreenState extends ConsumerState<FixturesScreen> {
     final list = filtered.toList();
     if (list.isEmpty) return 0;
 
-    return list
-        .map((m) => m.roundNumber)
-        .reduce((a, b) => a > b ? a : b);
+    return list.map((m) => m.roundNumber).reduce((a, b) => a > b ? a : b);
   }
 
   /// Generate the next Swiss round (or Round 1 if none exist yet) for UCL Swiss leagues.
@@ -161,7 +241,6 @@ class _FixturesScreenState extends ConsumerState<FixturesScreen> {
       List<FixtureMatch> newFixtures;
 
       if (currentMaxRound == 0) {
-        // No Swiss rounds yet → generate Round 1 using initial Swiss pairing.
         nextRound = 1;
         newFixtures = SwissPairingEngine.generateInitialRound(
           leagueId: widget.leagueId,
@@ -173,9 +252,7 @@ class _FixturesScreenState extends ConsumerState<FixturesScreen> {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text(
-                  'All $maxRounds Swiss rounds have already been generated.',
-                ),
+                content: Text('All $maxRounds Swiss rounds have already been generated.'),
                 behavior: SnackBarBehavior.floating,
               ),
             );
@@ -207,9 +284,9 @@ class _FixturesScreenState extends ConsumerState<FixturesScreen> {
       await _repo.saveMatches(widget.leagueId, newFixtures);
 
       if (!mounted) return;
-      setState(() {
-        _selectedRound = nextRound;
-      });
+
+      // Persist this as the round user is currently viewing
+      _setRound(nextRound);
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -218,7 +295,6 @@ class _FixturesScreenState extends ConsumerState<FixturesScreen> {
         ),
       );
 
-      // Refresh names / groups / format / rounds.
       await _loadInitialData();
     } catch (e) {
       if (mounted) {
@@ -249,9 +325,7 @@ class _FixturesScreenState extends ConsumerState<FixturesScreen> {
         actions: [
           if (_format == LeagueFormat.uclSwiss)
             IconButton(
-              onPressed: _isGeneratingNextRound
-                  ? null
-                  : _generateNextSwissRound,
+              onPressed: _isGeneratingNextRound ? null : _generateNextSwissRound,
               tooltip: 'Generate next Swiss round',
               icon: _isGeneratingNextRound
                   ? const SizedBox(
@@ -269,36 +343,34 @@ class _FixturesScreenState extends ConsumerState<FixturesScreen> {
       body: SafeArea(
         child: _isLoading
             ? const Center(
-                child: CircularProgressIndicator(
-                  color: Colors.cyanAccent,
-                ),
+                child: CircularProgressIndicator(color: Colors.cyanAccent),
               )
             : Center(
                 child: ConstrainedBox(
-                  constraints:
-                      BoxConstraints(maxWidth: isTablet ? 800 : 600),
+                  constraints: BoxConstraints(maxWidth: isTablet ? 800 : 600),
                   child: FutureBuilder<int>(
                     future: _getTotalRounds(),
                     builder: (context, snapshot) {
                       final totalRounds = snapshot.data ?? 0;
 
+                      // Clamp selected round if filter changed
+                      if (totalRounds > 0 && _selectedRound > totalRounds) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (!mounted) return;
+                          _setRound(totalRounds);
+                        });
+                      }
+
                       return Column(
                         children: [
-                          // For UCL Group, show group selector (with All + each group)
-                          if (_format == LeagueFormat.uclGroup &&
-                              _groups.isNotEmpty)
+                          if (_format == LeagueFormat.uclGroup && _groups.isNotEmpty)
                             _buildGroupSelector(),
-                          if (totalRounds > 0)
-                            _buildRoundSelector(totalRounds),
+                          if (totalRounds > 0) _buildRoundSelector(totalRounds),
                           const Padding(
-                            padding:
-                                EdgeInsets.symmetric(horizontal: 16),
-                            child:
-                                SectionHeader('Matchday Schedule'),
+                            padding: EdgeInsets.symmetric(horizontal: 16),
+                            child: SectionHeader('Matchday Schedule'),
                           ),
-                          Expanded(
-                            child: _buildMatchesList(),
-                          ),
+                          Expanded(child: _buildMatchesList()),
                         ],
                       );
                     },
@@ -321,27 +393,16 @@ class _FixturesScreenState extends ConsumerState<FixturesScreen> {
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
         children: [
-          // "All" chip
           GestureDetector(
-            onTap: () {
-              setState(() {
-                _selectedGroup = null;
-                _selectedRound = 1; // reset round when changing filter
-              });
-            },
+            onTap: () => _setGroup(null),
             child: Container(
               margin: const EdgeInsets.only(right: 10),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
-                color: allSelected
-                    ? Colors.cyanAccent
-                    : Colors.white.withOpacity(0.05),
+                color: allSelected ? Colors.cyanAccent : Colors.white.withOpacity(0.05),
                 borderRadius: BorderRadius.circular(999),
                 border: Border.all(
-                  color: allSelected
-                      ? Colors.cyanAccent
-                      : Colors.white10,
+                  color: allSelected ? Colors.cyanAccent : Colors.white10,
                 ),
               ),
               alignment: Alignment.center,
@@ -355,42 +416,27 @@ class _FixturesScreenState extends ConsumerState<FixturesScreen> {
               ),
             ),
           ),
-          // Group chips
           for (final group in _groups)
             Builder(
               builder: (context) {
                 final isSelected = _selectedGroup == group;
                 return GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _selectedGroup = group;
-                      _selectedRound = 1;
-                    });
-                  },
+                  onTap: () => _setGroup(group),
                   child: Container(
                     margin: const EdgeInsets.only(right: 10),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
-                      color: isSelected
-                          ? Colors.cyanAccent
-                          : Colors.white.withOpacity(0.05),
+                      color: isSelected ? Colors.cyanAccent : Colors.white.withOpacity(0.05),
                       borderRadius: BorderRadius.circular(999),
                       border: Border.all(
-                        color: isSelected
-                            ? Colors.cyanAccent
-                            : Colors.white10,
+                        color: isSelected ? Colors.cyanAccent : Colors.white10,
                       ),
                     ),
                     alignment: Alignment.center,
                     child: Text(
                       group,
                       style: TextStyle(
-                        color: isSelected
-                            ? Colors.black
-                            : Colors.white70,
+                        color: isSelected ? Colors.black : Colors.white70,
                         fontWeight: FontWeight.bold,
                         fontSize: 12,
                       ),
@@ -415,20 +461,17 @@ class _FixturesScreenState extends ConsumerState<FixturesScreen> {
         itemBuilder: (context, i) {
           final round = i + 1;
           final isSelected = _selectedRound == round;
+
           return GestureDetector(
-            onTap: () => setState(() => _selectedRound = round),
+            onTap: () => _setRound(round),
             child: Container(
               margin: const EdgeInsets.only(right: 12),
               padding: const EdgeInsets.symmetric(horizontal: 20),
               decoration: BoxDecoration(
-                color: isSelected
-                    ? Colors.cyanAccent
-                    : Colors.white.withOpacity(0.05),
+                color: isSelected ? Colors.cyanAccent : Colors.white.withOpacity(0.05),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: isSelected
-                      ? Colors.cyanAccent
-                      : Colors.white10,
+                  color: isSelected ? Colors.cyanAccent : Colors.white10,
                 ),
               ),
               alignment: Alignment.center,
@@ -451,11 +494,9 @@ class _FixturesScreenState extends ConsumerState<FixturesScreen> {
     return FutureBuilder<List<FixtureMatch>>(
       future: _getMatches(),
       builder: (context, snapshot) {
-        if (snapshot.connectionState ==
-            ConnectionState.waiting) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(
-            child:
-                CircularProgressIndicator(color: Colors.cyanAccent),
+            child: CircularProgressIndicator(color: Colors.cyanAccent),
           );
         }
 
@@ -473,8 +514,7 @@ class _FixturesScreenState extends ConsumerState<FixturesScreen> {
         return ListView.builder(
           padding: const EdgeInsets.all(16),
           itemCount: matches.length,
-          itemBuilder: (context, index) =>
-              _buildMatchCard(matches[index]),
+          itemBuilder: (context, index) => _buildMatchCard(matches[index]),
         );
       },
     );
@@ -483,20 +523,16 @@ class _FixturesScreenState extends ConsumerState<FixturesScreen> {
   Widget _buildMatchCard(FixtureMatch match) {
     final homeName = _teamNames[match.homeTeamId] ?? 'TBD';
     final awayName = _teamNames[match.awayTeamId] ?? 'TBD';
-    final groupLabel = match.groupId?.trim().isNotEmpty == true
-        ? match.groupId!.trim()
-        : null;
+    final groupLabel = match.groupId?.trim().isNotEmpty == true ? match.groupId!.trim() : null;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       child: Glass(
         padding: const EdgeInsets.all(16),
         child: Column(
-          crossAxisAlignment:
-              CrossAxisAlignment.stretch,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (_format == LeagueFormat.uclGroup &&
-                groupLabel != null)
+            if (_format == LeagueFormat.uclGroup && groupLabel != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Align(
@@ -527,24 +563,22 @@ class _FixturesScreenState extends ConsumerState<FixturesScreen> {
                 Container(
                   width: 80,
                   alignment: Alignment.center,
-                  child:
-                      (match.status == MatchStatus.completed ||
-                              match.status == MatchStatus.played)
-                          ? Text(
-                              '${match.homeScore} - ${match.awayScore}',
-                              style: const TextStyle(
-                                color: Colors.cyanAccent,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 18,
-                              ),
-                            )
-                          : const Text(
-                              'VS',
-                              style: TextStyle(
-                                color: Colors.white24,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
+                  child: (match.status == MatchStatus.completed || match.status == MatchStatus.played)
+                      ? Text(
+                          '${match.homeScore} - ${match.awayScore}',
+                          style: const TextStyle(
+                            color: Colors.cyanAccent,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                          ),
+                        )
+                      : const Text(
+                          'VS',
+                          style: TextStyle(
+                            color: Colors.white24,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
                 ),
                 Expanded(
                   child: Text(

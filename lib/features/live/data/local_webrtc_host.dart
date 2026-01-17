@@ -22,10 +22,18 @@ class LocalLiveHostSession {
   LocalLiveHostSession({
     required this.liveMatchId,
     required this.port,
+    this.homeName,
+    this.awayName,
+    this.side = LiveHostSide.unknown,
   });
 
   final String liveMatchId;
   final int port;
+
+  /// Optional labels for discovery + UI
+  final String? homeName;
+  final String? awayName;
+  final LiveHostSide side;
 
   final ValueNotifier<LocalLiveHostState> state =
       ValueNotifier<LocalLiveHostState>(LocalLiveHostState.idle);
@@ -81,9 +89,13 @@ class LocalLiveHostSession {
         viewerCount.value = _server!.viewerCount.value;
       });
 
+      // Discovery now includes match labels + side
       _broadcaster = LocalLiveDiscoveryBroadcaster(
         matchId: liveMatchId,
         port: port,
+        homeName: homeName,
+        awayName: awayName,
+        side: side,
       );
       await _broadcaster!.start();
 
@@ -257,13 +269,14 @@ class LocalLiveHostSession {
   }
 
   void _sendTrackMappingToViewer(String viewerId) {
-    final screenTracks = _screenStream?.getVideoTracks() ?? const <MediaStreamTrack>[];
-    final cameraTracks = _cameraStream?.getVideoTracks() ?? const <MediaStreamTrack>[];
+    final screenTracks =
+        _screenStream?.getVideoTracks() ?? const <MediaStreamTrack>[];
+    final cameraTracks =
+        _cameraStream?.getVideoTracks() ?? const <MediaStreamTrack>[];
 
     final screenTrackId = screenTracks.isNotEmpty ? screenTracks.first.id : null;
     final cameraTrackId = cameraTracks.isNotEmpty ? cameraTracks.first.id : null;
 
-    // flutter_webrtc may expose id as String?
     if (screenTrackId == null ||
         screenTrackId.isEmpty ||
         cameraTrackId == null ||

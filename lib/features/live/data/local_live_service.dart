@@ -1,3 +1,4 @@
+import 'local_discovery.dart';
 import 'local_webrtc_host.dart';
 import 'local_webrtc_viewer.dart';
 
@@ -6,6 +7,9 @@ class LocalLiveService {
   static final LocalLiveService instance = LocalLiveService._();
 
   LocalLiveHostSession? _host;
+
+  // NOTE: Viewer is now often managed directly by LiveViewScreen because
+  // it may connect to TWO hosts (home + away). We still keep old API for single-viewer.
   LocalLiveViewerSession? _viewer;
 
   LocalLiveHostSession? get activeHost => _host;
@@ -14,10 +18,23 @@ class LocalLiveService {
   Future<LocalLiveHostSession> startHostSession({
     required String liveMatchId,
     int port = 8765,
+
+    /// Optional broadcast labels for discovery UI
+    String? homeName,
+    String? awayName,
+
+    /// Optional host side hint (home/away)
+    LiveHostSide side = LiveHostSide.unknown,
   }) async {
     await stopHostSession(liveMatchId: liveMatchId);
 
-    final host = LocalLiveHostSession(liveMatchId: liveMatchId, port: port);
+    final host = LocalLiveHostSession(
+      liveMatchId: liveMatchId,
+      port: port,
+      homeName: homeName,
+      awayName: awayName,
+      side: side,
+    );
     _host = host;
     await host.start();
     return host;
@@ -32,6 +49,7 @@ class LocalLiveService {
     _host = null;
   }
 
+  /// Legacy single-viewer join (still used in some flows).
   Future<LocalLiveViewerSession> joinViewerSession({
     required String liveMatchId,
     required String host,

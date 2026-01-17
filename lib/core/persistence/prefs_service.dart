@@ -20,11 +20,20 @@ class PreferencesService {
     return PreferencesService._(sp);
   }
 
-  /// Standard String helpers
+  /// Standard helpers
   String? getString(String key) => _sp.getString(key);
-
   Future<void> setString(String key, String value) async {
     await _sp.setString(key, value);
+  }
+
+  int? getInt(String key) => _sp.getInt(key);
+  Future<void> setInt(String key, int value) async {
+    await _sp.setInt(key, value);
+  }
+
+  bool? getBool(String key) => _sp.getBool(key);
+  Future<void> setBool(String key, bool value) async {
+    await _sp.setBool(key, value);
   }
 
   /// Convenience helpers for current user id

@@ -46,10 +46,13 @@ final appRouter = GoRouter(
             // Backwards compatible:
             // - old code passed `extra: true/false`
             // New:
-            // - extra: {'isHost': bool, 'host': String?, 'port': int?}
+            // - extra: {'isHost': bool, 'host': String?, 'port': int?, 'homeName': String?, 'awayName': String?, 'side': 'home'|'away'|'unknown'}
             var isHost = false;
             String? host;
             int? port;
+            String? homeName;
+            String? awayName;
+            String? side;
 
             final extra = state.extra;
             if (extra is bool) {
@@ -60,6 +63,10 @@ final appRouter = GoRouter(
               final p = extra['port'];
               if (p is int) port = p;
               if (p is String) port = int.tryParse(p);
+
+              homeName = extra['homeName'] as String?;
+              awayName = extra['awayName'] as String?;
+              side = extra['side'] as String?;
             }
 
             return LiveViewScreen(
@@ -67,6 +74,9 @@ final appRouter = GoRouter(
               isHost: isHost,
               hostAddress: host,
               port: port,
+              homeName: homeName,
+              awayName: awayName,
+              hostSide: side,
             );
           },
         ),
@@ -96,27 +106,6 @@ final appRouter = GoRouter(
               },
             ),
             GoRoute(
-              path: ':id',
-              builder: (context, state) => LeagueDetailScreen(
-                leagueId: state.pathParameters['id']!,
-              ),
-              routes: [
-                GoRoute(
-                  path: 'standings',
-                  builder: (context, state) => LeagueStandingsScreen(
-                    id: state.pathParameters['id']!,
-                  ),
-                ),
-              ],
-            ),
-            GoRoute(
-              path: ':leagueId',
-              builder: (context, state) {
-                final leagueId = state.pathParameters['leagueId']!;
-                return LeagueDetailScreen(leagueId: leagueId);
-              },
-            ),
-            GoRoute(
               path: ':leagueId/fixtures',
               builder: (context, state) {
                 final leagueId = state.pathParameters['leagueId']!;
@@ -127,9 +116,7 @@ final appRouter = GoRouter(
               path: ':leagueId/admin-scores',
               builder: (context, state) {
                 final leagueId = state.pathParameters['leagueId']!;
-                return AdminScoreMgmtScreen(
-                  leagueId: leagueId,
-                );
+                return AdminScoreMgmtScreen(leagueId: leagueId);
               },
             ),
             GoRoute(
@@ -142,6 +129,18 @@ final appRouter = GoRouter(
                   matchId: matchId,
                 );
               },
+            ),
+            GoRoute(
+              path: ':id',
+              builder: (context, state) =>
+                  LeagueDetailScreen(leagueId: state.pathParameters['id']!),
+              routes: [
+                GoRoute(
+                  path: 'standings',
+                  builder: (context, state) =>
+                      LeagueStandingsScreen(id: state.pathParameters['id']!),
+                ),
+              ],
             ),
           ],
         ),

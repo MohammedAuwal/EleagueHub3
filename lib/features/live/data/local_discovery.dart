@@ -8,6 +8,31 @@ import 'local_lan_ip.dart';
 
 const int kLocalLiveDiscoveryPort = 54545;
 
+/// Optional hint so viewers can map hosts to the correct side.
+enum LiveHostSide { home, away, unknown }
+
+LiveHostSide parseLiveHostSide(String? v) {
+  switch ((v ?? '').toLowerCase().trim()) {
+    case 'home':
+      return LiveHostSide.home;
+    case 'away':
+      return LiveHostSide.away;
+    default:
+      return LiveHostSide.unknown;
+  }
+}
+
+String liveHostSideToWire(LiveHostSide side) {
+  switch (side) {
+    case LiveHostSide.home:
+      return 'home';
+    case LiveHostSide.away:
+      return 'away';
+    case LiveHostSide.unknown:
+      return 'unknown';
+  }
+}
+
 class DiscoveredHost {
   DiscoveredHost({
     required this.hostIp,
@@ -15,13 +40,24 @@ class DiscoveredHost {
     required this.matchId,
     required this.lastSeen,
     this.deviceName,
+    this.homeName,
+    this.awayName,
+    this.side = LiveHostSide.unknown,
   });
 
   final String hostIp;
   final int port;
   final String matchId;
   final DateTime lastSeen;
+
   final String? deviceName;
+
+  /// Optional match labels broadcast by host
+  final String? homeName;
+  final String? awayName;
+
+  /// Optional home/away hint
+  final LiveHostSide side;
 
   String get key => '$hostIp:$port/$matchId';
 
@@ -31,6 +67,9 @@ class DiscoveredHost {
         matchId: matchId,
         lastSeen: lastSeen ?? this.lastSeen,
         deviceName: deviceName,
+        homeName: homeName,
+        awayName: awayName,
+        side: side,
       );
 }
 
@@ -40,11 +79,18 @@ class LocalLiveDiscoveryBroadcaster {
     required this.matchId,
     required this.port,
     this.deviceName,
+    this.homeName,
+    this.awayName,
+    this.side = LiveHostSide.unknown,
   });
 
   final String matchId;
   final int port;
+
   final String? deviceName;
+  final String? homeName;
+  final String? awayName;
+  final LiveHostSide side;
 
   RawDatagramSocket? _socket;
   Timer? _timer;
@@ -68,6 +114,9 @@ class LocalLiveDiscoveryBroadcaster {
         'port': port,
         'ip': _localIp,
         'deviceName': deviceName,
+        'homeName': homeName,
+        'awayName': awayName,
+        'side': liveHostSideToWire(side),
         'ts': DateTime.now().millisecondsSinceEpoch,
       });
 
@@ -175,6 +224,9 @@ class LocalLiveDiscoveryListener {
             (ip != null && ip.isNotEmpty) ? ip : dg.address.address;
 
         final deviceName = (msg['deviceName'] as String?)?.trim();
+        final homeName = (msg['homeName'] as String?)?.trim();
+        final awayName = (msg['awayName'] as String?)?.trim();
+        final side = parseLiveHostSide(msg['side'] as String?);
 
         final now = DateTime.now();
         final h = DiscoveredHost(
@@ -185,6 +237,11 @@ class LocalLiveDiscoveryListener {
           deviceName: (deviceName == null || deviceName.isEmpty)
               ? null
               : deviceName,
+          homeName:
+              (homeName == null || homeName.isEmpty) ? null : homeName,
+          awayName:
+              (awayName == null || awayName.isEmpty) ? null : awayName,
+          side: side,
         );
 
         _byKey[h.key] = h;

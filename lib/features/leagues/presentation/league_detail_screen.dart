@@ -24,18 +24,31 @@ class LeagueDetailScreen extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<LeagueDetailScreen> createState() =>
-      _LeagueDetailScreenState();
+  ConsumerState<LeagueDetailScreen> createState() => _LeagueDetailScreenState();
 }
 
-class _LeagueDetailScreenState
-    extends ConsumerState<LeagueDetailScreen> {
-  late LocalLeaguesRepository _repo;
+class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
+  late final LocalLeaguesRepository _repo;
+  late final PreferencesService _prefs;
+
+  int? _lastViewedRound; // persisted "last opened round"
+
+  static String _lastRoundKey(String leagueId) => 'ui_last_round_$leagueId';
 
   @override
   void initState() {
     super.initState();
-    _repo = LocalLeaguesRepository(ref.read(prefsServiceProvider));
+    _prefs = ref.read(prefsServiceProvider);
+    _repo = LocalLeaguesRepository(_prefs);
+
+    final raw = _prefs.getString(_lastRoundKey(widget.leagueId));
+    _lastViewedRound = int.tryParse((raw ?? '').trim());
+  }
+
+  Future<void> _persistRound(int round) async {
+    _lastViewedRound = round;
+    if (mounted) setState(() {});
+    await _prefs.setString(_lastRoundKey(widget.leagueId), '$round');
   }
 
   Future<Map<String, dynamic>> _loadData() async {
@@ -47,10 +60,8 @@ class _LeagueDetailScreenState
     final fixtures = await _repo.getMatches(widget.leagueId);
     final teams = await _repo.getTeams(widget.leagueId);
 
-    final prefs = ref.read(prefsServiceProvider);
-    final currentUserId =
-        prefs.getCurrentUserId() ??
-        prefs.getString(PreferencesService.kCurrentUserIdKey) ??
+    final currentUserId = _prefs.getCurrentUserId() ??
+        _prefs.getString(PreferencesService.kCurrentUserIdKey) ??
         'admin_user';
 
     final membership = await _repo.getMembership(
@@ -58,9 +69,7 @@ class _LeagueDetailScreenState
       userId: currentUserId,
     );
 
-    final Map<String, String> teamNames = {
-      for (var t in teams) t.id: t.name
-    };
+    final Map<String, String> teamNames = {for (var t in teams) t.id: t.name};
 
     return {
       'league': league,
@@ -70,6 +79,63 @@ class _LeagueDetailScreenState
       'currentUserId': currentUserId,
       'membership': membership,
     };
+  }
+
+  List<FixtureMatch> _sortedSchedule(List<FixtureMatch> fixtures) {
+    final sorted = fixtures.toList()
+      ..sort((a, b) {
+        final r = a.roundNumber.compareTo(b.roundNumber);
+        if (r != 0) return r;
+
+        final s = a.sortIndex.compareTo(b.sortIndex);
+        if (s != 0) return s;
+
+        return a.updatedAtMs.compareTo(b.updatedAtMs);
+      });
+    return sorted;
+  }
+
+  int _currentRoundFromData(List<FixtureMatch> sorted) {
+    if (sorted.isEmpty) return 1;
+
+    final unplayed = sorted.where((m) => !m.isPlayed).toList();
+    if (unplayed.isNotEmpty) {
+      return unplayed.map((m) => m.roundNumber).reduce((a, b) => a < b ? a : b);
+    }
+
+    // all played => last round
+    return sorted.map((m) => m.roundNumber).reduce((a, b) => a > b ? a : b);
+  }
+
+  List<int> _allRounds(List<FixtureMatch> sorted) {
+    final set = sorted.map((m) => m.roundNumber).toSet().toList()..sort();
+    return set;
+  }
+
+  /// "Next 8 matches" starting from [startRound] (the round’s first match),
+  /// but includes results too.
+  List<FixtureMatch> _computeNext8FromRound(
+    List<FixtureMatch> sorted, {
+    required int startRound,
+    int limit = 8,
+  }) {
+    if (sorted.isEmpty) return [];
+
+    var cursor = sorted.indexWhere((m) => m.roundNumber == startRound);
+    if (cursor < 0) cursor = 0;
+
+    var start = cursor;
+    var end = (start + limit).clamp(0, sorted.length);
+    var slice = sorted.sublist(start, end);
+
+    // If slice is short near end, backfill from before cursor
+    if (slice.length < limit && start > 0) {
+      final need = limit - slice.length;
+      final backStart = (start - need).clamp(0, start);
+      slice = [...sorted.sublist(backStart, start), ...slice];
+    }
+
+    return slice;
   }
 
   @override
@@ -89,12 +155,9 @@ class _LeagueDetailScreenState
           child: FutureBuilder<Map<String, dynamic>>(
             future: _loadData(),
             builder: (context, snapshot) {
-              if (snapshot.connectionState ==
-                  ConnectionState.waiting) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(
-                  child: CircularProgressIndicator(
-                    color: Colors.cyanAccent,
-                  ),
+                  child: CircularProgressIndicator(color: Colors.cyanAccent),
                 );
               }
 
@@ -103,31 +166,19 @@ class _LeagueDetailScreenState
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Column(
-                      mainAxisAlignment:
-                          MainAxisAlignment.center,
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(
-                          Icons.error_outline,
-                          color: Colors.redAccent,
-                          size: 48,
-                        ),
+                        const Icon(Icons.error_outline, color: Colors.redAccent, size: 48),
                         const SizedBox(height: 16),
                         Text(
                           "Error: ${snapshot.error}",
                           textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: Colors.white70,
-                          ),
+                          style: const TextStyle(color: Colors.white70),
                         ),
                         const SizedBox(height: 16),
                         TextButton(
                           onPressed: () => setState(() {}),
-                          child: const Text(
-                            'Retry',
-                            style: TextStyle(
-                              color: Colors.cyanAccent,
-                            ),
-                          ),
+                          child: const Text('Retry', style: TextStyle(color: Colors.cyanAccent)),
                         ),
                       ],
                     ),
@@ -135,65 +186,54 @@ class _LeagueDetailScreenState
                 );
               }
 
-              if (!snapshot.hasData) {
-                return const SizedBox.shrink();
-              }
+              if (!snapshot.hasData) return const SizedBox.shrink();
 
-              final league =
-                  snapshot.data!['league'] as League;
-              final fixtures = snapshot
-                  .data!['fixtures'] as List<FixtureMatch>;
-              final teams =
-                  snapshot.data!['teams'] as List<Team>;
-              final teamNames =
-                  snapshot.data!['teamNames']
-                      as Map<String, String>;
-              final membership =
-                  snapshot.data!['membership']
-                      as Membership?;
+              final league = snapshot.data!['league'] as League;
+              final fixtures = snapshot.data!['fixtures'] as List<FixtureMatch>;
+              final teams = snapshot.data!['teams'] as List<Team>;
+              final teamNames = snapshot.data!['teamNames'] as Map<String, String>;
+              final membership = snapshot.data!['membership'] as Membership?;
 
-              final nextFixture =
-                  fixtures.isNotEmpty ? fixtures.first : null;
+              final sorted = _sortedSchedule(fixtures);
+              final rounds = _allRounds(sorted);
+              final currentRound = _currentRoundFromData(sorted);
 
-              final bool isOwnerByLeague =
-                  membership?.role == LeagueRole.organizer;
+              // Persisted round wins if valid; otherwise fallback to currentRound.
+              final selectedRound =
+                  (_lastViewedRound != null && rounds.contains(_lastViewedRound))
+                      ? _lastViewedRound!
+                      : currentRound;
+
+              final next8 = _computeNext8FromRound(
+                sorted,
+                startRound: selectedRound,
+                limit: 8,
+              );
+
+              final bool isOwnerByLeague = membership?.role == LeagueRole.organizer;
               final bool isOwnerFallback =
-                  league.organizerUserId ==
-                      (snapshot.data!['currentUserId']
-                          as String);
-
-              final bool isOwner =
-                  isOwnerByLeague || isOwnerFallback;
+                  league.organizerUserId == (snapshot.data!['currentUserId'] as String);
+              final bool isOwner = isOwnerByLeague || isOwnerFallback;
 
               return ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxWidth: isWide ? 600 : 500,
-                ),
+                constraints: BoxConstraints(maxWidth: isWide ? 600 : 500),
                 child: ListView(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   children: [
-                    _overviewCard(
-                      context,
-                      primary,
-                      league,
-                      isOwner,
-                    ),
+                    _overviewCard(context, primary, league, isOwner),
                     const SizedBox(height: 16),
-                    _quickActions(
-                      context,
-                      league,
-                      isOwner,
-                      fixtures,
-                      teams,
-                    ),
+                    _quickActions(context, league, isOwner, fixtures, teams),
                     const SizedBox(height: 16),
-                    _nextFixture(
+
+                    // Now starts from the ROUND the user last opened (persisted),
+                    // else starts from currentRound.
+                    _nextFixturesList(
                       context,
-                      nextFixture,
-                      teamNames,
+                      fixtures: next8,
+                      names: teamNames,
+                      rounds: rounds,
+                      selectedRound: selectedRound,
+                      onRoundSelected: (r) => _persistRound(r),
                     ),
                   ],
                 ),
@@ -205,21 +245,14 @@ class _LeagueDetailScreenState
     );
   }
 
-  Widget _overviewCard(
-    BuildContext context,
-    Color c,
-    League league,
-    bool isOwner,
-  ) {
+  Widget _overviewCard(BuildContext context, Color c, League league, bool isOwner) {
     return Glass(
       padding: const EdgeInsets.all(20),
       child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment:
-                MainAxisAlignment.spaceBetween,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Expanded(
                 child: Text(
@@ -237,8 +270,7 @@ class _LeagueDetailScreenState
                   child: Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
-                      color: Colors.cyanAccent
-                          .withOpacity(0.1),
+                      color: Colors.cyanAccent.withOpacity(0.1),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
@@ -253,28 +285,16 @@ class _LeagueDetailScreenState
           const SizedBox(height: 4),
           Text(
             '${league.format.displayName} • ${league.season}',
-            style: const TextStyle(
-              color: Colors.white60,
-              fontSize: 14,
-            ),
+            style: const TextStyle(color: Colors.white60, fontSize: 14),
           ),
           const SizedBox(height: 18),
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
-              _pill(
-                league.isPrivate ? 'Private' : 'Public',
-                Colors.cyanAccent,
-              ),
-              _pill(
-                '${league.maxTeams} Teams Max',
-                Colors.orangeAccent,
-              ),
-              _pill(
-                league.region,
-                Colors.purpleAccent,
-              ),
+              _pill(league.isPrivate ? 'Private' : 'Public', Colors.cyanAccent),
+              _pill('${league.maxTeams} Teams Max', Colors.orangeAccent),
+              _pill(league.region, Colors.purpleAccent),
             ],
           ),
         ],
@@ -295,8 +315,7 @@ class _LeagueDetailScreenState
     return Glass(
       padding: const EdgeInsets.all(20),
       child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
             'League Menu',
@@ -313,9 +332,7 @@ class _LeagueDetailScreenState
                 child: _actionButton(
                   icon: Icons.list_alt,
                   label: 'Fixtures',
-                  onTap: () => context.push(
-                    '/leagues/${widget.leagueId}/fixtures',
-                  ),
+                  onTap: () => context.push('/leagues/${widget.leagueId}/fixtures'),
                 ),
               ),
               const SizedBox(width: 12),
@@ -323,9 +340,7 @@ class _LeagueDetailScreenState
                 child: _actionButton(
                   icon: Icons.leaderboard,
                   label: 'Standings',
-                  onTap: () => context.push(
-                    '/leagues/${widget.leagueId}/standings',
-                  ),
+                  onTap: () => context.push('/leagues/${widget.leagueId}/standings'),
                 ),
               ),
             ],
@@ -338,9 +353,7 @@ class _LeagueDetailScreenState
                 style: FilledButton.styleFrom(
                   backgroundColor: Colors.cyanAccent,
                   foregroundColor: Colors.black,
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 16,
-                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -348,13 +361,9 @@ class _LeagueDetailScreenState
                 icon: const Icon(Icons.edit_note),
                 label: const Text(
                   'MANAGE LEAGUE SCORES',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontWeight: FontWeight.bold),
                 ),
-                onPressed: () => context.push(
-                  '/leagues/${widget.leagueId}/admin-scores',
-                ),
+                onPressed: () => context.push('/leagues/${widget.leagueId}/admin-scores'),
               ),
             ),
             if (isSwiss) ...[
@@ -363,13 +372,9 @@ class _LeagueDetailScreenState
                 width: double.infinity,
                 child: OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
-                    side: const BorderSide(
-                      color: Colors.cyanAccent,
-                    ),
+                    side: const BorderSide(color: Colors.cyanAccent),
                     foregroundColor: Colors.cyanAccent,
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 14,
-                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -377,17 +382,9 @@ class _LeagueDetailScreenState
                   icon: const Icon(Icons.emoji_events),
                   label: const Text(
                     'GENERATE KNOCKOUT BRACKET (SWISS)',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                    ),
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                   ),
-                  onPressed: () => _generateSwissKnockouts(
-                    context,
-                    league,
-                    teams,
-                    fixtures,
-                  ),
+                  onPressed: () => _generateSwissKnockouts(context, league, teams, fixtures),
                 ),
               ),
             ],
@@ -397,13 +394,9 @@ class _LeagueDetailScreenState
                 width: double.infinity,
                 child: OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
-                    side: const BorderSide(
-                      color: Colors.cyanAccent,
-                    ),
+                    side: const BorderSide(color: Colors.cyanAccent),
                     foregroundColor: Colors.cyanAccent,
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 14,
-                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -411,15 +404,9 @@ class _LeagueDetailScreenState
                   icon: const Icon(Icons.emoji_events_outlined),
                   label: const Text(
                     'GENERATE KNOCKOUT BRACKET (GROUPS)',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                    ),
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                   ),
-                  onPressed: () => _generateGroupKnockouts(
-                    context,
-                    league,
-                  ),
+                  onPressed: () => _generateGroupKnockouts(context, league),
                 ),
               ),
             ],
@@ -429,44 +416,24 @@ class _LeagueDetailScreenState
                 children: [
                   Expanded(
                     child: TextButton.icon(
-                      style: TextButton.styleFrom(
-                        foregroundColor: Colors.cyanAccent,
-                      ),
-                      onPressed: () => context.push(
-                        '/leagues/${widget.leagueId}/knockout',
-                      ),
-                      icon: const Icon(
-                        Icons.account_tree_outlined,
-                        size: 18,
-                      ),
+                      style: TextButton.styleFrom(foregroundColor: Colors.cyanAccent),
+                      onPressed: () => context.push('/leagues/${widget.leagueId}/knockout'),
+                      icon: const Icon(Icons.account_tree_outlined, size: 18),
                       label: const Text(
                         'VIEW KNOCKOUT BRACKET',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                        ),
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                       ),
                     ),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: TextButton.icon(
-                      style: TextButton.styleFrom(
-                        foregroundColor: Colors.cyanAccent,
-                      ),
-                      onPressed: () => context.push(
-                        '/leagues/${widget.leagueId}/knockout-admin',
-                      ),
-                      icon: const Icon(
-                        Icons.sports_score,
-                        size: 18,
-                      ),
+                      style: TextButton.styleFrom(foregroundColor: Colors.cyanAccent),
+                      onPressed: () => context.push('/leagues/${widget.leagueId}/knockout-admin'),
+                      icon: const Icon(Icons.sports_score, size: 18),
                       label: const Text(
                         'MANAGE KO SCORES',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                        ),
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                       ),
                     ),
                   ),
@@ -477,10 +444,7 @@ class _LeagueDetailScreenState
             const SizedBox(height: 12),
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(
-                vertical: 14,
-                horizontal: 12,
-              ),
+              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
               decoration: BoxDecoration(
                 color: Colors.white.withOpacity(0.05),
                 borderRadius: BorderRadius.circular(12),
@@ -488,15 +452,212 @@ class _LeagueDetailScreenState
               ),
               child: const Text(
                 'View-only: You are a participant in this league.',
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontWeight: FontWeight.w600,
-                ),
+                style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w600),
                 textAlign: TextAlign.center,
               ),
             ),
           ],
         ],
+      ),
+    );
+  }
+
+  Widget _nextFixturesList(
+    BuildContext context, {
+    required List<FixtureMatch> fixtures,
+    required Map<String, String> names,
+    required List<int> rounds,
+    required int selectedRound,
+    required void Function(int) onRoundSelected,
+  }) {
+    return Glass(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Next Matches',
+            style: TextStyle(
+              fontWeight: FontWeight.w900,
+              color: Colors.white,
+              fontSize: 16,
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          // Round chips (persisted)
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                for (final r in rounds) ...[
+                  _roundChip(
+                    label: 'R$r',
+                    selected: r == selectedRound,
+                    onTap: () => onRoundSelected(r),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 12),
+
+          if (fixtures.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Center(
+                child: Text(
+                  'No fixtures.',
+                  style: TextStyle(color: Colors.white38),
+                ),
+              ),
+            )
+          else
+            Column(
+              children: [
+                for (final f in fixtures) ...[
+                  _fixtureRow(context, f, names),
+                  const SizedBox(height: 10),
+                ],
+              ],
+            ),
+          const Divider(color: Colors.white10),
+          Align(
+            alignment: Alignment.center,
+            child: TextButton(
+              onPressed: () => context.push('/leagues/${widget.leagueId}/fixtures'),
+              child: const Text(
+                'VIEW ALL FIXTURES',
+                style: TextStyle(
+                  color: Colors.cyanAccent,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _roundChip({
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(999),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected ? Colors.cyanAccent : Colors.white.withOpacity(0.06),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: selected ? Colors.cyanAccent : Colors.white10,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? Colors.black : Colors.white70,
+            fontWeight: FontWeight.w900,
+            fontSize: 12,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _fixtureRow(BuildContext context, FixtureMatch f, Map<String, String> names) {
+    final homeName = names[f.homeTeamId] ?? f.homeTeamId;
+    final awayName = names[f.awayTeamId] ?? f.awayTeamId;
+    final played = f.isPlayed;
+
+    return InkWell(
+      onTap: () => context.push('/leagues/${widget.leagueId}/matches/${f.id}'),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.white10),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: Colors.white10,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                'R${f.roundNumber}',
+                style: const TextStyle(
+                  color: Colors.white60,
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                homeName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.right,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Container(
+              width: 82,
+              alignment: Alignment.center,
+              child: played
+                  ? Text(
+                      '${f.homeScore ?? 0} - ${f.awayScore ?? 0}',
+                      style: const TextStyle(
+                        color: Colors.cyanAccent,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 14,
+                      ),
+                    )
+                  : const Text(
+                      'VS',
+                      style: TextStyle(
+                        color: Colors.white24,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 12,
+                      ),
+                    ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                awayName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.left,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Icon(Icons.chevron_right, color: Colors.white38),
+          ],
+        ),
       ),
     );
   }
@@ -520,149 +681,16 @@ class _LeagueDetailScreenState
           children: [
             Icon(icon, color: Colors.white70),
             const SizedBox(height: 8),
-            Text(
-              label,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-              ),
-            ),
+            Text(label, style: const TextStyle(color: Colors.white, fontSize: 12)),
           ],
         ),
       ),
     );
   }
 
-  Widget _nextFixture(
-    BuildContext context,
-    FixtureMatch? fixture,
-    Map<String, String> names,
-  ) {
-    final homeName =
-        names[fixture?.homeTeamId] ?? fixture?.homeTeamId ?? 'TBD';
-    final awayName =
-        names[fixture?.awayTeamId] ?? fixture?.awayTeamId ?? 'TBD';
-
-    return Glass(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment:
-                MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Coming Up Next',
-                style: TextStyle(
-                  fontWeight: FontWeight.w900,
-                  color: Colors.white,
-                  fontSize: 16,
-                ),
-              ),
-              if (fixture != null)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white10,
-                    borderRadius:
-                        BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    'Round ${fixture.roundNumber}',
-                    style: const TextStyle(
-                      color: Colors.white38,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          if (fixture != null)
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    homeName,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
-                    ),
-                    textAlign: TextAlign.right,
-                  ),
-                ),
-                const Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 20,
-                  ),
-                  child: Text(
-                    'VS',
-                    style: TextStyle(
-                      color: Colors.cyanAccent,
-                      fontWeight: FontWeight.w900,
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: Text(
-                    awayName,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
-                    ),
-                  ),
-                ),
-              ],
-            )
-          else
-            const Center(
-              child: Text(
-                'No upcoming fixtures.',
-                style: TextStyle(
-                  color: Colors.white38,
-                ),
-              ),
-            ),
-          const SizedBox(height: 20),
-          const Divider(color: Colors.white10),
-          Align(
-            alignment: Alignment.center,
-            child: TextButton(
-              onPressed: fixture != null
-                  ? () => context.push(
-                        '/leagues/${widget.leagueId}/matches/${fixture.id}',
-                      )
-                  : null,
-              child: const Text(
-                'FULL MATCH PREVIEW',
-                style: TextStyle(
-                  color: Colors.cyanAccent,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _pill(String text, Color c) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 12,
-        vertical: 6,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(8),
         color: c.withOpacity(0.1),
@@ -679,10 +707,6 @@ class _LeagueDetailScreenState
     );
   }
 
-  /// Generate Swiss knockouts:
-  /// - 1–8: direct Round of 16
-  /// - 9–24: Play-off (16 teams -> 8 winners)
-  /// Uses TournamentController.seedSwissKnockouts and saves via saveKnockoutMatches.
   Future<void> _generateSwissKnockouts(
     BuildContext context,
     League league,
@@ -699,9 +723,7 @@ class _LeagueDetailScreenState
       return;
     }
 
-    // Do not overwrite existing bracket.
-    final existing =
-        await _repo.getKnockoutMatches(league.id);
+    final existing = await _repo.getKnockoutMatches(league.id);
     if (existing.isNotEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -712,7 +734,6 @@ class _LeagueDetailScreenState
       return;
     }
 
-    // Compute final Swiss standings from current results.
     final swissStandings = StandingsCalculator.calculate(
       teams: teams,
       matches: fixtures,
@@ -721,17 +742,14 @@ class _LeagueDetailScreenState
     if (swissStandings.length < 16) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'At least 16 teams are required to generate Swiss knockouts.',
-          ),
+          content: Text('At least 16 teams are required to generate Swiss knockouts.'),
           behavior: SnackBarBehavior.floating,
         ),
       );
       return;
     }
 
-    final koMatches =
-        TournamentController.seedSwissKnockouts(
+    final koMatches = TournamentController.seedSwissKnockouts(
       leagueId: league.id,
       swissStandings: swissStandings,
     );
@@ -739,37 +757,24 @@ class _LeagueDetailScreenState
     if (koMatches.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content:
-              Text('Failed to seed knockout bracket from Swiss standings.'),
+          content: Text('Failed to seed knockout bracket from Swiss standings.'),
           behavior: SnackBarBehavior.floating,
         ),
       );
       return;
     }
 
-    await _repo.saveKnockoutMatches(
-      league.id,
-      koMatches,
-    );
+    await _repo.saveKnockoutMatches(league.id, koMatches);
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text(
-          'Knockout bracket generated (Play-off + Round of 16).',
-        ),
+        content: Text('Knockout bracket generated (Play-off + Round of 16).'),
         behavior: SnackBarBehavior.floating,
       ),
     );
   }
 
-  /// Generate UCL Group knockouts:
-  /// - Takes top 2 from each group
-  /// - Seeds Round of 16, QF, SF, Final, 3rd Place
-  /// Now requires at least one played group match before seeding.
-  Future<void> _generateGroupKnockouts(
-    BuildContext context,
-    League league,
-  ) async {
+  Future<void> _generateGroupKnockouts(BuildContext context, League league) async {
     if (league.format != LeagueFormat.uclGroup) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -780,9 +785,7 @@ class _LeagueDetailScreenState
       return;
     }
 
-    // Do not overwrite existing bracket.
-    final existing =
-        await _repo.getKnockoutMatches(league.id);
+    final existing = await _repo.getKnockoutMatches(league.id);
     if (existing.isNotEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -796,26 +799,18 @@ class _LeagueDetailScreenState
     final teams = await _repo.getTeams(league.id);
     final matches = await _repo.getMatches(league.id);
 
-    // Require at least one played group match in the league.
-    final anyPlayedGroupMatch = matches.any(
-      (m) => m.groupId != null && m.isPlayed,
-    );
+    final anyPlayedGroupMatch = matches.any((m) => m.groupId != null && m.isPlayed);
     if (!anyPlayedGroupMatch) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'You must play some group matches before generating the knockout bracket.',
-          ),
+          content: Text('You must play some group matches before generating the knockout bracket.'),
           behavior: SnackBarBehavior.floating,
         ),
       );
       return;
     }
 
-    // Build group standings using only played group matches.
-    final playedGroupMatches = matches
-        .where((m) => m.groupId != null && m.isPlayed)
-        .toList();
+    final playedGroupMatches = matches.where((m) => m.groupId != null && m.isPlayed).toList();
 
     final groupIds = playedGroupMatches
         .map((m) => m.groupId)
@@ -827,9 +822,7 @@ class _LeagueDetailScreenState
     final groupStandings = <String, List<StandingsRow>>{};
 
     for (final groupId in groupIds) {
-      final groupMatches = playedGroupMatches
-          .where((m) => m.groupId == groupId)
-          .toList();
+      final groupMatches = playedGroupMatches.where((m) => m.groupId == groupId).toList();
       if (groupMatches.isEmpty) continue;
 
       final teamIds = <String>{};
@@ -837,8 +830,8 @@ class _LeagueDetailScreenState
         teamIds.add(m.homeTeamId);
         teamIds.add(m.awayTeamId);
       }
-      final groupTeams =
-          teams.where((t) => teamIds.contains(t.id)).toList();
+
+      final groupTeams = teams.where((t) => teamIds.contains(t.id)).toList();
       if (groupTeams.isEmpty) continue;
 
       final rows = StandingsCalculator.calculate(
@@ -852,17 +845,14 @@ class _LeagueDetailScreenState
     if (groupStandings.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'No group standings available to seed knockouts.',
-          ),
+          content: Text('No group standings available to seed knockouts.'),
           behavior: SnackBarBehavior.floating,
         ),
       );
       return;
     }
 
-    final koMatches =
-        TournamentController.seedKnockoutsFromGroups(
+    final koMatches = TournamentController.seedKnockoutsFromGroups(
       leagueId: league.id,
       groupStandings: groupStandings,
     );
@@ -870,25 +860,18 @@ class _LeagueDetailScreenState
     if (koMatches.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'Failed to seed knockout bracket from group standings.',
-          ),
+          content: Text('Failed to seed knockout bracket from group standings.'),
           behavior: SnackBarBehavior.floating,
         ),
       );
       return;
     }
 
-    await _repo.saveKnockoutMatches(
-      league.id,
-      koMatches,
-    );
+    await _repo.saveKnockoutMatches(league.id, koMatches);
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text(
-          'Knockout bracket generated from group standings.',
-        ),
+        content: Text('Knockout bracket generated from group standings.'),
         behavior: SnackBarBehavior.floating,
       ),
     );
