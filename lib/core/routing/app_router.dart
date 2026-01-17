@@ -13,8 +13,6 @@ import '../../features/leagues/presentation/qr_scanner_screen.dart';
 import '../../features/leagues/presentation/fixtures_screen.dart';
 import '../../features/leagues/presentation/admin_score_mgmt_screen.dart';
 import '../../features/leagues/presentation/league_standings_screen.dart';
-import '../../features/leagues/presentation/knockout_bracket_screen.dart';
-import '../../features/leagues/presentation/admin_knockout_score_mgmt_screen.dart';
 import '../../features/live/presentation/join_match_screen.dart';
 import '../../features/live/presentation/live_view_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
@@ -36,6 +34,8 @@ final appRouter = GoRouter(
           path: 'profile',
           builder: (context, state) => const ProfileScreen(),
         ),
+
+        // LIVE
         GoRoute(
           path: 'live/join',
           builder: (context, state) => const JoinMatchScreen(),
@@ -44,122 +44,115 @@ final appRouter = GoRouter(
           path: 'live/view/:id',
           builder: (context, state) {
             final id = state.pathParameters['id']!;
+            bool isHost = false;
 
-            var isHost = false;
-            String? host;
-            int? port;
-            String? homeName;
-            String? awayName;
-            String? side;
-            int? homeScore;
-            int? awayScore;
-
+            // We pass isHost via state.extra from MatchDetailScreen and JoinMatchScreen.
             final extra = state.extra;
             if (extra is bool) {
               isHost = extra;
             } else if (extra is Map) {
-              isHost = extra['isHost'] == true;
-              host = extra['host'] as String?;
-              final p = extra['port'];
-              if (p is int) port = p;
-              if (p is String) port = int.tryParse(p);
-
-              homeName = extra['homeName'] as String?;
-              awayName = extra['awayName'] as String?;
-              side = extra['side'] as String?;
-
-              final hs = extra['homeScore'];
-              final as_ = extra['awayScore'];
-              if (hs is int) homeScore = hs;
-              if (hs is String) homeScore = int.tryParse(hs);
-              if (as_ is int) awayScore = as_;
-              if (as_ is String) awayScore = int.tryParse(as_);
+              final map = extra as Map;
+              if (map['isHost'] is bool) {
+                isHost = map['isHost'] as bool;
+              }
             }
 
             return LiveViewScreen(
               matchId: id,
               isHost: isHost,
-              hostAddress: host,
-              port: port,
-              homeName: homeName,
-              awayName: awayName,
-              hostSide: side,
-              initialHomeScore: homeScore,
-              initialAwayScore: awayScore,
             );
           },
         ),
+
+        // LEAGUES
         GoRoute(
           path: 'leagues',
           builder: (context, state) => const LeaguesListScreen(),
           routes: [
             GoRoute(
               path: 'create',
-              builder: (context, state) => const LeagueCreateWizard(),
+              builder: (context, state) =>
+                  const LeagueCreateWizard(),
             ),
             GoRoute(
               path: 'join-scanner',
-              builder: (context, state) => const QRScannerScreen(),
+              builder: (context, state) =>
+                  const QRScannerScreen(),
             ),
             GoRoute(
               path: 'add-teams',
               builder: (context, state) {
-                final extra = state.extra as Map<String, dynamic>? ?? {};
-                final leagueId = extra['leagueId'] as String? ?? 'mock-id';
+                final extra =
+                    state.extra as Map<String, dynamic>? ?? {};
+                final leagueId =
+                    extra['leagueId'] as String? ?? 'mock-id';
                 final format =
-                    extra['format'] as LeagueFormat? ?? LeagueFormat.classic;
+                    extra['format'] as LeagueFormat? ??
+                        LeagueFormat.classic;
                 return AddTeamsScreen(
                   leagueId: leagueId,
                   format: format,
                 );
               },
             ),
+
+            // League details + nested routes
+            GoRoute(
+              path: ':id',
+              builder: (context, state) =>
+                  LeagueDetailScreen(
+                leagueId: state.pathParameters['id']!,
+              ),
+              routes: [
+                GoRoute(
+                  path: 'standings',
+                  builder: (context, state) =>
+                      LeagueStandingsScreen(
+                    id: state.pathParameters['id']!,
+                  ),
+                ),
+              ],
+            ),
+
+            // Alternate leagueId path (for backwards compatibility)
+            GoRoute(
+              path: ':leagueId',
+              builder: (context, state) {
+                final leagueId =
+                    state.pathParameters['leagueId']!;
+                return LeagueDetailScreen(leagueId: leagueId);
+              },
+            ),
             GoRoute(
               path: ':leagueId/fixtures',
               builder: (context, state) {
-                final leagueId = state.pathParameters['leagueId']!;
+                final leagueId =
+                    state.pathParameters['leagueId']!;
                 return FixturesScreen(leagueId: leagueId);
               },
             ),
             GoRoute(
               path: ':leagueId/admin-scores',
               builder: (context, state) {
-                final leagueId = state.pathParameters['leagueId']!;
-                return AdminScoreMgmtScreen(leagueId: leagueId);
+                final leagueId =
+                    state.pathParameters['leagueId']!;
+                return AdminScoreMgmtScreen(
+                  leagueId: leagueId,
+                );
               },
             ),
             GoRoute(
               path: ':leagueId/matches/:matchId',
               builder: (context, state) {
-                final leagueId = state.pathParameters['leagueId']!;
-                final matchId = state.pathParameters['matchId']!;
+                final leagueId =
+                    state.pathParameters['leagueId']!;
+                final matchId =
+                    state.pathParameters['matchId']!;
                 return MatchDetailScreen(
                   leagueId: leagueId,
                   matchId: matchId,
                 );
               },
-            ),
-            GoRoute(
-              path: ':id',
-              builder: (context, state) =>
-                  LeagueDetailScreen(leagueId: state.pathParameters['id']!),
-              routes: [
-                GoRoute(
-                  path: 'standings',
-                  builder: (context, state) =>
-                      LeagueStandingsScreen(id: state.pathParameters['id']!),
-                ),
-                GoRoute(
-                  path: 'knockout',
-                  builder: (context, state) =>
-                      KnockoutBracketScreen(leagueId: state.pathParameters['id']!),
-                ),
-                GoRoute(
-                  path: 'knockout-admin',
-                  builder: (context, state) =>
-                      AdminKnockoutScoreMgmtScreen(leagueId: state.pathParameters['id']!),
-                ),
-              ],
             ),
           ],
         ),
