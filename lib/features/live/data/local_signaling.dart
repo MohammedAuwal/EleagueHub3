@@ -29,8 +29,6 @@ class LocalSignalingServer {
 
   final ValueNotifier<int> viewerCount = ValueNotifier<int>(0);
 
-  List<String> get viewerIds => _viewers.keys.toList(growable: false);
-
   Future<void> start() async {
     if (_server != null) return;
 
@@ -45,9 +43,7 @@ class LocalSignalingServer {
       final ws = await WebSocketTransformer.upgrade(req);
 
       ws.listen(
-        (data) {
-          _onWsMessage(ws, data);
-        },
+        (data) => _onWsMessage(ws, data),
         onDone: () => _onWsClosed(ws),
         onError: (_) => _onWsClosed(ws),
         cancelOnError: true,
@@ -60,13 +56,9 @@ class LocalSignalingServer {
       final msg = jsonDecode(data.toString()) as Map<String, dynamic>;
       final type = msg['type']?.toString();
 
-      // viewerId handshake
       if (type == 'viewer-hello') {
         if (msg['matchId']?.toString() != matchId) {
-          ws.add(jsonEncode({
-            'type': 'error',
-            'message': 'Wrong matchId',
-          }));
+          ws.add(jsonEncode({'type': 'error', 'message': 'Wrong matchId'}));
           ws.close();
           return;
         }
@@ -74,23 +66,19 @@ class LocalSignalingServer {
         var viewerId = msg['viewerId']?.toString();
         if (viewerId == null || viewerId.isEmpty) viewerId = _randId();
 
-        // register
         _viewers[viewerId] = ws;
         _wsToViewerId[ws] = viewerId;
         viewerCount.value = _viewers.length;
 
-        // acknowledge
         ws.add(jsonEncode({'type': 'hello-ack', 'viewerId': viewerId, 'matchId': matchId}));
 
+        // Important: tell host logic a viewer connected
         _messages.add({'type': 'viewer-connected', 'viewerId': viewerId, 'matchId': matchId});
         return;
       }
 
       final viewerId = _wsToViewerId[ws];
-      if (viewerId == null) {
-        // Ignore messages before hello
-        return;
-      }
+      if (viewerId == null) return;
 
       msg['viewerId'] = viewerId;
       msg['matchId'] = matchId;
@@ -113,15 +101,6 @@ class LocalSignalingServer {
     final ws = _viewers[viewerId];
     if (ws == null) return;
     ws.add(jsonEncode(msg));
-  }
-
-  void broadcast(JsonMap msg) {
-    final encoded = jsonEncode(msg);
-    for (final ws in _viewers.values) {
-      try {
-        ws.add(encoded);
-      } catch (_) {}
-    }
   }
 
   Future<void> stop() async {
@@ -162,8 +141,6 @@ class LocalSignalingClient {
   final _messages = StreamController<JsonMap>.broadcast();
   Stream<JsonMap> get messages => _messages.stream;
 
-  bool get isConnected => _ws != null;
-
   Future<void> connect() async {
     if (_ws != null) return;
     final url = 'ws://$host:$port';
@@ -174,16 +151,14 @@ class LocalSignalingClient {
         try {
           final msg = jsonDecode(data.toString()) as Map<String, dynamic>;
           _messages.add(msg);
-        } catch (_) {
-          // ignore
-        }
+        } catch (_) {}
       },
       onDone: () => _cleanup(),
       onError: (_) => _cleanup(),
       cancelOnError: true,
     );
 
-    send({'type': 'viewer-hello', 'matchId': matchId, 'viewerId': viewerId});
+    send({'type': 'viewer-hello'});
   }
 
   void send(JsonMap msg) {

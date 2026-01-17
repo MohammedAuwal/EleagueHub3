@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
+import 'package:uuid/uuid.dart';
 
 import 'local_signaling.dart';
 
@@ -20,11 +21,13 @@ class LocalLiveViewerSession {
     required this.liveMatchId,
     required this.host,
     required this.port,
-  });
+  }) : viewerId = const Uuid().v4();
 
   final String liveMatchId;
   final String host;
   final int port;
+
+  final String viewerId;
 
   final ValueNotifier<LocalLiveViewerState> state =
       ValueNotifier<LocalLiveViewerState>(LocalLiveViewerState.idle);
@@ -34,11 +37,13 @@ class LocalLiveViewerSession {
   final RTCVideoRenderer screenRenderer = RTCVideoRenderer();
   final RTCVideoRenderer cameraRenderer = RTCVideoRenderer();
 
+  final _events = StreamController<Map<String, dynamic>>.broadcast();
+  Stream<Map<String, dynamic>> get events => _events.stream;
+
   LocalSignalingClient? _client;
   StreamSubscription? _clientSub;
 
   RTCPeerConnection? _pc;
-
   RTCDataChannel? _eventsChannel;
 
   String? _screenTrackId;
@@ -59,9 +64,13 @@ class LocalLiveViewerSession {
       await screenRenderer.initialize();
       await cameraRenderer.initialize();
 
-      _client = LocalSignalingClient(host: host, port: port, matchId: liveMatchId);
+      _client = LocalSignalingClient(
+        host: host,
+        port: port,
+        matchId: liveMatchId,
+        viewerId: viewerId,
+      );
       await _client!.connect();
-
       _clientSub = _client!.messages.listen(_onHostSignal);
 
       _pc = await createPeerConnection({
@@ -78,7 +87,6 @@ class LocalLiveViewerSession {
             'sdpMid': c.sdpMid,
             'sdpMLineIndex': c.sdpMLineIndex,
           },
-          'matchId': liveMatchId,
         });
       };
 
@@ -90,9 +98,7 @@ class LocalLiveViewerSession {
 
       _pc!.onDataChannel = (ch) {
         _eventsChannel = ch;
-        _eventsChannel!.onMessage = (m) {
-          _onDataChannelMessage(m.text);
-        };
+        _eventsChannel!.onMessage = (m) => _onDataChannelMessage(m.text);
       };
 
       _pc!.onTrack = (event) async {
@@ -111,7 +117,7 @@ class LocalLiveViewerSession {
   }
 
   Future<void> _onHostSignal(JsonMap msg) async {
-    final type = msg['type'];
+    final type = msg['type']?.toString();
 
     if (type == 'error') {
       state.value = LocalLiveViewerState.error;
@@ -125,9 +131,7 @@ class LocalLiveViewerSession {
 
       state.value = LocalLiveViewerState.negotiating;
 
-      await _pc?.setRemoteDescription(
-        RTCSessionDescription(sdp, 'offer'),
-      );
+      await _pc?.setRemoteDescription(RTCSessionDescription(sdp, 'offer'));
 
       final answer = await _pc!.createAnswer({
         'offerToReceiveAudio': true,
@@ -136,12 +140,7 @@ class LocalLiveViewerSession {
 
       await _pc!.setLocalDescription(answer);
 
-      _client?.send({
-        'type': 'answer',
-        'sdp': answer.sdp,
-        'matchId': liveMatchId,
-      });
-
+      _client?.send({'type': 'answer', 'sdp': answer.sdp});
       return;
     }
 
@@ -162,13 +161,21 @@ class LocalLiveViewerSession {
   void _onDataChannelMessage(String text) {
     try {
       final msg = jsonDecode(text) as Map<String, dynamic>;
+
       if (msg['type'] == 'tracks') {
         _screenTrackId = msg['screenVideoTrackId'] as String?;
         _cameraTrackId = msg['cameraVideoTrackId'] as String?;
         _tryAttachTracks();
+        return;
+      }
+
+      if (msg['type'] == 'event') {
+        final event = (msg['event'] as Map?)?.cast<String, dynamic>();
+        if (event != null) _events.add(event);
+        return;
       }
     } catch (_) {
-      // ignore non-json
+      // ignore
     }
   }
 
@@ -190,6 +197,21 @@ class LocalLiveViewerSession {
         cameraRenderer.srcObject = _remoteCameraStream;
       }
     }
+  }
+
+  void sendChat(String text) => sendEvent({'kind': 'chat', 'text': text});
+  void sendReaction(String reaction) =>
+      sendEvent({'kind': 'reaction', 'reaction': reaction});
+
+  void sendEvent(Map<String, dynamic> event) {
+    final dc = _eventsChannel;
+    if (dc == null) return;
+    if (dc.state != RTCDataChannelState.RTCDataChannelOpen) return;
+
+    final payload = jsonEncode({'type': 'event', 'event': event});
+    try {
+      dc.send(RTCDataChannelMessage(payload));
+    } catch (_) {}
   }
 
   Future<void> disconnect() async {
@@ -233,6 +255,10 @@ class LocalLiveViewerSession {
     } catch (_) {}
     try {
       await cameraRenderer.dispose();
+    } catch (_) {}
+
+    try {
+      await _events.close();
     } catch (_) {}
   }
 }

@@ -34,7 +34,6 @@ class LocalLiveHostSession {
   final ValueNotifier<int> viewerCount = ValueNotifier<int>(0);
   final ValueNotifier<String?> hostIp = ValueNotifier<String?>(null);
 
-  /// Host preview renderers
   final RTCVideoRenderer screenRenderer = RTCVideoRenderer();
   final RTCVideoRenderer cameraRenderer = RTCVideoRenderer();
 
@@ -68,29 +67,26 @@ class LocalLiveHostSession {
 
       final denied = statuses.entries.where((e) => !e.value.isGranted).toList();
       if (denied.isNotEmpty) {
-        throw Exception('Permissions denied: ${denied.map((e) => e.key).join(', ')}');
+        throw Exception(
+            'Permissions denied: ${denied.map((e) => e.key).join(', ')}');
       }
 
       hostIp.value = await LocalLanIp.findLocalIpv4();
 
-      // Start signaling server
       _server = LocalSignalingServer(port: port, matchId: liveMatchId);
       await _server!.start();
-
       _serverSub = _server!.messages.listen(_onSignalMessage);
 
       _server!.viewerCount.addListener(() {
         viewerCount.value = _server!.viewerCount.value;
       });
 
-      // Start LAN discovery broadcaster
       _broadcaster = LocalLiveDiscoveryBroadcaster(
         matchId: liveMatchId,
         port: port,
       );
       await _broadcaster!.start();
 
-      // Capture streams
       _screenStream = await navigator.mediaDevices.getDisplayMedia({
         'video': true,
         'audio': false,
@@ -123,7 +119,8 @@ class LocalLiveHostSession {
     final viewerId = msg['viewerId']?.toString();
 
     if (type == 'viewer-connected') {
-      // Nothing to do yet; we wait for viewer-hello already handled in signaling.
+      if (viewerId == null) return;
+      await addViewerIfNeeded(viewerId);
       return;
     }
 
@@ -139,7 +136,6 @@ class LocalLiveHostSession {
       final peer = _peers[viewerId];
       final sdp = msg['sdp'] as String?;
       if (peer == null || sdp == null) return;
-
       await peer.pc.setRemoteDescription(RTCSessionDescription(sdp, 'answer'));
       return;
     }
@@ -158,8 +154,6 @@ class LocalLiveHostSession {
       );
       return;
     }
-
-    // We treat hello-ack as server -> client only; ignore here.
   }
 
   Future<void> addViewerIfNeeded(String viewerId) async {
@@ -185,7 +179,6 @@ class LocalLiveHostSession {
           'sdpMid': c.sdpMid,
           'sdpMLineIndex': c.sdpMLineIndex,
         },
-        'matchId': liveMatchId,
       });
     };
 
@@ -193,14 +186,8 @@ class LocalLiveHostSession {
       if (s == RTCPeerConnectionState.RTCPeerConnectionStateConnected) {
         state.value = LocalLiveHostState.connected;
       }
-      if (s == RTCPeerConnectionState.RTCPeerConnectionStateFailed ||
-          s == RTCPeerConnectionState.RTCPeerConnectionStateDisconnected ||
-          s == RTCPeerConnectionState.RTCPeerConnectionStateClosed) {
-        _removeViewer(viewerId);
-      }
     };
 
-    // Data channel per viewer (events/chat)
     final dc = await pc.createDataChannel(
       'events',
       RTCDataChannelInit()..ordered = true,
@@ -217,14 +204,15 @@ class LocalLiveHostSession {
       _onViewerDataChannelMessage(viewerId, m.text);
     };
 
-    // Add tracks to this viewer peer connection
     final screenStream = _screenStream;
     final cameraStream = _cameraStream;
+
     if (screenStream != null) {
       for (final t in screenStream.getVideoTracks()) {
         pc.addTrack(t, screenStream);
       }
     }
+
     if (cameraStream != null) {
       for (final t in cameraStream.getVideoTracks()) {
         pc.addTrack(t, cameraStream);
@@ -234,40 +222,35 @@ class LocalLiveHostSession {
       }
     }
 
-    // Create offer and send it to this viewer
     final offer = await pc.createOffer({
       'offerToReceiveAudio': false,
       'offerToReceiveVideo': false,
     });
+
     await pc.setLocalDescription(offer);
 
     server.sendToViewer(viewerId, {
       'type': 'offer',
       'sdp': offer.sdp,
-      'matchId': liveMatchId,
     });
   }
 
   void _onViewerDataChannelMessage(String viewerId, String text) {
-    // Viewer -> Host events (chat/reaction)
     try {
       final msg = jsonDecode(text) as Map<String, dynamic>;
-      if (msg['type'] == 'event') {
-        final event = (msg['event'] as Map?)?.cast<String, dynamic>();
-        if (event == null) return;
+      if (msg['type'] != 'event') return;
 
-        final enriched = <String, dynamic>{
-          ...event,
-          'from': viewerId,
-          'ts': DateTime.now().millisecondsSinceEpoch,
-        };
+      final event = (msg['event'] as Map?)?.cast<String, dynamic>();
+      if (event == null) return;
 
-        // Emit locally for host UI
-        _events.add(enriched);
+      final enriched = <String, dynamic>{
+        ...event,
+        'from': viewerId,
+        'ts': DateTime.now().millisecondsSinceEpoch,
+      };
 
-        // Broadcast to all viewers (including sender)
-        broadcastEvent(enriched);
-      }
+      _events.add(enriched);
+      broadcastEvent(enriched);
     } catch (_) {
       // ignore
     }
@@ -293,7 +276,6 @@ class LocalLiveHostSession {
     _peers[viewerId]?.eventsChannel?.send(RTCDataChannelMessage(payload));
   }
 
-  /// Host can call this too (e.g. send chat/reaction from host UI).
   void broadcastEvent(Map<String, dynamic> event) {
     final payload = jsonEncode({'type': 'event', 'event': event});
     for (final peer in _peers.values) {
@@ -317,8 +299,6 @@ class LocalLiveHostSession {
     try {
       await peer.pc.close();
     } catch (_) {}
-
-    viewerCount.value = _peers.length;
   }
 
   Future<void> stop() async {
@@ -372,7 +352,6 @@ class LocalLiveHostSession {
 
 class _ViewerPeer {
   _ViewerPeer({required this.viewerId, required this.pc});
-
   final String viewerId;
   final RTCPeerConnection pc;
   RTCDataChannel? eventsChannel;
