@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
@@ -17,16 +19,13 @@ class LiveViewScreen extends StatefulWidget {
     this.port,
   });
 
-  /// Live Match ID
   final String matchId;
-
-  /// Whether this device is the host (caster) or a viewer.
   final bool isHost;
 
-  /// Viewer only: host LAN IP (e.g. 192.168.1.25)
+  /// Viewer only
   final String? hostAddress;
 
-  /// Host/viewer: port for ws:// signaling (default 8765)
+  /// Host/viewer
   final int? port;
 
   @override
@@ -40,6 +39,9 @@ class _LiveViewScreenState extends State<LiveViewScreen> {
   LocalLiveHostSession? _hostSession;
   LocalLiveViewerSession? _viewerSession;
 
+  StreamSubscription? _hostEventsSub;
+  StreamSubscription? _viewerEventsSub;
+
   bool _busy = false;
   String? _errorText;
 
@@ -50,27 +52,24 @@ class _LiveViewScreenState extends State<LiveViewScreen> {
     super.initState();
 
     if (!widget.isHost) {
-      // Auto-connect viewer
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _startViewer();
-      });
+      WidgetsBinding.instance.addPostFrameCallback((_) => _startViewer());
     }
   }
 
   @override
   void dispose() {
     _chat.dispose();
+    _hostEventsSub?.cancel();
+    _viewerEventsSub?.cancel();
     _stopAll();
     super.dispose();
   }
 
   Future<void> _stopAll() async {
     if (widget.isHost) {
-      final id = widget.matchId;
-      await LocalLiveService.instance.stopHostSession(liveMatchId: id);
+      await LocalLiveService.instance.stopHostSession(liveMatchId: widget.matchId);
     } else {
-      final id = widget.matchId;
-      await LocalLiveService.instance.leaveViewerSession(liveMatchId: id);
+      await LocalLiveService.instance.leaveViewerSession(liveMatchId: widget.matchId);
     }
   }
 
@@ -85,6 +84,12 @@ class _LiveViewScreenState extends State<LiveViewScreen> {
         liveMatchId: widget.matchId,
         port: _port,
       );
+
+      _hostEventsSub?.cancel();
+      _hostEventsSub = s.events.listen((evt) {
+        _appendEvent(evt);
+      });
+
       setState(() => _hostSession = s);
     } catch (e) {
       setState(() => _errorText = e.toString());
@@ -96,7 +101,7 @@ class _LiveViewScreenState extends State<LiveViewScreen> {
   Future<void> _startViewer() async {
     final host = widget.hostAddress?.trim();
     if (host == null || host.isEmpty) {
-      setState(() => _errorText = 'Missing host IP. Go back and enter host IP + port.');
+      setState(() => _errorText = 'Missing host IP. Go back and enter host IP/port (or use Auto‑Discovery).');
       return;
     }
 
@@ -111,12 +116,37 @@ class _LiveViewScreenState extends State<LiveViewScreen> {
         host: host,
         port: _port,
       );
+
+      _viewerEventsSub?.cancel();
+      _viewerEventsSub = v.events.listen((evt) {
+        _appendEvent(evt);
+      });
+
       setState(() => _viewerSession = v);
     } catch (e) {
       setState(() => _errorText = e.toString());
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  void _appendEvent(Map<String, dynamic> evt) {
+    final kind = evt['kind']?.toString();
+    final from = evt['from']?.toString();
+
+    String line;
+    if (kind == 'chat') {
+      final txt = evt['text']?.toString() ?? '';
+      line = (from == null) ? txt : '$from: $txt';
+    } else if (kind == 'reaction') {
+      final r = evt['reaction']?.toString() ?? '';
+      line = (from == null) ? 'Reaction: $r' : '$from reacted: $r';
+    } else {
+      line = 'Event: $evt';
+    }
+
+    if (!mounted) return;
+    setState(() => _messages.add(line));
   }
 
   @override
@@ -134,7 +164,7 @@ class _LiveViewScreenState extends State<LiveViewScreen> {
           if (widget.isHost)
             IconButton(
               tooltip: 'Copy host connection info',
-              onPressed: _hostSession?.hostIp.value == null
+              onPressed: (_hostSession?.hostIp.value == null)
                   ? null
                   : () {
                       final ip = _hostSession!.hostIp.value!;
@@ -217,10 +247,7 @@ class _LiveViewScreenState extends State<LiveViewScreen> {
       return Glass(
         borderRadius: 18,
         padding: const EdgeInsets.all(12),
-        child: Text(
-          'Error: $_errorText',
-          style: const TextStyle(color: Colors.redAccent),
-        ),
+        child: Text('Error: $_errorText', style: const TextStyle(color: Colors.redAccent)),
       );
     }
 
@@ -238,16 +265,15 @@ class _LiveViewScreenState extends State<LiveViewScreen> {
               ValueListenableBuilder<String?>(
                 valueListenable: host.hostIp,
                 builder: (_, ip, __) {
-                  final showIp = ip ?? '...';
                   return Text(
-                    'Host address: $showIp:${_port}',
+                    'Host address: ${(ip ?? '...')}:${_port}',
                     style: const TextStyle(color: Colors.white70, fontSize: 12),
                   );
                 },
               ),
               const SizedBox(height: 6),
               const Text(
-                'Viewer must connect using Host IP + Port on same Wi‑Fi / hotspot.',
+                'Auto‑Discovery ON (LAN broadcast). Viewers should see you in Join screen.',
                 style: TextStyle(color: Colors.white38, fontSize: 11),
               ),
               const SizedBox(height: 10),
@@ -256,9 +282,7 @@ class _LiveViewScreenState extends State<LiveViewScreen> {
               children: [
                 Expanded(
                   child: FilledButton.icon(
-                    onPressed: _busy
-                        ? null
-                        : (started ? null : _startHost),
+                    onPressed: _busy ? null : (started ? null : _startHost),
                     icon: const Icon(Icons.cast),
                     label: Text(_busy ? 'Starting...' : (started ? 'Broadcasting' : 'Start Broadcast')),
                   ),
@@ -284,12 +308,20 @@ class _LiveViewScreenState extends State<LiveViewScreen> {
                 ),
               ],
             ),
+            const SizedBox(height: 8),
+            if (started)
+              ValueListenableBuilder<int>(
+                valueListenable: host.viewerCount,
+                builder: (_, c, __) => Text(
+                  'Viewers connected: $c',
+                  style: const TextStyle(color: Colors.white60, fontSize: 12),
+                ),
+              ),
           ],
         ),
       );
     }
 
-    // Viewer controls
     final viewer = _viewerSession;
     final connected = viewer != null;
 
@@ -300,9 +332,7 @@ class _LiveViewScreenState extends State<LiveViewScreen> {
         children: [
           Expanded(
             child: FilledButton.icon(
-              onPressed: _busy
-                  ? null
-                  : (connected ? null : _startViewer),
+              onPressed: _busy ? null : (connected ? null : _startViewer),
               icon: const Icon(Icons.play_circle_fill),
               label: Text(_busy ? 'Connecting...' : (connected ? 'Connected' : 'Connect')),
             ),
@@ -351,7 +381,6 @@ class _LiveViewScreenState extends State<LiveViewScreen> {
       padding: const EdgeInsets.all(12),
       child: Stack(
         children: [
-          // Main: screen share
           Positioned.fill(
             child: ClipRRect(
               borderRadius: BorderRadius.circular(18),
@@ -365,8 +394,8 @@ class _LiveViewScreenState extends State<LiveViewScreen> {
                     : Center(
                         child: Text(
                           widget.isHost
-                              ? 'Host preview will show here after Start Broadcast.\n\n(Screen sharing permission popup will appear)'
-                              : 'Connecting...\n\nIf blank: check Host IP/Port and Wi‑Fi.',
+                              ? 'Press Start Broadcast.\nScreen permission popup will appear.'
+                              : 'Connecting...\nIf blank: check Wi‑Fi + host.',
                           textAlign: TextAlign.center,
                           style: Theme.of(context).textTheme.titleSmall?.copyWith(color: Colors.white70),
                         ),
@@ -375,7 +404,7 @@ class _LiveViewScreenState extends State<LiveViewScreen> {
             ),
           ),
 
-          // PiP: front camera
+          // PiP camera
           Positioned(
             right: 12,
             bottom: 12,
@@ -391,68 +420,17 @@ class _LiveViewScreenState extends State<LiveViewScreen> {
                 child: (camR != null && camR.srcObject != null)
                     ? RTCVideoView(
                         camR,
-                        mirror: widget.isHost, // mirror local cam
+                        mirror: widget.isHost,
                         objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
                       )
                     : const Center(
-                        child: Text(
-                          'Camera',
-                          style: TextStyle(color: Colors.white54),
-                        ),
+                        child: Text('Camera', style: TextStyle(color: Colors.white54)),
                       ),
               ),
             ),
           ),
 
-          // LIVE badge + viewer count (host)
-          Positioned(
-            top: 8,
-            right: 8,
-            child: Glass(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              borderRadius: 999,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: const BoxDecoration(
-                      color: Colors.redAccent,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  const Text(
-                    'LIVE',
-                    style: TextStyle(
-                      color: Colors.redAccent,
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  const Icon(Icons.remove_red_eye_outlined, size: 16, color: Colors.white70),
-                  const SizedBox(width: 4),
-                  if (widget.isHost && host != null)
-                    ValueListenableBuilder<int>(
-                      valueListenable: host.viewerCount,
-                      builder: (_, c, __) => Text(
-                        '$c',
-                        style: const TextStyle(color: Colors.white70, fontSize: 12),
-                      ),
-                    )
-                  else
-                    const Text(
-                      '-',
-                      style: TextStyle(color: Colors.white70, fontSize: 12),
-                    ),
-                ],
-              ),
-            ),
-          ),
-
-          // Match ID (top-left)
+          // Match ID badge
           Positioned(
             top: 8,
             left: 8,
@@ -484,16 +462,33 @@ class _LiveViewScreenState extends State<LiveViewScreen> {
   void _send() {
     final txt = _chat.text.trim();
     if (txt.isEmpty) return;
-    setState(() {
-      _messages.add('You: $txt');
-      _chat.clear();
-    });
+
+    _chat.clear();
+
+    if (widget.isHost) {
+      // Host sends to viewers and also sees it locally
+      final evt = {'kind': 'chat', 'text': txt, 'from': 'HOST'};
+      setState(() => _messages.add('HOST: $txt'));
+      LocalLiveService.instance.broadcastHostEvent(liveMatchId: widget.matchId, event: evt);
+      return;
+    }
+
+    final v = _viewerSession;
+    if (v == null) return;
+    v.sendChat(txt);
   }
 
-  void _react(String emojiLike) {
-    setState(() {
-      _messages.add('Reaction: $emojiLike');
-    });
+  void _react(String reactionLabel) {
+    if (widget.isHost) {
+      final evt = {'kind': 'reaction', 'reaction': reactionLabel, 'from': 'HOST'};
+      setState(() => _messages.add('HOST reacted: $reactionLabel'));
+      LocalLiveService.instance.broadcastHostEvent(liveMatchId: widget.matchId, event: evt);
+      return;
+    }
+
+    final v = _viewerSession;
+    if (v == null) return;
+    v.sendReaction(reactionLabel);
   }
 }
 
@@ -529,10 +524,7 @@ class _ChatOverlay extends StatelessWidget {
                   padding: const EdgeInsets.only(bottom: 6),
                   child: Text(
                     msg,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                    ),
+                    style: const TextStyle(color: Colors.white, fontSize: 12),
                   ),
                 );
               },
@@ -563,17 +555,12 @@ class _ChatOverlay extends StatelessWidget {
                 child: TextField(
                   controller: chatController,
                   style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(
-                    hintText: 'Type a message',
-                  ),
+                  decoration: const InputDecoration(hintText: 'Type a message'),
                   onSubmitted: (_) => onSend(),
                 ),
               ),
               const SizedBox(width: 8),
-              FilledButton(
-                onPressed: onSend,
-                child: const Text('Send'),
-              ),
+              FilledButton(onPressed: onSend, child: const Text('Send')),
             ],
           ),
         ],

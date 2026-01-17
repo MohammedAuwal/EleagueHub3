@@ -1,8 +1,17 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
+
+import 'package:flutter/foundation.dart';
 
 typedef JsonMap = Map<String, dynamic>;
+
+String _randId() {
+  final r = Random.secure();
+  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  return List.generate(10, (_) => chars[r.nextInt(chars.length)]).join();
+}
 
 class LocalSignalingServer {
   LocalSignalingServer({required this.port, required this.matchId});
@@ -11,12 +20,16 @@ class LocalSignalingServer {
   final String matchId;
 
   HttpServer? _server;
-  WebSocket? _viewer;
 
-  final _viewerMessages = StreamController<JsonMap>.broadcast();
-  Stream<JsonMap> get viewerMessages => _viewerMessages.stream;
+  final Map<String, WebSocket> _viewers = {}; // viewerId -> ws
+  final Map<WebSocket, String> _wsToViewerId = {}; // ws -> viewerId
+
+  final _messages = StreamController<JsonMap>.broadcast();
+  Stream<JsonMap> get messages => _messages.stream;
 
   final ValueNotifier<int> viewerCount = ValueNotifier<int>(0);
+
+  List<String> get viewerIds => _viewers.keys.toList(growable: false);
 
   Future<void> start() async {
     if (_server != null) return;
@@ -31,73 +44,121 @@ class LocalSignalingServer {
 
       final ws = await WebSocketTransformer.upgrade(req);
 
-      if (_viewer != null) {
-        ws.add(jsonEncode({
-          'type': 'error',
-          'message': 'A viewer is already connected to this host.',
-        }));
-        await ws.close();
-        return;
-      }
-
-      _viewer = ws;
-      viewerCount.value = 1;
-
       ws.listen(
         (data) {
-          try {
-            final msg = jsonDecode(data.toString()) as Map<String, dynamic>;
-            _viewerMessages.add(msg);
-          } catch (_) {
-            // ignore bad messages
-          }
+          _onWsMessage(ws, data);
         },
-        onDone: () {
-          if (_viewer == ws) _viewer = null;
-          viewerCount.value = 0;
-        },
-        onError: (_) {
-          if (_viewer == ws) _viewer = null;
-          viewerCount.value = 0;
-        },
+        onDone: () => _onWsClosed(ws),
+        onError: (_) => _onWsClosed(ws),
         cancelOnError: true,
       );
     });
   }
 
-  bool get hasViewer => _viewer != null;
+  void _onWsMessage(WebSocket ws, dynamic data) {
+    try {
+      final msg = jsonDecode(data.toString()) as Map<String, dynamic>;
+      final type = msg['type']?.toString();
 
-  void sendToViewer(JsonMap msg) {
-    final ws = _viewer;
+      // viewerId handshake
+      if (type == 'viewer-hello') {
+        if (msg['matchId']?.toString() != matchId) {
+          ws.add(jsonEncode({
+            'type': 'error',
+            'message': 'Wrong matchId',
+          }));
+          ws.close();
+          return;
+        }
+
+        var viewerId = msg['viewerId']?.toString();
+        if (viewerId == null || viewerId.isEmpty) viewerId = _randId();
+
+        // register
+        _viewers[viewerId] = ws;
+        _wsToViewerId[ws] = viewerId;
+        viewerCount.value = _viewers.length;
+
+        // acknowledge
+        ws.add(jsonEncode({'type': 'hello-ack', 'viewerId': viewerId, 'matchId': matchId}));
+
+        _messages.add({'type': 'viewer-connected', 'viewerId': viewerId, 'matchId': matchId});
+        return;
+      }
+
+      final viewerId = _wsToViewerId[ws];
+      if (viewerId == null) {
+        // Ignore messages before hello
+        return;
+      }
+
+      msg['viewerId'] = viewerId;
+      msg['matchId'] = matchId;
+      _messages.add(msg);
+    } catch (_) {
+      // ignore
+    }
+  }
+
+  void _onWsClosed(WebSocket ws) {
+    final viewerId = _wsToViewerId.remove(ws);
+    if (viewerId != null) {
+      _viewers.remove(viewerId);
+      viewerCount.value = _viewers.length;
+      _messages.add({'type': 'viewer-disconnected', 'viewerId': viewerId, 'matchId': matchId});
+    }
+  }
+
+  void sendToViewer(String viewerId, JsonMap msg) {
+    final ws = _viewers[viewerId];
     if (ws == null) return;
     ws.add(jsonEncode(msg));
+  }
+
+  void broadcast(JsonMap msg) {
+    final encoded = jsonEncode(msg);
+    for (final ws in _viewers.values) {
+      try {
+        ws.add(encoded);
+      } catch (_) {}
+    }
   }
 
   Future<void> stop() async {
     viewerCount.value = 0;
 
-    try {
-      await _viewer?.close();
-    } catch (_) {}
-    _viewer = null;
+    for (final ws in _viewers.values) {
+      try {
+        await ws.close();
+      } catch (_) {}
+    }
+    _viewers.clear();
+    _wsToViewerId.clear();
 
     try {
       await _server?.close(force: true);
     } catch (_) {}
     _server = null;
 
-    await _viewerMessages.close();
+    await _messages.close();
   }
 }
 
 class LocalSignalingClient {
-  LocalSignalingClient({required this.host, required this.port, required this.matchId});
+  LocalSignalingClient({
+    required this.host,
+    required this.port,
+    required this.matchId,
+    required this.viewerId,
+  });
 
   final String host;
   final int port;
   final String matchId;
+  final String viewerId;
 
   WebSocket? _ws;
+
   final _messages = StreamController<JsonMap>.broadcast();
   Stream<JsonMap> get messages => _messages.stream;
 
@@ -122,10 +183,12 @@ class LocalSignalingClient {
       cancelOnError: true,
     );
 
-    send({'type': 'viewer-hello', 'matchId': matchId});
+    send({'type': 'viewer-hello', 'matchId': matchId, 'viewerId': viewerId});
   }
 
   void send(JsonMap msg) {
+    msg['viewerId'] = viewerId;
+    msg['matchId'] = matchId;
     _ws?.add(jsonEncode(msg));
   }
 

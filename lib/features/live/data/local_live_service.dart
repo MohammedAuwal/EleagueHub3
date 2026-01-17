@@ -58,11 +58,15 @@ class LocalLiveService {
     _viewer = null;
   }
 
-  // Placeholder for future: send chat/events via data channel.
-  Future<void> sendLiveEvent({
+  /// Host-side broadcast (chat/reactions from host UI).
+  void broadcastHostEvent({
     required String liveMatchId,
     required Map<String, dynamic> event,
-  }) async {
-    // Not implemented (yet). Keep API for compatibility with MainActivity channel idea.
+  }) {
+    final host = _host;
+    if (host == null) return;
+    if (host.liveMatchId != liveMatchId) return;
+
+    host.broadcastEvent(event);
   }
 }

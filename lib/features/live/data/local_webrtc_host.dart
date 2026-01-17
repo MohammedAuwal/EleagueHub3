@@ -5,14 +5,14 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import 'local_discovery.dart';
 import 'local_lan_ip.dart';
 import 'local_signaling.dart';
 
 enum LocalLiveHostState {
   idle,
   starting,
-  waitingForViewer,
-  negotiating,
+  waitingForViewers,
   connected,
   stopped,
   error,
@@ -31,22 +31,25 @@ class LocalLiveHostSession {
       ValueNotifier<LocalLiveHostState>(LocalLiveHostState.idle);
 
   final ValueNotifier<String?> error = ValueNotifier<String?>(null);
-
   final ValueNotifier<int> viewerCount = ValueNotifier<int>(0);
   final ValueNotifier<String?> hostIp = ValueNotifier<String?>(null);
 
+  /// Host preview renderers
   final RTCVideoRenderer screenRenderer = RTCVideoRenderer();
   final RTCVideoRenderer cameraRenderer = RTCVideoRenderer();
 
+  final _events = StreamController<Map<String, dynamic>>.broadcast();
+  Stream<Map<String, dynamic>> get events => _events.stream;
+
   LocalSignalingServer? _server;
-  RTCPeerConnection? _pc;
+  StreamSubscription? _serverSub;
+
+  LocalLiveDiscoveryBroadcaster? _broadcaster;
 
   MediaStream? _screenStream;
   MediaStream? _cameraStream;
 
-  RTCDataChannel? _dataChannel;
-
-  StreamSubscription? _serverSub;
+  final Map<String, _ViewerPeer> _peers = {}; // viewerId -> peer
 
   Future<void> start() async {
     if (_server != null) return;
@@ -58,7 +61,6 @@ class LocalLiveHostSession {
       await screenRenderer.initialize();
       await cameraRenderer.initialize();
 
-      // Runtime permissions (camera + mic). Screen permission will be requested by getDisplayMedia().
       final statuses = await [
         Permission.camera,
         Permission.microphone,
@@ -71,15 +73,22 @@ class LocalLiveHostSession {
 
       hostIp.value = await LocalLanIp.findLocalIpv4();
 
+      // Start signaling server
       _server = LocalSignalingServer(port: port, matchId: liveMatchId);
       await _server!.start();
 
-      viewerCount.value = 0;
+      _serverSub = _server!.messages.listen(_onSignalMessage);
+
       _server!.viewerCount.addListener(() {
         viewerCount.value = _server!.viewerCount.value;
       });
 
-      _serverSub = _server!.viewerMessages.listen(_onViewerSignal);
+      // Start LAN discovery broadcaster
+      _broadcaster = LocalLiveDiscoveryBroadcaster(
+        matchId: liveMatchId,
+        port: port,
+      );
+      await _broadcaster!.start();
 
       // Capture streams
       _screenStream = await navigator.mediaDevices.getDisplayMedia({
@@ -100,55 +109,7 @@ class LocalLiveHostSession {
       screenRenderer.srcObject = _screenStream;
       cameraRenderer.srcObject = _cameraStream;
 
-      // Create peer connection
-      _pc = await createPeerConnection({
-        'sdpSemantics': 'unified-plan',
-        'iceServers': <Map<String, dynamic>>[],
-      });
-
-      _pc!.onIceCandidate = (c) {
-        if (c.candidate == null) return;
-        _server?.sendToViewer({
-          'type': 'candidate',
-          'candidate': {
-            'candidate': c.candidate,
-            'sdpMid': c.sdpMid,
-            'sdpMLineIndex': c.sdpMLineIndex,
-          },
-          'matchId': liveMatchId,
-        });
-      };
-
-      _pc!.onConnectionState = (s) {
-        if (s == RTCPeerConnectionState.RTCPeerConnectionStateConnected) {
-          state.value = LocalLiveHostState.connected;
-        }
-      };
-
-      // Data channel (for track mapping + later chat/events)
-      _dataChannel = await _pc!.createDataChannel(
-        'events',
-        RTCDataChannelInit()..ordered = true,
-      );
-
-      _dataChannel!.onDataChannelState = (s) {
-        if (s == RTCDataChannelState.RTCDataChannelOpen) {
-          _sendTrackMapping();
-        }
-      };
-
-      // Add tracks: screen video + camera video + mic audio
-      for (final t in _screenStream!.getVideoTracks()) {
-        await _pc!.addTrack(t, _screenStream!);
-      }
-      for (final t in _cameraStream!.getVideoTracks()) {
-        await _pc!.addTrack(t, _cameraStream!);
-      }
-      for (final t in _cameraStream!.getAudioTracks()) {
-        await _pc!.addTrack(t, _cameraStream!);
-      }
-
-      state.value = LocalLiveHostState.waitingForViewer;
+      state.value = LocalLiveHostState.waitingForViewers;
     } catch (e) {
       state.value = LocalLiveHostState.error;
       error.value = e.toString();
@@ -157,27 +118,38 @@ class LocalLiveHostSession {
     }
   }
 
-  Future<void> _onViewerSignal(JsonMap msg) async {
-    final type = msg['type'];
-    if (type == 'viewer-hello') {
-      if (msg['matchId'] != liveMatchId) return;
-      await _negotiateOffer();
+  Future<void> _onSignalMessage(JsonMap msg) async {
+    final type = msg['type']?.toString();
+    final viewerId = msg['viewerId']?.toString();
+
+    if (type == 'viewer-connected') {
+      // Nothing to do yet; we wait for viewer-hello already handled in signaling.
       return;
     }
 
+    if (type == 'viewer-disconnected') {
+      if (viewerId == null) return;
+      await _removeViewer(viewerId);
+      return;
+    }
+
+    if (viewerId == null) return;
+
     if (type == 'answer') {
+      final peer = _peers[viewerId];
       final sdp = msg['sdp'] as String?;
-      if (sdp == null) return;
-      await _pc?.setRemoteDescription(
-        RTCSessionDescription(sdp, 'answer'),
-      );
+      if (peer == null || sdp == null) return;
+
+      await peer.pc.setRemoteDescription(RTCSessionDescription(sdp, 'answer'));
       return;
     }
 
     if (type == 'candidate') {
+      final peer = _peers[viewerId];
       final c = msg['candidate'] as Map?;
-      if (c == null) return;
-      await _pc?.addCandidate(
+      if (peer == null || c == null) return;
+
+      await peer.pc.addCandidate(
         RTCIceCandidate(
           c['candidate'] as String?,
           c['sdpMid'] as String?,
@@ -186,30 +158,122 @@ class LocalLiveHostSession {
       );
       return;
     }
+
+    // We treat hello-ack as server -> client only; ignore here.
   }
 
-  Future<void> _negotiateOffer() async {
-    final pc = _pc;
+  Future<void> addViewerIfNeeded(String viewerId) async {
+    if (_peers.containsKey(viewerId)) return;
+
     final server = _server;
-    if (pc == null || server == null) return;
+    if (server == null) return;
 
-    state.value = LocalLiveHostState.negotiating;
+    final pc = await createPeerConnection({
+      'sdpSemantics': 'unified-plan',
+      'iceServers': <Map<String, dynamic>>[],
+    });
 
+    final peer = _ViewerPeer(viewerId: viewerId, pc: pc);
+    _peers[viewerId] = peer;
+
+    pc.onIceCandidate = (c) {
+      if (c.candidate == null) return;
+      server.sendToViewer(viewerId, {
+        'type': 'candidate',
+        'candidate': {
+          'candidate': c.candidate,
+          'sdpMid': c.sdpMid,
+          'sdpMLineIndex': c.sdpMLineIndex,
+        },
+        'matchId': liveMatchId,
+      });
+    };
+
+    pc.onConnectionState = (s) {
+      if (s == RTCPeerConnectionState.RTCPeerConnectionStateConnected) {
+        state.value = LocalLiveHostState.connected;
+      }
+      if (s == RTCPeerConnectionState.RTCPeerConnectionStateFailed ||
+          s == RTCPeerConnectionState.RTCPeerConnectionStateDisconnected ||
+          s == RTCPeerConnectionState.RTCPeerConnectionStateClosed) {
+        _removeViewer(viewerId);
+      }
+    };
+
+    // Data channel per viewer (events/chat)
+    final dc = await pc.createDataChannel(
+      'events',
+      RTCDataChannelInit()..ordered = true,
+    );
+    peer.eventsChannel = dc;
+
+    dc.onDataChannelState = (s) {
+      if (s == RTCDataChannelState.RTCDataChannelOpen) {
+        _sendTrackMappingToViewer(viewerId);
+      }
+    };
+
+    dc.onMessage = (m) {
+      _onViewerDataChannelMessage(viewerId, m.text);
+    };
+
+    // Add tracks to this viewer peer connection
+    final screenStream = _screenStream;
+    final cameraStream = _cameraStream;
+    if (screenStream != null) {
+      for (final t in screenStream.getVideoTracks()) {
+        pc.addTrack(t, screenStream);
+      }
+    }
+    if (cameraStream != null) {
+      for (final t in cameraStream.getVideoTracks()) {
+        pc.addTrack(t, cameraStream);
+      }
+      for (final t in cameraStream.getAudioTracks()) {
+        pc.addTrack(t, cameraStream);
+      }
+    }
+
+    // Create offer and send it to this viewer
     final offer = await pc.createOffer({
       'offerToReceiveAudio': false,
       'offerToReceiveVideo': false,
     });
-
     await pc.setLocalDescription(offer);
 
-    server.sendToViewer({
+    server.sendToViewer(viewerId, {
       'type': 'offer',
       'sdp': offer.sdp,
       'matchId': liveMatchId,
     });
   }
 
-  void _sendTrackMapping() {
+  void _onViewerDataChannelMessage(String viewerId, String text) {
+    // Viewer -> Host events (chat/reaction)
+    try {
+      final msg = jsonDecode(text) as Map<String, dynamic>;
+      if (msg['type'] == 'event') {
+        final event = (msg['event'] as Map?)?.cast<String, dynamic>();
+        if (event == null) return;
+
+        final enriched = <String, dynamic>{
+          ...event,
+          'from': viewerId,
+          'ts': DateTime.now().millisecondsSinceEpoch,
+        };
+
+        // Emit locally for host UI
+        _events.add(enriched);
+
+        // Broadcast to all viewers (including sender)
+        broadcastEvent(enriched);
+      }
+    } catch (_) {
+      // ignore
+    }
+  }
+
+  void _sendTrackMappingToViewer(String viewerId) {
     final screenTrackId = _screenStream?.getVideoTracks().isNotEmpty == true
         ? _screenStream!.getVideoTracks().first.id
         : null;
@@ -226,7 +290,35 @@ class LocalLiveHostSession {
       'cameraVideoTrackId': cameraTrackId,
     });
 
-    _dataChannel?.send(RTCDataChannelMessage(payload));
+    _peers[viewerId]?.eventsChannel?.send(RTCDataChannelMessage(payload));
+  }
+
+  /// Host can call this too (e.g. send chat/reaction from host UI).
+  void broadcastEvent(Map<String, dynamic> event) {
+    final payload = jsonEncode({'type': 'event', 'event': event});
+    for (final peer in _peers.values) {
+      final dc = peer.eventsChannel;
+      if (dc == null) continue;
+      if (dc.state != RTCDataChannelState.RTCDataChannelOpen) continue;
+      try {
+        dc.send(RTCDataChannelMessage(payload));
+      } catch (_) {}
+    }
+  }
+
+  Future<void> _removeViewer(String viewerId) async {
+    final peer = _peers.remove(viewerId);
+    if (peer == null) return;
+
+    try {
+      await peer.eventsChannel?.close();
+    } catch (_) {}
+
+    try {
+      await peer.pc.close();
+    } catch (_) {}
+
+    viewerCount.value = _peers.length;
   }
 
   Future<void> stop() async {
@@ -237,15 +329,15 @@ class LocalLiveHostSession {
     } catch (_) {}
     _serverSub = null;
 
-    try {
-      await _dataChannel?.close();
-    } catch (_) {}
-    _dataChannel = null;
+    for (final id in _peers.keys.toList()) {
+      await _removeViewer(id);
+    }
+    _peers.clear();
 
     try {
-      await _pc?.close();
+      await _broadcaster?.stop();
     } catch (_) {}
-    _pc = null;
+    _broadcaster = null;
 
     try {
       await _screenStream?.dispose();
@@ -271,5 +363,17 @@ class LocalLiveHostSession {
       await _server?.stop();
     } catch (_) {}
     _server = null;
+
+    try {
+      await _events.close();
+    } catch (_) {}
   }
+}
+
+class _ViewerPeer {
+  _ViewerPeer({required this.viewerId, required this.pc});
+
+  final String viewerId;
+  final RTCPeerConnection pc;
+  RTCDataChannel? eventsChannel;
 }
