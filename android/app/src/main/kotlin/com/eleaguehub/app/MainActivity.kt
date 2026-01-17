@@ -1,7 +1,11 @@
 package com.eleaguehub.app
 
-import android.os.Bundle
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.provider.Settings
 import android.util.Log
+import androidx.core.content.ContextCompat
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -18,62 +22,113 @@ class MainActivity : FlutterActivity() {
             LOCAL_LIVE_CHANNEL
         ).setMethodCallHandler { call, result ->
             when (call.method) {
+
+                // Foreground service controls
+                "startForegroundStreamingService" -> {
+                    val title = call.argument<String>("title") ?: "Live streaming"
+                    val text = call.argument<String>("text") ?: "Broadcasting is running"
+
+                    try {
+                        val intent = Intent(this, LocalLiveForegroundService::class.java).apply {
+                            action = LocalLiveForegroundService.ACTION_START
+                            putExtra(LocalLiveForegroundService.EXTRA_TITLE, title)
+                            putExtra(LocalLiveForegroundService.EXTRA_TEXT, text)
+                        }
+
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            ContextCompat.startForegroundService(this, intent)
+                        } else {
+                            startService(intent)
+                        }
+
+                        result.success(null)
+                    } catch (e: Throwable) {
+                        result.error("FG_START_FAILED", e.toString(), null)
+                    }
+                }
+
+                "stopForegroundStreamingService" -> {
+                    try {
+                        val intent = Intent(this, LocalLiveForegroundService::class.java).apply {
+                            action = LocalLiveForegroundService.ACTION_STOP
+                        }
+                        startService(intent)
+                        result.success(null)
+                    } catch (e: Throwable) {
+                        result.error("FG_STOP_FAILED", e.toString(), null)
+                    }
+                }
+
+                // Battery optimization helpers
+                "openBatteryOptimizationSettings" -> {
+                    try {
+                        val i = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        startActivity(i)
+                        result.success(null)
+                    } catch (e: Throwable) {
+                        result.error("OPEN_BATT_SETTINGS_FAILED", e.toString(), null)
+                    }
+                }
+
+                "requestIgnoreBatteryOptimizations" -> {
+                    try {
+                        val pkg = packageName
+                        val i = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+                        i.data = Uri.parse("package:$pkg")
+                        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        startActivity(i)
+                        result.success(null)
+                    } catch (e: Throwable) {
+                        result.error("REQUEST_IGNORE_BATT_FAILED", e.toString(), null)
+                    }
+                }
+
+                "openAppDetailsSettings" -> {
+                    try {
+                        val i = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                        i.data = Uri.parse("package:$packageName")
+                        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        startActivity(i)
+                        result.success(null)
+                    } catch (e: Throwable) {
+                        result.error("OPEN_APP_DETAILS_FAILED", e.toString(), null)
+                    }
+                }
+
+                "getDeviceInfo" -> {
+                    val map = hashMapOf<String, Any?>(
+                        "manufacturer" to (Build.MANUFACTURER ?: ""),
+                        "brand" to (Build.BRAND ?: ""),
+                        "model" to (Build.MODEL ?: ""),
+                        "sdkInt" to Build.VERSION.SDK_INT
+                    )
+                    result.success(map)
+                }
+
+                // Old placeholders (not used now; handled in Dart/WebRTC)
                 "startHostSession" -> {
-                    val leagueId = call.argument<String>("leagueId")
-                    val matchId = call.argument<String>("matchId")
-                    val liveMatchId = call.argument<String>("liveMatchId")
-                    Log.i("LocalLive", "startHostSession leagueId=$leagueId matchId=$matchId liveMatchId=$liveMatchId")
-
-                    // TODO: Implement:
-                    // - Request MediaProjection permission
-                    // - Start screen capture
-                    // - Start LAN server / WebRTC host for this liveMatchId
-
+                    Log.i("LocalLive", "startHostSession (unused now; handled in Dart/WebRTC)")
                     result.success(null)
                 }
                 "stopHostSession" -> {
-                    val liveMatchId = call.argument<String>("liveMatchId")
-                    Log.i("LocalLive", "stopHostSession liveMatchId=$liveMatchId")
-
-                    // TODO: Implement:
-                    // - Stop screen capture
-                    // - Stop LAN server / WebRTC host for this liveMatchId
-
+                    Log.i("LocalLive", "stopHostSession (unused now; handled in Dart/WebRTC)")
                     result.success(null)
                 }
                 "joinViewerSession" -> {
-                    val liveMatchId = call.argument<String>("liveMatchId")
-                    Log.i("LocalLive", "joinViewerSession liveMatchId=$liveMatchId")
-
-                    // TODO: Implement:
-                    // - Discover / connect to host on same LAN/hotspot
-                    // - Subscribe to host's stream for this liveMatchId
-
+                    Log.i("LocalLive", "joinViewerSession (unused now; handled in Dart/WebRTC)")
                     result.success(null)
                 }
                 "leaveViewerSession" -> {
-                    val liveMatchId = call.argument<String>("liveMatchId")
-                    Log.i("LocalLive", "leaveViewerSession liveMatchId=$liveMatchId")
-
-                    // TODO: Implement:
-                    // - Disconnect viewer from host stream
-
+                    Log.i("LocalLive", "leaveViewerSession (unused now; handled in Dart/WebRTC)")
                     result.success(null)
                 }
                 "sendLiveEvent" -> {
-                    val liveMatchId = call.argument<String>("liveMatchId")
-                    val event = call.argument<Map<String, Any?>>("event")
-                    Log.i("LocalLive", "sendLiveEvent liveMatchId=$liveMatchId event=$event")
-
-                    // TODO: Implement:
-                    // - Broadcast this event to all connected viewers
-                    //   (e.g. via your LAN connection / WebRTC data channel)
-
+                    Log.i("LocalLive", "sendLiveEvent (unused now; handled in Dart/WebRTC data channel)")
                     result.success(null)
                 }
-                else -> {
-                    result.notImplemented()
-                }
+
+                else -> result.notImplemented()
             }
         }
     }

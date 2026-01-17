@@ -6,9 +6,24 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
 
-    <!-- Helpful for LAN discovery on some devices (multicast/broadcast behavior varies) -->
+    <!-- LAN discovery helpers -->
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
+
+    <!-- Foreground service (to keep stream alive in background) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+
+    <!-- Android 13+ notification permission -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- Helps keep CPU alive while streaming -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <!-- Lets us show the system prompt to ignore battery optimizations for this app -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
     <application
         android:label="eSportlyic"
@@ -33,6 +48,11 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+
+        <service
+            android:name=".LocalLiveForegroundService"
+            android:exported="false"
+            android:foregroundServiceType="mediaProjection|camera|microphone" />
 
         <meta-data
             android:name="flutterEmbedding"

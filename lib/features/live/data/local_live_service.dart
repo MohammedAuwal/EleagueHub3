@@ -1,3 +1,4 @@
+import 'foreground_streaming_service.dart';
 import 'local_discovery.dart';
 import 'local_webrtc_host.dart';
 import 'local_webrtc_viewer.dart';
@@ -8,8 +9,7 @@ class LocalLiveService {
 
   LocalLiveHostSession? _host;
 
-  // NOTE: Viewer is now often managed directly by LiveViewScreen because
-  // it may connect to TWO hosts (home + away). We still keep old API for single-viewer.
+  // NOTE: Viewer is often managed directly by LiveViewScreen because it can connect to TWO hosts.
   LocalLiveViewerSession? _viewer;
 
   LocalLiveHostSession? get activeHost => _host;
@@ -18,15 +18,18 @@ class LocalLiveService {
   Future<LocalLiveHostSession> startHostSession({
     required String liveMatchId,
     int port = 8765,
-
-    /// Optional broadcast labels for discovery UI
     String? homeName,
     String? awayName,
-
-    /// Optional host side hint (home/away)
     LiveHostSide side = LiveHostSide.unknown,
   }) async {
     await stopHostSession(liveMatchId: liveMatchId);
+
+    // NEW: keep the process alive in background while gaming
+    await ForegroundStreamingService.start(
+      matchId: liveMatchId,
+      title: 'Live: ${homeName ?? ''} ${awayName != null ? 'vs $awayName' : ''}'.trim(),
+      text: 'Streaming is running (don’t close the app)',
+    );
 
     final host = LocalLiveHostSession(
       liveMatchId: liveMatchId,
@@ -35,6 +38,7 @@ class LocalLiveService {
       awayName: awayName,
       side: side,
     );
+
     _host = host;
     await host.start();
     return host;
@@ -47,9 +51,12 @@ class LocalLiveService {
 
     await host.stop();
     _host = null;
+
+    // stop foreground service
+    await ForegroundStreamingService.stop();
   }
 
-  /// Legacy single-viewer join (still used in some flows).
+  /// Legacy single-viewer join
   Future<LocalLiveViewerSession> joinViewerSession({
     required String liveMatchId,
     required String host,

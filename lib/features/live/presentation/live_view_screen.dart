@@ -10,6 +10,7 @@ import '../data/local_discovery.dart';
 import '../data/local_live_service.dart';
 import '../data/local_webrtc_host.dart';
 import '../data/local_webrtc_viewer.dart';
+import 'battery_optimization_guide.dart';
 
 enum _PrimarySide { home, away }
 
@@ -63,6 +64,8 @@ class _LiveViewScreenState extends State<LiveViewScreen> {
   bool _busy = false;
   String? _errorText;
 
+
+  bool _chatMinimized = false; // chat overlay collapse (mobile)
   _PrimarySide _primary = _PrimarySide.home;
 
   int get _port => widget.port ?? 8765;
@@ -327,15 +330,15 @@ class _LiveViewScreenState extends State<LiveViewScreen> {
   Widget _buildMobileLayout(BuildContext context) {
     // FIX: On small screens the chat Glass was covering the Start/Stop buttons.
     // We reserve space for the chat overlay and place controls ABOVE it.
+    // + Added: minimize/expand chat.
     final inset = MediaQuery.of(context).viewInsets.bottom;
 
-    const chatHeight = 220.0;      // fixed chat overlay height
+    final chatHeight = _chatMinimized ? 64.0 : 220.0;
     const controlsReserved = 170.0; // reserve space so stream isn't hidden
     const gap = 12.0;
 
     return Stack(
       children: [
-        // Stream takes the remaining space ABOVE controls + chat
         Positioned.fill(
           child: Padding(
             padding: const EdgeInsets.all(0).copyWith(
@@ -345,7 +348,7 @@ class _LiveViewScreenState extends State<LiveViewScreen> {
           ),
         ),
 
-        // Controls ABOVE the chat (so they are always tappable)
+        // Controls ABOVE the chat (always tappable)
         Positioned(
           left: 0,
           right: 0,
@@ -360,6 +363,8 @@ class _LiveViewScreenState extends State<LiveViewScreen> {
           bottom: inset,
           height: chatHeight,
           child: _ChatOverlay(
+            minimized: _chatMinimized,
+            onToggleMinimize: () => setState(() => _chatMinimized = !_chatMinimized),
             messages: _messages,
             chatController: _chat,
             onSend: _send,
@@ -421,6 +426,19 @@ class _LiveViewScreenState extends State<LiveViewScreen> {
                           },
                     icon: const Icon(Icons.stop),
                     label: const Text('Stop'),
+                ),
+              ),
+            ],
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              onPressed: () => BatteryOptimizationGuide.show(context),
+              icon: const Icon(Icons.battery_alert_outlined),
+              label: const Text('Battery / Background Help'),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                //
                   ),
                 ),
               ],
@@ -713,11 +731,16 @@ class _CircularCam extends StatelessWidget {
 
 class _ChatOverlay extends StatelessWidget {
   const _ChatOverlay({
+    required this.minimized,
+    required this.onToggleMinimize,
     required this.messages,
     required this.chatController,
     required this.onSend,
     required this.onReaction,
   });
+
+  final bool minimized;
+  final VoidCallback onToggleMinimize;
 
   final List<String> messages;
   final TextEditingController chatController;
@@ -732,56 +755,82 @@ class _ChatOverlay extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          SizedBox(
-            height: 120,
-            child: ListView.builder(
-              reverse: true,
-              itemCount: messages.length,
-              itemBuilder: (context, i) {
-                final msg = messages[messages.length - 1 - i];
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: Text(
-                    msg,
-                    style: const TextStyle(color: Colors.white, fontSize: 12),
+          // Header row (always visible)
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Chat',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 12,
                   ),
-                );
-              },
+                ),
+              ),
+              IconButton(
+                tooltip: minimized ? 'Expand chat' : 'Minimize chat',
+                onPressed: onToggleMinimize,
+                icon: Icon(
+                  minimized ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                  color: Colors.white70,
+                ),
+              ),
+            ],
+          ),
+
+          if (!minimized) ...[
+            SizedBox(
+              height: 120,
+              child: ListView.builder(
+                reverse: true,
+                itemCount: messages.length,
+                itemBuilder: (context, i) {
+                  final msg = messages[messages.length - 1 - i];
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Text(
+                      msg,
+                      style: const TextStyle(color: Colors.white, fontSize: 12),
+                    ),
+                  );
+                },
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              ...[
-                ('GG', Icons.emoji_events_outlined),
-                ('Wow', Icons.flash_on_outlined),
-                ('Clutch', Icons.local_fire_department_outlined),
-              ].map(
-                (e) => Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: IconButton(
-                    onPressed: () => onReaction(e.$1),
-                    icon: Icon(e.$2, size: 20),
-                    color: Colors.cyanAccent,
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                ...[
+                  ('GG', Icons.emoji_events_outlined),
+                  ('Wow', Icons.flash_on_outlined),
+                  ('Clutch', Icons.local_fire_department_outlined),
+                ].map(
+                  (e) => Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: IconButton(
+                      onPressed: () => onReaction(e.$1),
+                      icon: Icon(e.$2, size: 20),
+                      color: Colors.cyanAccent,
+                    ),
                   ),
                 ),
-              ),
-            ],
-          ),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: chatController,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(hintText: 'Type a message'),
-                  onSubmitted: (_) => onSend(),
+              ],
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: chatController,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: const InputDecoration(hintText: 'Type a message'),
+                    onSubmitted: (_) => onSend(),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              FilledButton(onPressed: onSend, child: const Text('Send')),
-            ],
-          ),
+                const SizedBox(width: 8),
+                FilledButton(onPressed: onSend, child: const Text('Send')),
+              ],
+            ),
+          ],
         ],
       ),
     );
