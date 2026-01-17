@@ -13,6 +13,8 @@ import '../../features/leagues/presentation/qr_scanner_screen.dart';
 import '../../features/leagues/presentation/fixtures_screen.dart';
 import '../../features/leagues/presentation/admin_score_mgmt_screen.dart';
 import '../../features/leagues/presentation/league_standings_screen.dart';
+import '../../features/leagues/presentation/knockout_bracket_screen.dart';
+import '../../features/leagues/presentation/admin_knockout_score_mgmt_screen.dart';
 import '../../features/live/presentation/join_match_screen.dart';
 import '../../features/live/presentation/live_view_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
@@ -42,11 +44,6 @@ final appRouter = GoRouter(
           path: 'live/view/:id',
           builder: (context, state) {
             final id = state.pathParameters['id']!;
-
-            // Backwards compatible:
-            // - old code passed `extra: true/false`
-            // New:
-            // - extra: {'isHost': bool, 'host': String?, 'port': int?, 'homeName': String?, 'awayName': String?, 'side': 'home'|'away'|'unknown'}
             var isHost = false;
             String? host;
             int? port;
@@ -139,6 +136,16 @@ final appRouter = GoRouter(
                   path: 'standings',
                   builder: (context, state) =>
                       LeagueStandingsScreen(id: state.pathParameters['id']!),
+                ),
+                GoRoute(
+                  path: 'knockout',
+                  builder: (context, state) =>
+                      KnockoutBracketScreen(leagueId: state.pathParameters['id']!),
+                ),
+                GoRoute(
+                  path: 'knockout-admin',
+                  builder: (context, state) =>
+                      AdminKnockoutScoreMgmtScreen(leagueId: state.pathParameters['id']!),
                 ),
               ],
             ),
