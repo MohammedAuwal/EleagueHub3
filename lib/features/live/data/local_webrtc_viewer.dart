@@ -105,7 +105,11 @@ class LocalLiveViewerSession {
         final track = event.track;
         if (track.kind != 'video') return;
 
-        _pendingVideoTracks[track.id] = track;
+        // flutter_webrtc may expose track.id as String?
+        final id = track.id;
+        if (id == null || id.isEmpty) return;
+
+        _pendingVideoTracks[id] = track;
         await _tryAttachTracks();
       };
     } catch (e) {
@@ -163,8 +167,8 @@ class LocalLiveViewerSession {
       final msg = jsonDecode(text) as Map<String, dynamic>;
 
       if (msg['type'] == 'tracks') {
-        _screenTrackId = msg['screenVideoTrackId'] as String?;
-        _cameraTrackId = msg['cameraVideoTrackId'] as String?;
+        _screenTrackId = (msg['screenVideoTrackId'] as String?)?.trim();
+        _cameraTrackId = (msg['cameraVideoTrackId'] as String?)?.trim();
         _tryAttachTracks();
         return;
       }
@@ -180,7 +184,7 @@ class LocalLiveViewerSession {
   }
 
   Future<void> _tryAttachTracks() async {
-    if (_screenTrackId != null) {
+    if (_screenTrackId != null && _screenTrackId!.isNotEmpty) {
       final t = _pendingVideoTracks[_screenTrackId!];
       if (t != null) {
         _remoteScreenStream ??= await createLocalMediaStream('remote-screen');
@@ -189,7 +193,7 @@ class LocalLiveViewerSession {
       }
     }
 
-    if (_cameraTrackId != null) {
+    if (_cameraTrackId != null && _cameraTrackId!.isNotEmpty) {
       final t = _pendingVideoTracks[_cameraTrackId!];
       if (t != null) {
         _remoteCameraStream ??= await createLocalMediaStream('remote-camera');

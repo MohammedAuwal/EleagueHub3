@@ -257,15 +257,19 @@ class LocalLiveHostSession {
   }
 
   void _sendTrackMappingToViewer(String viewerId) {
-    final screenTrackId = _screenStream?.getVideoTracks().isNotEmpty == true
-        ? _screenStream!.getVideoTracks().first.id
-        : null;
+    final screenTracks = _screenStream?.getVideoTracks() ?? const <MediaStreamTrack>[];
+    final cameraTracks = _cameraStream?.getVideoTracks() ?? const <MediaStreamTrack>[];
 
-    final cameraTrackId = _cameraStream?.getVideoTracks().isNotEmpty == true
-        ? _cameraStream!.getVideoTracks().first.id
-        : null;
+    final screenTrackId = screenTracks.isNotEmpty ? screenTracks.first.id : null;
+    final cameraTrackId = cameraTracks.isNotEmpty ? cameraTracks.first.id : null;
 
-    if (screenTrackId == null || cameraTrackId == null) return;
+    // flutter_webrtc may expose id as String?
+    if (screenTrackId == null ||
+        screenTrackId.isEmpty ||
+        cameraTrackId == null ||
+        cameraTrackId.isEmpty) {
+      return;
+    }
 
     final payload = jsonEncode({
       'type': 'tracks',
