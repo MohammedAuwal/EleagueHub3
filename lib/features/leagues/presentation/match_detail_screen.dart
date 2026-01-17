@@ -22,44 +22,29 @@ class MatchDetailScreen extends ConsumerStatefulWidget {
   final dynamic repository;
 
   @override
-  ConsumerState<MatchDetailScreen> createState() => _MatchDetailScreenState();
+  ConsumerState<MatchDetailScreen> createState() =>
+      _MatchDetailScreenState();
 }
 
-class _MatchDetailScreenState extends ConsumerState<MatchDetailScreen> {
-  final _note = TextEditingController();
-  final _reason = TextEditingController();
-
+class _MatchDetailScreenState
+    extends ConsumerState<MatchDetailScreen> {
   bool _busy = false;
   String _status = 'Pending';
 
-  /// For now, Live ID == matchId
+  /// For now, Live ID == matchId.
   String get _liveMatchId => widget.matchId;
-
-  @override
-  void dispose() {
-    _note.dispose();
-    _reason.dispose();
-    super.dispose();
-  }
 
   Future<void> _startLocalLive() async {
     if (_busy) return;
 
-    // IMPORTANT CHANGE:
-    // Old flow tried to call:
-    //   LocalLiveService.startHostSession(leagueId/matchId/liveMatchId)
-    // But the new WebRTC host start happens inside LiveViewScreen.
-    //
-    // So from match details we just navigate to the host live screen.
+    // For the current design, WebRTC host start happens inside LiveViewScreen.
+    // From here we just navigate to host live view with extra data.
     const port = 8765;
-
     setState(() => _busy = true);
 
     if (!mounted) return;
     setState(() => _busy = false);
 
-    // New routing expects a Map extra:
-    // { isHost: true, port: 8765 }
     context.push(
       '/live/view/$_liveMatchId',
       extra: {
@@ -70,7 +55,9 @@ class _MatchDetailScreenState extends ConsumerState<MatchDetailScreen> {
   }
 
   Future<void> _copyLiveId() async {
-    await Clipboard.setData(ClipboardData(text: _liveMatchId));
+    await Clipboard.setData(
+      ClipboardData(text: _liveMatchId),
+    );
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -82,7 +69,8 @@ class _MatchDetailScreenState extends ConsumerState<MatchDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isWide = MediaQuery.of(context).size.width > 600;
+    final isWide =
+        MediaQuery.of(context).size.width > 600;
 
     return GlassScaffold(
       appBar: AppBar(
@@ -97,21 +85,14 @@ class _MatchDetailScreenState extends ConsumerState<MatchDetailScreen> {
               maxWidth: isWide ? 700 : 500,
             ),
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+              padding:
+                  const EdgeInsets.fromLTRB(16, 12, 16, 16),
               children: [
                 _buildHeader(context),
                 const SizedBox(height: 16),
                 _buildLiveSection(context),
                 const SizedBox(height: 16),
-                const Center(
-                  child: Text(
-                    "Scoring managed via Admin Panel",
-                    style: TextStyle(
-                      color: Colors.white38,
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
+                _buildAdminInfo(context),
               ],
             ),
           ),
@@ -120,6 +101,7 @@ class _MatchDetailScreenState extends ConsumerState<MatchDetailScreen> {
     );
   }
 
+  /// Top header with match ID and status badge.
   Widget _buildHeader(BuildContext context) {
     return Glass(
       padding: const EdgeInsets.all(16),
@@ -128,10 +110,14 @@ class _MatchDetailScreenState extends ConsumerState<MatchDetailScreen> {
         children: [
           Expanded(
             child: Text(
-              'Match ID: ${widget.matchId}',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              'Match ID\n${widget.matchId}',
+              style: Theme.of(context)
+                  .textTheme
+                  .titleMedium
+                  ?.copyWith(
                     fontWeight: FontWeight.w900,
                     color: Colors.white,
+                    height: 1.3,
                   ),
             ),
           ),
@@ -141,12 +127,14 @@ class _MatchDetailScreenState extends ConsumerState<MatchDetailScreen> {
     );
   }
 
+  /// Live Match section: Live ID + copy + host live button.
   Widget _buildLiveSection(BuildContext context) {
     return Glass(
       padding: const EdgeInsets.all(16),
       borderRadius: 20,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
         children: [
           const Text(
             'Live Match (Local Wi‑Fi)',
@@ -159,8 +147,7 @@ class _MatchDetailScreenState extends ConsumerState<MatchDetailScreen> {
           const SizedBox(height: 6),
           const Text(
             'Host this match locally on your Wi‑Fi/hotspot.\n'
-            'Viewers can join via Auto‑Discovery on the Join Live screen (recommended), '
-            'or manually using your Host IP + Port shown on the host screen.',
+            'Viewers can join using this Live Match ID on the Join Live screen.',
             style: TextStyle(
               color: Colors.white38,
               fontSize: 12,
@@ -170,7 +157,11 @@ class _MatchDetailScreenState extends ConsumerState<MatchDetailScreen> {
           const SizedBox(height: 12),
           Row(
             children: [
-              const Icon(Icons.tag, size: 18, color: Colors.white60),
+              const Icon(
+                Icons.tag,
+                size: 18,
+                color: Colors.white60,
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -212,16 +203,52 @@ class _MatchDetailScreenState extends ConsumerState<MatchDetailScreen> {
                   : const Icon(Icons.play_circle_fill),
               label: Text(
                 _busy ? 'OPENING...' : 'OPEN HOST LIVE',
-                style: const TextStyle(fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ),
           const SizedBox(height: 6),
           const Text(
-            'Tip: On the host live screen press “Start Broadcast” to begin screen + front camera sharing.',
+            'Tip: On the host live screen you will see your Host IP and Port.\n'
+            'Viewers on the same Wi‑Fi/hotspot can join using this ID.',
             style: TextStyle(
               color: Colors.white30,
               fontSize: 11,
+              height: 1.3,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Info card about scoring / admin.
+  Widget _buildAdminInfo(BuildContext context) {
+    return Glass(
+      padding: const EdgeInsets.all(16),
+      borderRadius: 20,
+      child: Column(
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
+        children: const [
+          Text(
+            'Match Scoring',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w900,
+              fontSize: 16,
+            ),
+          ),
+          SizedBox(height: 8),
+          Text(
+            'Scores and official results are managed from the Admin Score '
+            'Management screen, not from this page.',
+            style: TextStyle(
+              color: Colors.white38,
+              fontSize: 12,
+              height: 1.4,
             ),
           ),
         ],
