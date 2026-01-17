@@ -6,9 +6,9 @@ import '../../../core/persistence/prefs_service.dart';
 import '../../../core/widgets/glass.dart';
 import '../../../core/widgets/glass_scaffold.dart';
 import '../data/leagues_repository_local.dart';
+import '../domain/logic/tournament_controller.dart';
 import '../domain/standings/standings.dart';
 import '../domain/standings/standings_calculator.dart';
-import '../domain/logic/tournament_controller.dart';
 import '../models/fixture_match.dart';
 import '../models/league.dart';
 import '../models/league_format.dart';
@@ -31,8 +31,7 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
   late final LocalLeaguesRepository _repo;
   late final PreferencesService _prefs;
 
-  int? _lastViewedRound; // persisted "last opened round"
-
+  int? _lastViewedRound;
   static String _lastRoundKey(String leagueId) => 'ui_last_round_$leagueId';
 
   @override
@@ -53,9 +52,7 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
 
   Future<Map<String, dynamic>> _loadData() async {
     final league = await _repo.getLeagueById(widget.leagueId);
-    if (league == null) {
-      throw Exception("League not found in local storage");
-    }
+    if (league == null) throw Exception("League not found in local storage");
 
     final fixtures = await _repo.getMatches(widget.leagueId);
     final teams = await _repo.getTeams(widget.leagueId);
@@ -69,7 +66,7 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
       userId: currentUserId,
     );
 
-    final Map<String, String> teamNames = {for (var t in teams) t.id: t.name};
+    final teamNames = {for (final t in teams) t.id: t.name};
 
     return {
       'league': league,
@@ -86,63 +83,57 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
       ..sort((a, b) {
         final r = a.roundNumber.compareTo(b.roundNumber);
         if (r != 0) return r;
-
         final s = a.sortIndex.compareTo(b.sortIndex);
         if (s != 0) return s;
-
         return a.updatedAtMs.compareTo(b.updatedAtMs);
       });
     return sorted;
   }
 
-  int _currentRoundFromData(List<FixtureMatch> sorted) {
-    if (sorted.isEmpty) return 1;
-
-    final unplayed = sorted.where((m) => !m.isPlayed).toList();
-    if (unplayed.isNotEmpty) {
-      return unplayed.map((m) => m.roundNumber).reduce((a, b) => a < b ? a : b);
-    }
-
-    // all played => last round
-    return sorted.map((m) => m.roundNumber).reduce((a, b) => a > b ? a : b);
-  }
-
   List<int> _allRounds(List<FixtureMatch> sorted) {
-    final set = sorted.map((m) => m.roundNumber).toSet().toList()..sort();
-    return set;
+    final rounds = sorted.map((m) => m.roundNumber).toSet().toList()..sort();
+    return rounds;
   }
 
-  /// "Next 8 matches" starting from [startRound] (the round’s first match),
-  /// but includes results too.
-  List<FixtureMatch> _computeNext8FromRound(
-    List<FixtureMatch> sorted, {
-    required int startRound,
+  /// FIX: Upcoming matches MUST disappear after admin enters scores.
+  /// So we only show NOT played fixtures here.
+  ///
+  /// - Uses selectedRound as "starting point", but if selectedRound is fully played
+  ///   we auto-advance to the next round that still has unplayed matches.
+  /// - Returns up to [limit] matches across rounds.
+  List<FixtureMatch> _computeUpcomingUnplayed({
+    required List<FixtureMatch> sortedAll,
+    required int selectedRound,
     int limit = 8,
   }) {
-    if (sorted.isEmpty) return [];
+    final unplayed = sortedAll.where((m) => !m.isPlayed).toList();
+    if (unplayed.isEmpty) return [];
 
-    var cursor = sorted.indexWhere((m) => m.roundNumber == startRound);
-    if (cursor < 0) cursor = 0;
+    final roundsWithUnplayed = unplayed.map((m) => m.roundNumber).toSet().toList()
+      ..sort();
 
-    var start = cursor;
-    var end = (start + limit).clamp(0, sorted.length);
-    var slice = sorted.sublist(start, end);
-
-    // If slice is short near end, backfill from before cursor
-    if (slice.length < limit && start > 0) {
-      final need = limit - slice.length;
-      final backStart = (start - need).clamp(0, start);
-      slice = [...sorted.sublist(backStart, start), ...slice];
+    int effectiveRound = selectedRound;
+    if (!roundsWithUnplayed.contains(effectiveRound)) {
+      // find next round after selectedRound that has unplayed, else fallback to first available
+      final next = roundsWithUnplayed.where((r) => r > selectedRound).toList();
+      effectiveRound = next.isNotEmpty ? next.first : roundsWithUnplayed.first;
     }
 
-    return slice;
+    // Auto-update stored round if we had to jump (so UI stays consistent after scoring)
+    if (effectiveRound != selectedRound) {
+      // fire-and-forget
+      _persistRound(effectiveRound);
+    }
+
+    final filtered = sortedAll.where((m) => !m.isPlayed && m.roundNumber >= effectiveRound).toList();
+    if (filtered.length <= limit) return filtered;
+    return filtered.take(limit).toList();
   }
 
   @override
   Widget build(BuildContext context) {
     final primary = Theme.of(context).colorScheme.primary;
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isWide = screenWidth > 600;
+    final isWide = MediaQuery.of(context).size.width > 600;
 
     return GlassScaffold(
       appBar: AppBar(
@@ -178,7 +169,10 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
                         const SizedBox(height: 16),
                         TextButton(
                           onPressed: () => setState(() {}),
-                          child: const Text('Retry', style: TextStyle(color: Colors.cyanAccent)),
+                          child: const Text(
+                            'Retry',
+                            style: TextStyle(color: Colors.cyanAccent),
+                          ),
                         ),
                       ],
                     ),
@@ -196,24 +190,19 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
 
               final sorted = _sortedSchedule(fixtures);
               final rounds = _allRounds(sorted);
-              final currentRound = _currentRoundFromData(sorted);
+              final selectedRound = (_lastViewedRound != null && rounds.contains(_lastViewedRound))
+                  ? _lastViewedRound!
+                  : (rounds.isEmpty ? 1 : rounds.first);
 
-              // Persisted round wins if valid; otherwise fallback to currentRound.
-              final selectedRound =
-                  (_lastViewedRound != null && rounds.contains(_lastViewedRound))
-                      ? _lastViewedRound!
-                      : currentRound;
-
-              final next8 = _computeNext8FromRound(
-                sorted,
-                startRound: selectedRound,
+              final upcoming = _computeUpcomingUnplayed(
+                sortedAll: sorted,
+                selectedRound: selectedRound,
                 limit: 8,
               );
 
-              final bool isOwnerByLeague = membership?.role == LeagueRole.organizer;
-              final bool isOwnerFallback =
-                  league.organizerUserId == (snapshot.data!['currentUserId'] as String);
-              final bool isOwner = isOwnerByLeague || isOwnerFallback;
+              final isOwnerByLeague = membership?.role == LeagueRole.organizer;
+              final isOwnerFallback = league.organizerUserId == (snapshot.data!['currentUserId'] as String);
+              final isOwner = isOwnerByLeague || isOwnerFallback;
 
               return ConstrainedBox(
                 constraints: BoxConstraints(maxWidth: isWide ? 600 : 500),
@@ -225,11 +214,9 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
                     _quickActions(context, league, isOwner, fixtures, teams),
                     const SizedBox(height: 16),
 
-                    // Now starts from the ROUND the user last opened (persisted),
-                    // else starts from currentRound.
-                    _nextFixturesList(
+                    _upcomingMatchesCard(
                       context,
-                      fixtures: next8,
+                      fixtures: upcoming,
                       names: teamNames,
                       rounds: rounds,
                       selectedRound: selectedRound,
@@ -354,16 +341,18 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
                   backgroundColor: Colors.cyanAccent,
                   foregroundColor: Colors.black,
                   padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
                 icon: const Icon(Icons.edit_note),
                 label: const Text(
                   'MANAGE LEAGUE SCORES',
                   style: TextStyle(fontWeight: FontWeight.bold),
                 ),
-                onPressed: () => context.push('/leagues/${widget.leagueId}/admin-scores'),
+                onPressed: () async {
+                  await context.push('/leagues/${widget.leagueId}/admin-scores');
+                  if (!mounted) return;
+                  setState(() {}); // refresh LeagueDetail when coming back
+                },
               ),
             ),
             if (isSwiss) ...[
@@ -375,9 +364,7 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
                     side: const BorderSide(color: Colors.cyanAccent),
                     foregroundColor: Colors.cyanAccent,
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                   icon: const Icon(Icons.emoji_events),
                   label: const Text(
@@ -397,9 +384,7 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
                     side: const BorderSide(color: Colors.cyanAccent),
                     foregroundColor: Colors.cyanAccent,
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                   icon: const Icon(Icons.emoji_events_outlined),
                   label: const Text(
@@ -429,7 +414,11 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
                   Expanded(
                     child: TextButton.icon(
                       style: TextButton.styleFrom(foregroundColor: Colors.cyanAccent),
-                      onPressed: () => context.push('/leagues/${widget.leagueId}/knockout-admin'),
+                      onPressed: () async {
+                        await context.push('/leagues/${widget.leagueId}/knockout-admin');
+                        if (!mounted) return;
+                        setState(() {}); // refresh when coming back
+                      },
                       icon: const Icon(Icons.sports_score, size: 18),
                       label: const Text(
                         'MANAGE KO SCORES',
@@ -462,7 +451,7 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
     );
   }
 
-  Widget _nextFixturesList(
+  Widget _upcomingMatchesCard(
     BuildContext context, {
     required List<FixtureMatch> fixtures,
     required Map<String, String> names,
@@ -476,7 +465,7 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Next Matches',
+            'Coming Up Next',
             style: TextStyle(
               fontWeight: FontWeight.w900,
               color: Colors.white,
@@ -485,22 +474,23 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
           ),
           const SizedBox(height: 8),
 
-          // Round chips (persisted)
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                for (final r in rounds) ...[
-                  _roundChip(
-                    label: 'R$r',
-                    selected: r == selectedRound,
-                    onTap: () => onRoundSelected(r),
-                  ),
-                  const SizedBox(width: 8),
+          // Round chips
+          if (rounds.isNotEmpty)
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  for (final r in rounds) ...[
+                    _roundChip(
+                      label: 'R$r',
+                      selected: r == selectedRound,
+                      onTap: () => onRoundSelected(r),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
                 ],
-              ],
+              ),
             ),
-          ),
 
           const SizedBox(height: 12),
 
@@ -509,7 +499,7 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
               padding: EdgeInsets.symmetric(vertical: 12),
               child: Center(
                 child: Text(
-                  'No fixtures.',
+                  'No upcoming fixtures.',
                   style: TextStyle(color: Colors.white38),
                 ),
               ),
@@ -523,6 +513,7 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
                 ],
               ],
             ),
+
           const Divider(color: Colors.white10),
           Align(
             alignment: Alignment.center,
@@ -575,7 +566,6 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
   Widget _fixtureRow(BuildContext context, FixtureMatch f, Map<String, String> names) {
     final homeName = names[f.homeTeamId] ?? f.homeTeamId;
     final awayName = names[f.awayTeamId] ?? f.awayTeamId;
-    final played = f.isPlayed;
 
     return InkWell(
       onTap: () => context.push('/leagues/${widget.leagueId}/matches/${f.id}'),
@@ -618,29 +608,17 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
                 ),
               ),
             ),
-            const SizedBox(width: 10),
-            Container(
-              width: 82,
-              alignment: Alignment.center,
-              child: played
-                  ? Text(
-                      '${f.homeScore ?? 0} - ${f.awayScore ?? 0}',
-                      style: const TextStyle(
-                        color: Colors.cyanAccent,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 14,
-                      ),
-                    )
-                  : const Text(
-                      'VS',
-                      style: TextStyle(
-                        color: Colors.white24,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 12,
-                      ),
-                    ),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 14),
+              child: Text(
+                'VS',
+                style: TextStyle(
+                  color: Colors.cyanAccent,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 12,
+                ),
+              ),
             ),
-            const SizedBox(width: 10),
             Expanded(
               child: Text(
                 awayName,
@@ -681,7 +659,10 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
           children: [
             Icon(icon, color: Colors.white70),
             const SizedBox(height: 8),
-            Text(label, style: const TextStyle(color: Colors.white, fontSize: 12)),
+            Text(
+              label,
+              style: const TextStyle(color: Colors.white, fontSize: 12),
+            ),
           ],
         ),
       ),
@@ -772,6 +753,8 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
         behavior: SnackBarBehavior.floating,
       ),
     );
+
+    if (mounted) setState(() {});
   }
 
   Future<void> _generateGroupKnockouts(BuildContext context, League league) async {
@@ -875,5 +858,7 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> {
         behavior: SnackBarBehavior.floating,
       ),
     );
+
+    if (mounted) setState(() {});
   }
 }
