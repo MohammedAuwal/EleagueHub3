@@ -44,12 +44,15 @@ final appRouter = GoRouter(
           path: 'live/view/:id',
           builder: (context, state) {
             final id = state.pathParameters['id']!;
+
             var isHost = false;
             String? host;
             int? port;
             String? homeName;
             String? awayName;
             String? side;
+            int? homeScore;
+            int? awayScore;
 
             final extra = state.extra;
             if (extra is bool) {
@@ -64,6 +67,13 @@ final appRouter = GoRouter(
               homeName = extra['homeName'] as String?;
               awayName = extra['awayName'] as String?;
               side = extra['side'] as String?;
+
+              final hs = extra['homeScore'];
+              final as_ = extra['awayScore'];
+              if (hs is int) homeScore = hs;
+              if (hs is String) homeScore = int.tryParse(hs);
+              if (as_ is int) awayScore = as_;
+              if (as_ is String) awayScore = int.tryParse(as_);
             }
 
             return LiveViewScreen(
@@ -74,6 +84,8 @@ final appRouter = GoRouter(
               homeName: homeName,
               awayName: awayName,
               hostSide: side,
+              initialHomeScore: homeScore,
+              initialAwayScore: awayScore,
             );
           },
         ),

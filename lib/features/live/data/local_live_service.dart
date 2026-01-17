@@ -1,4 +1,5 @@
 import 'foreground_streaming_service.dart';
+import 'live_quality.dart';
 import 'local_discovery.dart';
 import 'local_webrtc_host.dart';
 import 'local_webrtc_viewer.dart';
@@ -9,7 +10,7 @@ class LocalLiveService {
 
   LocalLiveHostSession? _host;
 
-  // NOTE: Viewer is often managed directly by LiveViewScreen because it can connect to TWO hosts.
+  // Viewer is often managed directly by LiveViewScreen (can connect to two hosts).
   LocalLiveViewerSession? _viewer;
 
   LocalLiveHostSession? get activeHost => _host;
@@ -18,22 +19,28 @@ class LocalLiveService {
   Future<LocalLiveHostSession> startHostSession({
     required String liveMatchId,
     int port = 8765,
+
     String? homeName,
     String? awayName,
     LiveHostSide side = LiveHostSide.unknown,
+
+    LiveQualityPreset quality = LiveQualityPreset.medium,
   }) async {
     await stopHostSession(liveMatchId: liveMatchId);
 
-    // NEW: keep the process alive in background while gaming
+    final cfg = LiveCaptureConfig.fromPreset(quality);
+
+    // Keep the process alive in background while gaming
     await ForegroundStreamingService.start(
       matchId: liveMatchId,
-      title: 'Live: ${homeName ?? ''} ${awayName != null ? 'vs $awayName' : ''}'.trim(),
-      text: 'Streaming is running (don’t close the app)',
+      title: 'Live: ${(homeName ?? '').trim()}${awayName != null ? ' vs ${awayName!.trim()}' : ''}'.trim(),
+      text: 'Streaming active • ${qualityLabel(quality)}',
     );
 
     final host = LocalLiveHostSession(
       liveMatchId: liveMatchId,
       port: port,
+      captureConfig: cfg,
       homeName: homeName,
       awayName: awayName,
       side: side,
@@ -52,11 +59,10 @@ class LocalLiveService {
     await host.stop();
     _host = null;
 
-    // stop foreground service
     await ForegroundStreamingService.stop();
   }
 
-  /// Legacy single-viewer join
+  /// Legacy single-viewer join (still used by some flows)
   Future<LocalLiveViewerSession> joinViewerSession({
     required String liveMatchId,
     required String host,
@@ -83,7 +89,6 @@ class LocalLiveService {
     _viewer = null;
   }
 
-  /// Host-side broadcast (chat/reactions from host UI).
   void broadcastHostEvent({
     required String liveMatchId,
     required Map<String, dynamic> event,

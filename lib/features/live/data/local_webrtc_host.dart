@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import 'live_quality.dart';
 import 'local_discovery.dart';
 import 'local_lan_ip.dart';
 import 'local_signaling.dart';
@@ -22,6 +23,7 @@ class LocalLiveHostSession {
   LocalLiveHostSession({
     required this.liveMatchId,
     required this.port,
+    required this.captureConfig,
     this.homeName,
     this.awayName,
     this.side = LiveHostSide.unknown,
@@ -29,6 +31,8 @@ class LocalLiveHostSession {
 
   final String liveMatchId;
   final int port;
+
+  final LiveCaptureConfig captureConfig;
 
   /// Optional labels for discovery + UI
   final String? homeName;
@@ -41,6 +45,8 @@ class LocalLiveHostSession {
   final ValueNotifier<String?> error = ValueNotifier<String?>(null);
   final ValueNotifier<int> viewerCount = ValueNotifier<int>(0);
   final ValueNotifier<String?> hostIp = ValueNotifier<String?>(null);
+
+  final ValueNotifier<bool> micEnabled = ValueNotifier<bool>(true);
 
   final RTCVideoRenderer screenRenderer = RTCVideoRenderer();
   final RTCVideoRenderer cameraRenderer = RTCVideoRenderer();
@@ -89,7 +95,7 @@ class LocalLiveHostSession {
         viewerCount.value = _server!.viewerCount.value;
       });
 
-      // Discovery now includes match labels + side
+      // Discovery includes match labels + side
       _broadcaster = LocalLiveDiscoveryBroadcaster(
         matchId: liveMatchId,
         port: port,
@@ -99,23 +105,39 @@ class LocalLiveHostSession {
       );
       await _broadcaster!.start();
 
-      _screenStream = await navigator.mediaDevices.getDisplayMedia({
-        'video': true,
-        'audio': false,
-      });
+      // Screen capture (try constraints; fallback to simple)
+      try {
+        _screenStream = await navigator.mediaDevices.getDisplayMedia({
+          'video': {
+            'frameRate': captureConfig.screenFps,
+            'width': captureConfig.screenWidth,
+            'height': captureConfig.screenHeight,
+          },
+          'audio': false,
+        });
+      } catch (_) {
+        _screenStream = await navigator.mediaDevices.getDisplayMedia({
+          'video': true,
+          'audio': false,
+        });
+      }
 
+      // Front camera + mic
       _cameraStream = await navigator.mediaDevices.getUserMedia({
-        'audio': true, // mic only
+        'audio': true,
         'video': {
           'facingMode': 'user',
-          'width': 640,
-          'height': 480,
-          'frameRate': 30,
+          'width': captureConfig.cameraWidth,
+          'height': captureConfig.cameraHeight,
+          'frameRate': captureConfig.cameraFps,
         },
       });
 
       screenRenderer.srcObject = _screenStream;
       cameraRenderer.srcObject = _cameraStream;
+
+      // Apply initial mic state
+      _applyMicEnabled(micEnabled.value);
 
       state.value = LocalLiveHostState.waitingForViewers;
     } catch (e) {
@@ -124,6 +146,28 @@ class LocalLiveHostSession {
       await stop();
       rethrow;
     }
+  }
+
+  void _applyMicEnabled(bool enabled) {
+    try {
+      final tracks = _cameraStream?.getAudioTracks() ?? const <MediaStreamTrack>[];
+      for (final t in tracks) {
+        t.enabled = enabled;
+      }
+    } catch (_) {}
+  }
+
+  /// Can be called while streaming; works on most devices.
+  Future<void> setMicEnabled(bool enabled) async {
+    micEnabled.value = enabled;
+    _applyMicEnabled(enabled);
+
+    // Inform viewers (optional UI sync)
+    broadcastEvent({
+      'kind': 'mic',
+      'enabled': enabled,
+      'ts': DateTime.now().millisecondsSinceEpoch,
+    });
   }
 
   Future<void> _onSignalMessage(JsonMap msg) async {
@@ -209,6 +253,13 @@ class LocalLiveHostSession {
     dc.onDataChannelState = (s) {
       if (s == RTCDataChannelState.RTCDataChannelOpen) {
         _sendTrackMappingToViewer(viewerId);
+
+        // Send initial mic state too
+        broadcastEvent({
+          'kind': 'mic',
+          'enabled': micEnabled.value,
+          'ts': DateTime.now().millisecondsSinceEpoch,
+        });
       }
     };
 

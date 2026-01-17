@@ -49,6 +49,9 @@ class _MatchDetailScreenState extends ConsumerState<MatchDetailScreen> {
     return _teamsById[m.awayTeamId]?.name ?? 'Away';
   }
 
+  int get _homeScore => _match?.homeScore ?? 0;
+  int get _awayScore => _match?.awayScore ?? 0;
+
   @override
   void initState() {
     super.initState();
@@ -61,9 +64,13 @@ class _MatchDetailScreenState extends ConsumerState<MatchDetailScreen> {
       final matches = await _repo.getMatches(widget.leagueId);
       final teams = await _repo.getTeams(widget.leagueId);
 
-      final m = matches.where((x) => x.id == widget.matchId).isNotEmpty
-          ? matches.firstWhere((x) => x.id == widget.matchId)
-          : null;
+      FixtureMatch? m;
+      for (final x in matches) {
+        if (x.id == widget.matchId) {
+          m = x;
+          break;
+        }
+      }
 
       if (!mounted) return;
       setState(() {
@@ -71,7 +78,7 @@ class _MatchDetailScreenState extends ConsumerState<MatchDetailScreen> {
         _teamsById = {for (final t in teams) t.id: t};
       });
     } catch (_) {
-      // keep fallback labels
+      // fallback
     }
   }
 
@@ -89,7 +96,6 @@ class _MatchDetailScreenState extends ConsumerState<MatchDetailScreen> {
   Future<void> _startLocalLive() async {
     if (_busy) return;
 
-    // Ask the gamer which side they are (home/away).
     final side = await showModalBottomSheet<LiveHostSide>(
       context: context,
       backgroundColor: Colors.transparent,
@@ -148,12 +154,10 @@ class _MatchDetailScreenState extends ConsumerState<MatchDetailScreen> {
       extra: {
         'isHost': true,
         'port': port,
-
-        // send match labels so LiveView and discovery can show “Home vs Away”
         'homeName': _homeName,
         'awayName': _awayName,
-
-        // this is used so viewers can put you on correct side top-left/right
+        'homeScore': _homeScore,
+        'awayScore': _awayScore,
         'side': (side == null) ? 'unknown' : liveHostSideToWire(side),
       },
     );
@@ -279,7 +283,7 @@ class _MatchDetailScreenState extends ConsumerState<MatchDetailScreen> {
           const SizedBox(height: 6),
           const Text(
             'Tip: Both players can host using the same Match ID.\n'
-            'Viewers on the same Wi‑Fi/hotspot can join via Auto‑Discovery (recommended).',
+            'Viewers on the same Wi‑Fi/hotspot can join via Auto‑Discovery.',
             style: TextStyle(color: Colors.white30, fontSize: 11, height: 1.3),
           ),
         ],
