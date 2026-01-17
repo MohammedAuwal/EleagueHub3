@@ -42,10 +42,31 @@ final appRouter = GoRouter(
           path: 'live/view/:id',
           builder: (context, state) {
             final id = state.pathParameters['id']!;
-            final isHost = (state.extra == true);
+
+            // Backwards compatible:
+            // - old code passed `extra: true/false`
+            // New:
+            // - extra: {'isHost': bool, 'host': String?, 'port': int?}
+            var isHost = false;
+            String? host;
+            int? port;
+
+            final extra = state.extra;
+            if (extra is bool) {
+              isHost = extra;
+            } else if (extra is Map) {
+              isHost = extra['isHost'] == true;
+              host = extra['host'] as String?;
+              final p = extra['port'];
+              if (p is int) port = p;
+              if (p is String) port = int.tryParse(p);
+            }
+
             return LiveViewScreen(
               matchId: id,
               isHost: isHost,
+              hostAddress: host,
+              port: port,
             );
           },
         ),
@@ -55,24 +76,19 @@ final appRouter = GoRouter(
           routes: [
             GoRoute(
               path: 'create',
-              builder: (context, state) =>
-                  const LeagueCreateWizard(),
+              builder: (context, state) => const LeagueCreateWizard(),
             ),
             GoRoute(
               path: 'join-scanner',
-              builder: (context, state) =>
-                  const QRScannerScreen(),
+              builder: (context, state) => const QRScannerScreen(),
             ),
             GoRoute(
               path: 'add-teams',
               builder: (context, state) {
-                final extra =
-                    state.extra as Map<String, dynamic>? ?? {};
-                final leagueId =
-                    extra['leagueId'] as String? ?? 'mock-id';
+                final extra = state.extra as Map<String, dynamic>? ?? {};
+                final leagueId = extra['leagueId'] as String? ?? 'mock-id';
                 final format =
-                    extra['format'] as LeagueFormat? ??
-                        LeagueFormat.classic;
+                    extra['format'] as LeagueFormat? ?? LeagueFormat.classic;
                 return AddTeamsScreen(
                   leagueId: leagueId,
                   format: format,
@@ -81,15 +97,13 @@ final appRouter = GoRouter(
             ),
             GoRoute(
               path: ':id',
-              builder: (context, state) =>
-                  LeagueDetailScreen(
+              builder: (context, state) => LeagueDetailScreen(
                 leagueId: state.pathParameters['id']!,
               ),
               routes: [
                 GoRoute(
                   path: 'standings',
-                  builder: (context, state) =>
-                      LeagueStandingsScreen(
+                  builder: (context, state) => LeagueStandingsScreen(
                     id: state.pathParameters['id']!,
                   ),
                 ),
@@ -98,24 +112,21 @@ final appRouter = GoRouter(
             GoRoute(
               path: ':leagueId',
               builder: (context, state) {
-                final leagueId =
-                    state.pathParameters['leagueId']!;
+                final leagueId = state.pathParameters['leagueId']!;
                 return LeagueDetailScreen(leagueId: leagueId);
               },
             ),
             GoRoute(
               path: ':leagueId/fixtures',
               builder: (context, state) {
-                final leagueId =
-                    state.pathParameters['leagueId']!;
+                final leagueId = state.pathParameters['leagueId']!;
                 return FixturesScreen(leagueId: leagueId);
               },
             ),
             GoRoute(
               path: ':leagueId/admin-scores',
               builder: (context, state) {
-                final leagueId =
-                    state.pathParameters['leagueId']!;
+                final leagueId = state.pathParameters['leagueId']!;
                 return AdminScoreMgmtScreen(
                   leagueId: leagueId,
                 );
@@ -124,10 +135,8 @@ final appRouter = GoRouter(
             GoRoute(
               path: ':leagueId/matches/:matchId',
               builder: (context, state) {
-                final leagueId =
-                    state.pathParameters['leagueId']!;
-                final matchId =
-                    state.pathParameters['matchId']!;
+                final leagueId = state.pathParameters['leagueId']!;
+                final matchId = state.pathParameters['matchId']!;
                 return MatchDetailScreen(
                   leagueId: leagueId,
                   matchId: matchId,

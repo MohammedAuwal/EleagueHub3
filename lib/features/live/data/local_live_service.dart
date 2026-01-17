@@ -1,81 +1,68 @@
-import 'dart:async';
-import 'package:flutter/services.dart';
-
-import '../domain/live_session.dart';
-
-/// Platform channel name for local-live integration.
-const _channelName = 'local_live';
+import 'local_webrtc_host.dart';
+import 'local_webrtc_viewer.dart';
 
 class LocalLiveService {
   LocalLiveService._();
-
   static final LocalLiveService instance = LocalLiveService._();
 
-  final MethodChannel _channel = const MethodChannel(_channelName);
+  LocalLiveHostSession? _host;
+  LocalLiveViewerSession? _viewer;
 
-  Future<LiveSession> startHostSession({
-    required String leagueId,
-    required String matchId,
+  LocalLiveHostSession? get activeHost => _host;
+  LocalLiveViewerSession? get activeViewer => _viewer;
+
+  Future<LocalLiveHostSession> startHostSession({
     required String liveMatchId,
+    int port = 8765,
   }) async {
-    await _channel.invokeMethod('startHostSession', {
-      'leagueId': leagueId,
-      'matchId': matchId,
-      'liveMatchId': liveMatchId,
-    });
+    await stopHostSession(liveMatchId: liveMatchId);
 
-    return LiveSession(
-      liveMatchId: liveMatchId,
-      leagueId: leagueId,
-      matchId: matchId,
-      isHost: true,
-    );
+    final host = LocalLiveHostSession(liveMatchId: liveMatchId, port: port);
+    _host = host;
+    await host.start();
+    return host;
   }
 
-  Future<void> stopHostSession(String liveMatchId) async {
-    await _channel.invokeMethod('stopHostSession', {
-      'liveMatchId': liveMatchId,
-    });
+  Future<void> stopHostSession({required String liveMatchId}) async {
+    final host = _host;
+    if (host == null) return;
+    if (host.liveMatchId != liveMatchId) return;
+
+    await host.stop();
+    _host = null;
   }
 
-  Future<LiveSession> joinViewerSession({
+  Future<LocalLiveViewerSession> joinViewerSession({
     required String liveMatchId,
+    required String host,
+    required int port,
   }) async {
-    await _channel.invokeMethod('joinViewerSession', {
-      'liveMatchId': liveMatchId,
-    });
+    await leaveViewerSession(liveMatchId: liveMatchId);
 
-    return LiveSession(
+    final viewer = LocalLiveViewerSession(
       liveMatchId: liveMatchId,
-      leagueId: '',
-      matchId: liveMatchId,
-      isHost: false,
+      host: host,
+      port: port,
     );
+    _viewer = viewer;
+    await viewer.connect();
+    return viewer;
   }
 
-  Future<void> leaveViewerSession(String liveMatchId) async {
-    await _channel.invokeMethod('leaveViewerSession', {
-      'liveMatchId': liveMatchId,
-    });
+  Future<void> leaveViewerSession({required String liveMatchId}) async {
+    final viewer = _viewer;
+    if (viewer == null) return;
+    if (viewer.liveMatchId != liveMatchId) return;
+
+    await viewer.disconnect();
+    _viewer = null;
   }
 
+  // Placeholder for future: send chat/events via data channel.
   Future<void> sendLiveEvent({
     required String liveMatchId,
     required Map<String, dynamic> event,
   }) async {
-    await _channel.invokeMethod('sendLiveEvent', {
-      'liveMatchId': liveMatchId,
-      'event': event,
-    });
-  }
-
-  final StreamController<Map<String, dynamic>> _eventsController =
-      StreamController.broadcast();
-
-  Stream<Map<String, dynamic>> get liveEvents =>
-      _eventsController.stream;
-
-  void handleIncomingEvent(Map<String, dynamic> event) {
-    _eventsController.add(event);
+    // Not implemented (yet). Keep API for compatibility with MainActivity channel idea.
   }
 }
