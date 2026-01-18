@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -30,7 +28,6 @@ class LeagueAdminScreen extends ConsumerStatefulWidget {
 }
 
 class _LeagueAdminScreenState extends ConsumerState<LeagueAdminScreen> {
-
   late LocalLeaguesRepository _localRepo;
   League? _league;
   bool _isLeagueLoading = true;
@@ -39,7 +36,8 @@ class _LeagueAdminScreenState extends ConsumerState<LeagueAdminScreen> {
   @override
   void initState() {
     super.initState();
-    _localRepo = LocalLeaguesRepository(ref.read(prefsServiceProvider));
+    final prefs = ref.read(prefsServiceProvider);
+    _localRepo = LocalLeaguesRepository(prefs);
     _loadLeague();
   }
 
@@ -51,11 +49,6 @@ class _LeagueAdminScreenState extends ConsumerState<LeagueAdminScreen> {
       _isLeagueLoading = false;
     });
   }
-
-  // Notification pref keys (stored as "1"/"0" strings)
-  String _notifScoresKey(String id) => 'notif_scores_$id';
-  String _notifFixturesKey(String id) => 'notif_fixtures_$id';
-  String _notifKnockoutsKey(String id) => 'notif_knockouts_$id';
 
   @override
   Widget build(BuildContext context) {
@@ -74,7 +67,7 @@ class _LeagueAdminScreenState extends ConsumerState<LeagueAdminScreen> {
               padding: const EdgeInsets.all(20.0),
               child: Column(
                 children: [
-                  _buildSyncCard(),
+                  _buildInfoCard(),
                   const SizedBox(height: 20),
                   Expanded(
                     child: _isLeagueLoading
@@ -95,9 +88,9 @@ class _LeagueAdminScreenState extends ConsumerState<LeagueAdminScreen> {
   }
 
   // -------------------
-  // Sync status card
+  // Info / status card
   // -------------------
-  Widget _buildSyncCard() {
+  Widget _buildInfoCard() {
     return Glass(
       borderRadius: 24,
       child: Padding(
@@ -129,8 +122,8 @@ class _LeagueAdminScreenState extends ConsumerState<LeagueAdminScreen> {
                   ),
                   Text(
                     widget.hasPendingChanges
-                        ? 'Pending upload'
-                        : 'Up to date with server',
+                        ? 'Local edits will sync when you add a backend.'
+                        : 'No pending local changes.',
                     style: const TextStyle(
                       color: Colors.white70,
                       fontSize: 12,
@@ -168,13 +161,18 @@ class _LeagueAdminScreenState extends ConsumerState<LeagueAdminScreen> {
     );
   }
 
+  /// Stubbed sync: no backend yet, so just fake a short "sync" and show a message.
   Future<void> _syncParticipants() async {
     setState(() => _isSyncing = true);
-    await _participantsService.syncParticipants(widget.leagueId);
+    await Future.delayed(const Duration(milliseconds: 700));
     if (!mounted) return;
     setState(() => _isSyncing = false);
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Participants synced successfully!')),
+      const SnackBar(
+        content: Text(
+          'Offline mode: remote sync is not configured yet.',
+        ),
+      ),
     );
   }
 
@@ -212,13 +210,6 @@ class _LeagueAdminScreenState extends ConsumerState<LeagueAdminScreen> {
           'League Rules',
           'Format, round-robin and group/swiss options',
           onTap: _showRulesSheet,
-        ),
-        _buildSettingsTile(
-          context,
-          Icons.notifications_active,
-          'Notifications',
-          'Alerts for scores, fixtures and knockouts',
-          onTap: _showNotificationsSheet,
         ),
         _buildSettingsTile(
           context,
@@ -654,172 +645,6 @@ class _LeagueAdminScreenState extends ConsumerState<LeagueAdminScreen> {
                                       const SnackBar(
                                         content: Text(
                                           'League rules updated.',
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                  child: const Text('Save'),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  // -------------------
-  // Notifications editor
-  // -------------------
-  void _showNotificationsSheet() {
-    final prefs = ref.read(prefsServiceProvider);
-    final id = widget.leagueId;
-
-    bool notifScores =
-        (prefs.getString(_notifScoresKey(id)) ?? '1') != '0';
-    bool notifFixtures =
-        (prefs.getString(_notifFixturesKey(id)) ?? '1') != '0';
-    bool notifKnockouts =
-        (prefs.getString(_notifKnockoutsKey(id)) ?? '1') != '0';
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (ctx, setModalState) {
-            return SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 520),
-                    child: Glass(
-                      borderRadius: 28,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 8,
-                          horizontal: 12,
-                        ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 12),
-                              child: Text(
-                                'Notifications',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                            const Divider(color: Colors.white10),
-                            SwitchListTile.adaptive(
-                              value: notifScores,
-                              onChanged: (v) => setModalState(
-                                () => notifScores = v,
-                              ),
-                              activeColor: Colors.cyanAccent,
-                              title: const Text(
-                                'Score updates',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                ),
-                              ),
-                              subtitle: const Text(
-                                'Notify when match results are recorded',
-                                style: TextStyle(
-                                  color: Colors.white60,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
-                            SwitchListTile.adaptive(
-                              value: notifFixtures,
-                              onChanged: (v) => setModalState(
-                                () => notifFixtures = v,
-                              ),
-                              activeColor: Colors.cyanAccent,
-                              title: const Text(
-                                'Fixture changes',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                ),
-                              ),
-                              subtitle: const Text(
-                                'Notify when fixtures are changed or added',
-                                style: TextStyle(
-                                  color: Colors.white60,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
-                            SwitchListTile.adaptive(
-                              value: notifKnockouts,
-                              onChanged: (v) => setModalState(
-                                () => notifKnockouts = v,
-                              ),
-                              activeColor: Colors.cyanAccent,
-                              title: const Text(
-                                'Knockout updates',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                ),
-                              ),
-                              subtitle: const Text(
-                                'Notify when knockout bracket or scores change',
-                                style: TextStyle(
-                                  color: Colors.white60,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
-                            Align(
-                              alignment: Alignment.centerRight,
-                              child: Padding(
-                                padding: const EdgeInsets.only(
-                                  top: 8,
-                                  right: 4,
-                                  bottom: 8,
-                                ),
-                                child: FilledButton(
-                                  onPressed: () async {
-                                    await prefs.setString(
-                                      _notifScoresKey(id),
-                                      notifScores ? '1' : '0',
-                                    );
-                                    await prefs.setString(
-                                      _notifFixturesKey(id),
-                                      notifFixtures ? '1' : '0',
-                                    );
-                                    await prefs.setString(
-                                      _notifKnockoutsKey(id),
-                                      notifKnockouts ? '1' : '0',
-                                    );
-
-                                    if (Navigator.of(ctx)
-                                        .canPop()) {
-                                      Navigator.of(ctx).pop();
-                                    }
-
-                                    if (!mounted) return;
-                                    ScaffoldMessenger.of(
-                                            context)
-                                        .showSnackBar(
-                                      const SnackBar(
-                                        content: Text(
-                                          'Notification preferences saved.',
                                         ),
                                       ),
                                     );
