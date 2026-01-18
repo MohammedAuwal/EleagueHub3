@@ -11,7 +11,6 @@ import '../data/leagues_repository_local.dart';
 import '../models/league.dart';
 import '../models/league_format.dart';
 import '../models/league_settings.dart';
-import '../../logic/participants_service.dart';
 import 'league_participants_screen.dart';
 import 'add_teams_screen.dart';
 
@@ -31,7 +30,6 @@ class LeagueAdminScreen extends ConsumerStatefulWidget {
 }
 
 class _LeagueAdminScreenState extends ConsumerState<LeagueAdminScreen> {
-  final ParticipantsService _participantsService = ParticipantsService();
 
   late LocalLeaguesRepository _localRepo;
   League? _league;
