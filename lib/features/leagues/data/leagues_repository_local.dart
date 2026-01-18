@@ -74,6 +74,34 @@ class LocalLeaguesRepository {
     await _prefs.setString(_leaguesKey, encoded);
   }
 
+  /// Completely delete a league and all of its local data:
+  /// - League entry
+  /// - Memberships for that league
+  /// - Teams, league matches, knockout matches
+  Future<void> deleteLeagueCompletely(String leagueId) async {
+    // 1) Remove league from list
+    final leagues = await listLeagues();
+    leagues.removeWhere((l) => l.id == leagueId);
+    final leaguesEncoded =
+        jsonEncode(leagues.map((l) => l.toJson()).toList());
+    await _prefs.setString(_leaguesKey, leaguesEncoded);
+
+    // 2) Remove memberships for this league
+    final memberships = await listMemberships();
+    final filteredMemberships =
+        memberships.where((m) => m.leagueId != leagueId).toList();
+    final membershipsEncoded = jsonEncode(
+      filteredMemberships.map((m) => m.toRemoteMap()).toList(),
+    );
+    await _prefs.setString(_membershipsKey, membershipsEncoded);
+
+    // 3) Clear league-specific data (teams, matches, knockouts)
+    // Using empty JSON arrays so existing decoding logic still works.
+    await _prefs.setString('$_teamsKey$leagueId', '[]');
+    await _prefs.setString('$_matchesKey$leagueId', '[]');
+    await _prefs.setString('$_knockoutsKey$leagueId', '[]');
+  }
+
   /// Creates a new league locally and also creates organizer membership for [organizerUserId].
   Future<League> createLeagueLocally({
     required League league,

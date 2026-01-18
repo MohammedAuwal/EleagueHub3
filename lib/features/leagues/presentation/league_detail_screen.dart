@@ -313,6 +313,48 @@ class _LeagueDetailScreenState
     League league,
     bool isOwner,
   ) {
+    // Build rule summary pills from settings
+    final settings = league.settings;
+
+    final rulePills = <Widget>[
+      _pill(
+        league.isPrivate ? 'Private' : 'Public',
+        Colors.cyanAccent,
+      ),
+      _pill(
+        '${league.maxTeams} Teams Max',
+        Colors.orangeAccent,
+      ),
+      _pill(
+        league.region,
+        Colors.purpleAccent,
+      ),
+      _pill(
+        settings.doubleRoundRobin
+            ? 'Double RR'
+            : 'Single RR',
+        Colors.lightBlueAccent,
+      ),
+    ];
+
+    if (league.format == LeagueFormat.uclGroup) {
+      rulePills.add(
+        _pill(
+          'Group Size ${settings.groupSize}',
+          Colors.tealAccent,
+        ),
+      );
+    }
+
+    if (league.format == LeagueFormat.uclSwiss) {
+      rulePills.add(
+        _pill(
+          'Swiss Rounds ${settings.swissRounds}',
+          Colors.tealAccent,
+        ),
+      );
+    }
+
     return Glass(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -365,20 +407,7 @@ class _LeagueDetailScreenState
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: [
-              _pill(
-                league.isPrivate ? 'Private' : 'Public',
-                Colors.cyanAccent,
-              ),
-              _pill(
-                '${league.maxTeams} Teams Max',
-                Colors.orangeAccent,
-              ),
-              _pill(
-                league.region,
-                Colors.purpleAccent,
-              ),
-            ],
+            children: rulePills,
           ),
         ],
       ),
@@ -477,6 +506,36 @@ class _LeagueDetailScreenState
                   if (!mounted) return;
                   setState(() {}); // refresh
                 },
+              ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(
+                    color: Colors.white24,
+                  ),
+                  foregroundColor: Colors.cyanAccent,
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 14,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius:
+                        BorderRadius.circular(12),
+                  ),
+                ),
+                icon: const Icon(Icons.settings),
+                label: const Text(
+                  'LEAGUE SETTINGS (ADMIN)',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                ),
+                onPressed: () => context.push(
+                  '/leagues/${widget.leagueId}/admin',
+                ),
               ),
             ),
             if (isSwiss) ...[

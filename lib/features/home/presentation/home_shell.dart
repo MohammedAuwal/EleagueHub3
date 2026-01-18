@@ -7,6 +7,8 @@ import '../../leagues/presentation/leagues_list_screen.dart';
 import '../../live/presentation/live_list_screen.dart';
 import '../../marketplace/presentation/marketplace_list_screen.dart';
 import '../../profile/presentation/profile_screen.dart';
+import '../../social/ui/widgets/glass_announcement.dart';
+import '../../social/domain/announcement.dart';
 
 /// HomeShell: Main tabbed scaffold for the app
 class HomeShell extends StatefulWidget {
@@ -74,14 +76,16 @@ class _HomeShellState extends State<HomeShell> {
           child: Padding(
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
             child: Glass(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
               borderRadius: 22,
               child: NavigationBar(
                 height: 64,
                 backgroundColor: Colors.transparent,
                 indicatorColor: colorScheme.primary.withOpacity(0.2),
                 selectedIndex: _index,
-                onDestinationSelected: (i) => setState(() => _index = i),
+                onDestinationSelected: (i) =>
+                    setState(() => _index = i),
                 destinations: const [
                   NavigationDestination(
                     icon: Icon(Icons.home_outlined),
@@ -118,7 +122,30 @@ class _HomeShellState extends State<HomeShell> {
   }
 }
 
-/// HomeTab: Default landing tab with quick cards
+/// Static mock announcements for now (offline, no backend).
+/// Later you can load these from prefs, a local DB, or a remote API.
+const List<Announcement> _mockAnnouncements = [
+  Announcement(
+    title: 'Welcome to EleagueHub',
+    message:
+        'Create leagues, add teams, and share fixtures offline.',
+    time: 'Just now',
+  ),
+  Announcement(
+    title: 'Tip: Manage teams',
+    message:
+        'Use League Settings > Manage Teams to add or review participants.',
+    time: 'Today',
+  ),
+  Announcement(
+    title: 'Swiss & Groups',
+    message:
+        'Swiss and UCL Group formats now support auto knockout seeding.',
+    time: 'This week',
+  ),
+];
+
+/// HomeTab: Default landing tab with quick cards & announcements
 class _HomeTab extends StatelessWidget {
   const _HomeTab();
 
@@ -129,6 +156,7 @@ class _HomeTab extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
       children: [
+        // Welcome card
         Glass(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -136,17 +164,51 @@ class _HomeTab extends StatelessWidget {
             children: [
               Text(
                 'Welcome back',
-                style: t.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+                style: t.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                ),
               ),
               const SizedBox(height: 8),
               Text(
                 'This is the MVP foundation. Explore Leagues, Live, and Marketplace with mock data.',
-                style: t.bodyMedium,
+                style: t.bodyMedium?.copyWith(
+                  color: Colors.white70,
+                ),
               ),
             ],
           ),
         ),
         const SizedBox(height: 14),
+
+        // Announcements section (mapped from models)
+        Text(
+          'Announcements',
+          style: t.titleMedium?.copyWith(
+            fontWeight: FontWeight.w900,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 120,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: _mockAnnouncements.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            itemBuilder: (context, index) {
+              final a = _mockAnnouncements[index];
+              return GlassAnnouncement(
+                title: a.title,
+                message: a.message,
+                time: a.time,
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 14),
+
+        // Quick actions
         Glass(
           padding: const EdgeInsets.all(12),
           child: Row(
@@ -156,7 +218,8 @@ class _HomeTab extends StatelessWidget {
                   icon: Icons.add_circle_outline,
                   title: 'Create league',
                   subtitle: '3-step wizard',
-                  onTap: () => context.push('/leagues/create'),
+                  onTap: () =>
+                      context.push('/leagues/create'),
                 ),
               ),
               const SizedBox(width: 12),
@@ -200,21 +263,32 @@ class _QuickCard extends StatelessWidget {
         padding: const EdgeInsets.all(12),
         child: Row(
           children: [
-            Icon(icon, size: 28, color: theme.colorScheme.primary),
+            Icon(
+              icon,
+              size: 28,
+              color: theme.colorScheme.primary,
+            ),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment:
+                    CrossAxisAlignment.start,
                 children: [
                   Text(
                     title,
                     style: theme.textTheme.titleMedium
-                        ?.copyWith(fontWeight: FontWeight.w800),
+                        ?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                    ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     subtitle,
-                    style: theme.textTheme.bodySmall,
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(
+                      color: Colors.white70,
+                    ),
                   ),
                 ],
               ),

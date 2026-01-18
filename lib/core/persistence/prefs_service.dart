@@ -56,7 +56,7 @@ class PreferencesService {
     await _sp.setString(_kThemeMode, mode);
   }
 
-  /// Notification persistence
+  /// Notification persistence (global app-level)
   Future<void> saveNotificationPrefs({
     required bool enabled,
     required bool marketing,
@@ -65,5 +65,24 @@ class PreferencesService {
     await _sp.setBool('notifications_enabled', enabled);
     await _sp.setBool('notifications_marketing', marketing);
     await _sp.setBool('notifications_match_reminders', matchReminders);
+  }
+
+  /// Load notification preferences with sane defaults.
+  ///
+  /// Defaults match what SettingsScreen expects:
+  /// - enabled: true
+  /// - marketing: false
+  /// - matchReminders: true
+  Future<Map<String, bool>> loadNotificationPrefs() async {
+    final enabled = _sp.getBool('notifications_enabled');
+    final marketing = _sp.getBool('notifications_marketing');
+    final matchReminders =
+        _sp.getBool('notifications_match_reminders');
+
+    return {
+      'enabled': enabled ?? true,
+      'marketing': marketing ?? false,
+      'matchReminders': matchReminders ?? true,
+    };
   }
 }
