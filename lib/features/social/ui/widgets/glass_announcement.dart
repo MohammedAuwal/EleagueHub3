@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/widgets/glass.dart';
+import '../../../../core/widgets/glass.dart';
 
 class GlassAnnouncement extends StatelessWidget {
   final String title;
