@@ -13,9 +13,12 @@ import '../../features/leagues/presentation/qr_scanner_screen.dart';
 import '../../features/leagues/presentation/fixtures_screen.dart';
 import '../../features/leagues/presentation/admin_score_mgmt_screen.dart';
 import '../../features/leagues/presentation/league_standings_screen.dart';
+import '../../features/leagues/presentation/knockout_bracket_screen.dart';
+import '../../features/leagues/presentation/admin_knockout_score_mgmt_screen.dart';
 import '../../features/live/presentation/join_match_screen.dart';
 import '../../features/live/presentation/live_view_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
+import '../../features/profile/presentation/settings_screen.dart';
 
 final authStateProvider = StateProvider<bool>((ref) => false);
 
@@ -33,6 +36,12 @@ final appRouter = GoRouter(
         GoRoute(
           path: 'profile',
           builder: (context, state) => const ProfileScreen(),
+          routes: [
+            GoRoute(
+              path: 'settings',
+              builder: (context, state) => const SettingsScreen(),
+            ),
+          ],
         ),
 
         // LIVE
@@ -46,12 +55,11 @@ final appRouter = GoRouter(
             final id = state.pathParameters['id']!;
             bool isHost = false;
 
-            // We pass isHost via state.extra from MatchDetailScreen and JoinMatchScreen.
             final extra = state.extra;
             if (extra is bool) {
               isHost = extra;
             } else if (extra is Map) {
-              final map = extra as Map;
+              final map = extra;
               if (map['isHost'] is bool) {
                 isHost = map['isHost'] as bool;
               }
@@ -111,18 +119,24 @@ final appRouter = GoRouter(
                     id: state.pathParameters['id']!,
                   ),
                 ),
+                GoRoute(
+                  path: 'knockout',
+                  builder: (context, state) =>
+                      KnockoutBracketScreen(
+                    leagueId: state.pathParameters['id']!,
+                  ),
+                ),
+                GoRoute(
+                  path: 'knockout-admin',
+                  builder: (context, state) =>
+                      AdminKnockoutScoreMgmtScreen(
+                    leagueId: state.pathParameters['id']!,
+                  ),
+                ),
               ],
             ),
 
-            // Alternate leagueId path (for backwards compatibility)
-            GoRoute(
-              path: ':leagueId',
-              builder: (context, state) {
-                final leagueId =
-                    state.pathParameters['leagueId']!;
-                return LeagueDetailScreen(leagueId: leagueId);
-              },
-            ),
+            // Alternate paths
             GoRoute(
               path: ':leagueId/fixtures',
               builder: (context, state) {

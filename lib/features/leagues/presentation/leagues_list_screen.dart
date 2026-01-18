@@ -1,6 +1,7 @@
 import 'package:eleaguehub3/features/leagues/models/enums.dart';
 import 'package:eleaguehub3/features/leagues/models/league.dart';
 import 'package:eleaguehub3/features/leagues/models/league_settings.dart';
+import 'package:eleaguehub3/features/leagues/models/membership.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -25,8 +26,9 @@ class _LeaguesListScreenState extends ConsumerState<LeaguesListScreen> {
   late LocalLeaguesRepository _localRepo;
   List<League> _leagues = [];
 
-  /// leagueId -> number of registered teams
-  Map<String, int> _teamCounts = {};
+  /// leagueId -> number of participants/teams
+  /// (manual Teams + Memberships with role=member, teamId=null)
+  Map<String, int> _participantCounts = {};
 
   bool _isLoading = true;
 
@@ -42,22 +44,36 @@ class _LeaguesListScreenState extends ConsumerState<LeaguesListScreen> {
       _isLoading = true;
     });
 
-    // Load all leagues
+    // 1) Load all leagues
     final leagues = await _localRepo.listLeagues();
 
-    // For each league, load its teams and count them
+    // 2) Load all memberships once (cheaper than per-league)
+    final memberships = await _localRepo.listMemberships();
+
+    // 3) For each league:
+    //    - get its Teams (manual teams)
+    //    - get Memberships with role=member & teamId == null (QR / Join ID participants)
+    //    - sum them
     final Map<String, int> counts = {};
     await Future.wait(
       leagues.map((league) async {
         final teams = await _localRepo.getTeams(league.id);
-        counts[league.id] = teams.length;
+
+        final orphanMembersCount = memberships
+            .where((m) =>
+                m.leagueId == league.id &&
+                m.role == LeagueRole.member &&
+                m.teamId == null)
+            .length;
+
+        counts[league.id] = teams.length + orphanMembersCount;
       }),
     );
 
     if (!mounted) return;
     setState(() {
       _leagues = leagues;
-      _teamCounts = counts;
+      _participantCounts = counts;
       _isLoading = false;
     });
   }
@@ -155,9 +171,10 @@ class _LeaguesListScreenState extends ConsumerState<LeaguesListScreen> {
         final league = leagues[index];
         final bool isOwner = league.organizerUserId == currentUserId;
 
-        // Use the real team count for this league
-        final registeredTeams = _teamCounts[league.id] ?? 0;
-        final subtitle = '$registeredTeams / ${league.maxTeams} teams';
+        // Use combined participants count for this league:
+        // manual Teams + QR/JoinID members
+        final registered = _participantCounts[league.id] ?? 0;
+        final subtitle = '$registered / ${league.maxTeams} teams';
 
         return Stack(
           children: [
