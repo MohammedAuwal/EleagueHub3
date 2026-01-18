@@ -5,6 +5,7 @@ import '../../../core/persistence/prefs_service.dart';
 import '../../../core/theme/theme_controller.dart';
 import '../../../core/widgets/glass.dart';
 import '../../../core/widgets/glass_scaffold.dart';
+import '../../../core/services/notification_service.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -179,6 +180,12 @@ class _SettingsScreenState
                               setState(
                                   () => _enabled = v);
                               await _save();
+
+                              // When enabling, show a test notification
+                              if (v) {
+                                await NotificationService()
+                                    .showTestNotification();
+                              }
                             },
                           ),
                           const Divider(

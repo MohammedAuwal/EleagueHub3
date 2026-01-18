@@ -7,6 +7,7 @@ import 'core/theme/app_theme.dart';
 import 'core/theme/theme_controller.dart';
 import 'core/services/connectivity_service.dart';
 import 'core/widgets/offline_banner.dart';
+import 'core/services/notification_service.dart';
 
 Future<void> main() async {
   // Initialize Flutter engine
@@ -15,7 +16,10 @@ Future<void> main() async {
   try {
     // Load persisted preferences
     final prefs = await PreferencesService.create();
+
+    // Connectivity & notifications
     ConnectivityService.instance.initialize();
+    await NotificationService().init();
 
     runApp(
       ProviderScope(
@@ -56,7 +60,7 @@ class AppRoot extends ConsumerWidget {
       // THEME CONFIGURATION
       // =========================
       themeMode: themeMode,
-      theme: AppTheme.skyTheme(),    // Sky (light) theme
+      theme: AppTheme.skyTheme(),      // Sky (light) theme
       darkTheme: AppTheme.navyTheme(), // Navy (dark) theme
 
       // =========================
@@ -67,9 +71,12 @@ class AppRoot extends ConsumerWidget {
           children: [
             if (child != null) child,
             ValueListenableBuilder<bool>(
-              valueListenable: ConnectivityService.instance.isConnected,
+              valueListenable:
+                  ConnectivityService.instance.isConnected,
               builder: (context, online, _) {
-                return online ? const SizedBox.shrink() : const OfflineBanner();
+                return online
+                    ? const SizedBox.shrink()
+                    : const OfflineBanner();
               },
             ),
           ],
