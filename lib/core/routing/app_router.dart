@@ -31,17 +31,21 @@ final appRouter = GoRouter(
       builder: (context, state) => const LoginScreen(),
     ),
     GoRoute(
-      path: '/settings',
-      builder: (context, state) => const SettingsScreen(),
-    ),
-    GoRoute(
       path: '/',
       builder: (context, state) => const HomeShell(),
       routes: [
         GoRoute(
           path: 'profile',
           builder: (context, state) => const ProfileScreen(),
+          routes: [
+            GoRoute(
+              path: 'settings',
+              builder: (context, state) => const SettingsScreen(),
+            ),
+          ],
         ),
+
+        // LIVE
         GoRoute(
           path: 'live/join',
           builder: (context, state) => const JoinMatchScreen(),
@@ -50,120 +54,125 @@ final appRouter = GoRouter(
           path: 'live/view/:id',
           builder: (context, state) {
             final id = state.pathParameters['id']!;
-            var isHost = false;
-            String? host;
-            int? port;
-            String? homeName;
-            String? awayName;
-            String? side;
-            int? homeScore;
-            int? awayScore;
+            bool isHost = false;
 
             final extra = state.extra;
             if (extra is bool) {
               isHost = extra;
             } else if (extra is Map) {
-              isHost = extra['isHost'] == true;
-              host = extra['host'] as String?;
-              final p = extra['port'];
-              if (p is int) port = p;
-              if (p is String) port = int.tryParse(p);
-              homeName = extra['homeName'] as String?;
-              awayName = extra['awayName'] as String?;
-              side = extra['side'] as String?;
-              final hs = extra['homeScore'];
-              final as_ = extra['awayScore'];
-              if (hs is int) homeScore = hs;
-              if (hs is String) homeScore = int.tryParse(hs);
-              if (as_ is int) awayScore = as_;
-              if (as_ is String) awayScore = int.tryParse(as_);
+              final map = extra;
+              if (map['isHost'] is bool) {
+                isHost = map['isHost'] as bool;
+              }
             }
 
             return LiveViewScreen(
               matchId: id,
               isHost: isHost,
-              hostAddress: host,
-              port: port,
-              homeName: homeName,
-              awayName: awayName,
-              hostSide: side,
-              initialHomeScore: homeScore,
-              initialAwayScore: awayScore,
             );
           },
         ),
+
+        // LEAGUES
         GoRoute(
           path: 'leagues',
           builder: (context, state) => const LeaguesListScreen(),
           routes: [
             GoRoute(
               path: 'create',
-              builder: (context, state) => const LeagueCreateWizard(),
+              builder: (context, state) =>
+                  const LeagueCreateWizard(),
             ),
             GoRoute(
               path: 'join-scanner',
-              builder: (context, state) => const QRScannerScreen(),
+              builder: (context, state) =>
+                  const QRScannerScreen(),
             ),
             GoRoute(
               path: 'add-teams',
               builder: (context, state) {
-                final extra = state.extra as Map<String, dynamic>? ?? {};
-                final leagueId = extra['leagueId'] as String? ?? 'mock-id';
-                final format = extra['format'] as LeagueFormat? ?? LeagueFormat.classic;
-                return AddTeamsScreen(leagueId: leagueId, format: format);
+                final extra =
+                    state.extra as Map<String, dynamic>? ?? {};
+                final leagueId =
+                    extra['leagueId'] as String? ?? 'mock-id';
+                final format =
+                    extra['format'] as LeagueFormat? ??
+                        LeagueFormat.classic;
+                return AddTeamsScreen(
+                  leagueId: leagueId,
+                  format: format,
+                );
               },
             ),
+
+            // League details + nested routes
             GoRoute(
               path: ':id',
-              builder: (context, state) => LeagueDetailScreen(
+              builder: (context, state) =>
+                  LeagueDetailScreen(
                 leagueId: state.pathParameters['id']!,
               ),
               routes: [
                 GoRoute(
                   path: 'standings',
-                  builder: (context, state) => LeagueStandingsScreen(
+                  builder: (context, state) =>
+                      LeagueStandingsScreen(
                     id: state.pathParameters['id']!,
                   ),
                 ),
                 GoRoute(
                   path: 'knockout',
-                  builder: (context, state) => KnockoutBracketScreen(
+                  builder: (context, state) =>
+                      KnockoutBracketScreen(
                     leagueId: state.pathParameters['id']!,
                   ),
                 ),
                 GoRoute(
                   path: 'knockout-admin',
-                  builder: (context, state) => AdminKnockoutScoreMgmtScreen(
-                    leagueId: state.pathParameters['id']!,
-                  ),
-                ),
-                GoRoute(
-                  path: 'admin',
-                  builder: (context, state) => LeagueAdminScreen(
+                  builder: (context, state) =>
+                      AdminKnockoutScoreMgmtScreen(
                     leagueId: state.pathParameters['id']!,
                   ),
                 ),
               ],
             ),
+
+            // Alternate paths
             GoRoute(
               path: ':leagueId/fixtures',
               builder: (context, state) {
-                final leagueId = state.pathParameters['leagueId']!;
+                final leagueId =
+                    state.pathParameters['leagueId']!;
                 return FixturesScreen(leagueId: leagueId);
               },
             ),
             GoRoute(
               path: ':leagueId/admin-scores',
               builder: (context, state) {
-                final leagueId = state.pathParameters['leagueId']!;
-                return AdminScoreMgmtScreen(leagueId: leagueId);
+                final leagueId =
+                    state.pathParameters['leagueId']!;
+                return AdminScoreMgmtScreen(
+                  leagueId: leagueId,
+                );
+              },
+            ),
+            GoRoute(
+              path: ':leagueId/admin',
+              builder: (context, state) {
+                final leagueId =
+                    state.pathParameters['leagueId']!;
+                return LeagueAdminScreen(
+                  leagueId: leagueId,
+                );
               },
             ),
             GoRoute(
               path: ':leagueId/matches/:matchId',
               builder: (context, state) {
-                final leagueId = state.pathParameters['leagueId']!;
-                final matchId = state.pathParameters['matchId']!;
+                final leagueId =
+                    state.pathParameters['leagueId']!;
+                final matchId =
+                    state.pathParameters['matchId']!;
                 return MatchDetailScreen(
                   leagueId: leagueId,
                   matchId: matchId,
